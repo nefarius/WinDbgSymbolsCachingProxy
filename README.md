@@ -2,6 +2,10 @@
 
 # WinDbgSymbolsCachingProxy
 
+Microsoft debugging symbols caching proxy using [FastEndpoints](https://fast-endpoints.com/) and [MongoDB](https://mongodb-entities.com/).
+
+## About
+
 TBD
 
 ## Real-world example
@@ -14,7 +18,7 @@ Let's see if my efforts paid off, shall we! I've opened a kernel memory dump whi
 
 ### With proxy, no local cache
 
-**1 minute, 20 seconds**.  Woha, we're getting somewhere! 😃
+**1 minute, 20 seconds**.  Whoa, we're getting somewhere! 😃
 
 ### With proxy and local cache
 
