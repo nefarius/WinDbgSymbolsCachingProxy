@@ -23,3 +23,15 @@ Let's see if my efforts paid off, shall we! I've opened a kernel memory dump whi
 ### With proxy and local cache
 
 **48 seconds**. Heck yeah! 🥳
+
+## TODOs
+
+- Add support to provide a custom directory where the server can pick up custom/private symbols from and cache them with the same methods.
+- Make retry and cache invalidation parameters configurable e.g. via `appsettings.json`
+- Maybe add custom "admin" endpoints to upload custom symbols, delete existing entries and invalidate cache on command?
+
+## 3rd party credits
+
+- [FastEndpoints](https://fast-endpoints.com/)
+- [MongoDB Entities](https://mongodb-entities.com/)
+- [Nefarius.Utilities.AspNetCore](https://github.com/nefarius/Nefarius.Utilities.AspNetCore)
