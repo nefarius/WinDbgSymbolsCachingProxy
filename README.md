@@ -8,8 +8,12 @@ Let's see if my efforts paid off, shall we! I've opened a kernel memory dump whi
 
 ### No proxy, no local cache
 
-**12 minutes, 17 seconds**. Abysmal and shameful.
+**12 minutes, 17 seconds**. Abysmal and shameful! 😒
 
 ### With proxy, no local cache
 
-**1 minute, 20 seconds**.  Woha, we're getting somewhere!
+**1 minute, 20 seconds**.  Woha, we're getting somewhere! 😃
+
+### With proxy and local cache
+
+**48 seconds**. Heck yeah! 🥳
