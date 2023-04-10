@@ -1,0 +1,70 @@
+﻿version: "2.4"
+
+services:
+  wdscp-app:
+    image: nefarius.azurecr.io/wdscp:latest
+    container_name: wdscp-app
+    restart: unless-stopped
+    depends_on:
+      - wdscp-db
+    volumes:
+      - ./data/logs:/app/logs
+    environment:
+      - TZ=Europe/Vienna
+    networks:
+      - database
+      - web
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.wdscp-app.rule=Host(`symbols.nefarius.at`)
+      - traefik.http.routers.wdscp-app.entrypoints=web-secure
+      - traefik.http.routers.wdscp-app.tls=true
+      - traefik.http.routers.wdscp-app.tls.certresolver=le
+      - traefik.http.services.wdscp-app.loadbalancer.server.port=80
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  wdscp-db:
+    image: mongo:5
+    container_name: wdscp-db
+    restart: unless-stopped
+    volumes:
+      - ./data/mongo/db:/data/db
+      - ./data/mongo/config:/data/configdb
+    environment:
+      - TZ=Europe/Vienna
+    networks:
+      - database
+    labels:
+      - traefik.enable=false
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  wdscp-db-ui:
+    image: nefarius.azurecr.io/mongo-express:latest
+    container_name: wdscp-db-ui
+    restart: unless-stopped
+    depends_on:
+      - wdscp-db
+    environment:
+      - TZ=Europe/Vienna
+      - ME_CONFIG_MONGODB_URL=mongodb://wdscp-db:27017/
+      - ME_CONFIG_SITE_COOKIESECRET=1111
+      - ME_CONFIG_SITE_SESSIONSECRET=1111
+    networks:
+      - database
+    ports:
+      - "127.0.0.1:8086:8081"
+    labels:
+      - traefik.enable=false
+    logging:
+      driver: "none"
+
+networks:
+  database:
+  web:
+    external: true
