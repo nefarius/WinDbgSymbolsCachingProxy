@@ -1,5 +1,7 @@
 ﻿using FastEndpoints;
 
+using Microsoft.Extensions.Primitives;
+
 using MongoDB.Entities;
 
 using WinDbgSymbolsCachingProxy.Models;
@@ -73,6 +75,9 @@ public sealed class BadgeEndpoint : EndpointWithoutRequest
 
         ms.Position = 0;
 
+        HttpContext.Response.Headers.CacheControl = new StringValues("no-store,no-cache");
+        HttpContext.Response.Headers.Pragma = new StringValues("no-cache");
+        
         await SendStreamAsync(ms, contentType: "image/svg+xml", cancellation: ct);
     }
 }
