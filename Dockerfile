@@ -15,7 +15,11 @@ FROM build AS publish
 RUN dotnet publish "WinDbgSymbolsCachingProxy.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
 FROM base AS final
+ENV DEBIAN_FRONTEND noninteractive
+RUN sed -i'.bak' 's/$/ contrib/' /etc/apt/sources.list
 RUN apt-get update
+RUN apt-get install -y fontconfig    
+RUN apt-get install -y ttf-mscorefonts-installer
 RUN apt-get install -y libfreetype6
 RUN apt-get install -y libfontconfig1
 WORKDIR /app
