@@ -38,6 +38,8 @@ This means my local symbol cache resides at `D:\symbols`, adjust to your own pre
 
 Like any other of my public web services it only logs an absolute minimal amount required for debugging purposes and I'll never sell your data out to the big bois 😉
 
+If you like this idea and want to keep my public instance happy, up and running [consider making a donation](https://vigem.org/Community-Support/) 💸
+
 ## TODOs and ideas
 
 - Add support to provide a custom directory where the server can pick up custom/private symbols from and cache them with the same methods.
