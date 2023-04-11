@@ -1,4 +1,6 @@
-﻿using FastEndpoints;
+﻿using System.Reflection;
+
+using FastEndpoints;
 
 using MongoDB.Entities;
 
@@ -26,7 +28,7 @@ public sealed class RootEndpoint : EndpointWithoutRequest<RootResponse>
 
     public override async Task HandleAsync(CancellationToken ct)
     {
-        PeFile peFile = new(System.Reflection.Assembly.GetEntryAssembly()!.Location);
+        PeFile peFile = new(Assembly.GetEntryAssembly()!.Location);
 
         if (peFile.Resources is null)
         {
@@ -47,13 +49,9 @@ public sealed class RootEndpoint : EndpointWithoutRequest<RootResponse>
         }
 
         Version version = System.Version.Parse(productVersion);
-        
-        var symbolsCount = await DB.CountAsync<SymbolsEntity>(cancellation: ct);
-        
-        await SendOkAsync(new RootResponse()
-        {
-            ServerVersion = version,
-            CachedSymbolsTotal = (ulong)symbolsCount
-        }, ct);
+
+        long symbolsCount = await DB.CountAsync<SymbolsEntity>(cancellation: ct);
+
+        await SendOkAsync(new RootResponse { ServerVersion = version, CachedSymbolsTotal = (ulong)symbolsCount }, ct);
     }
 }

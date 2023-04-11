@@ -2,7 +2,7 @@
 
 # WinDbgSymbolsCachingProxy
 
-![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/nefarius/WinDbgSymbolsCachingProxy/docker-image.yml)
+![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/nefarius/WinDbgSymbolsCachingProxy/docker-image.yml) ![Cached Symbols Count](https://symbols.nefarius.at/api/badges/cachedSymbolsTotal)
 
 Microsoft debugging symbols caching proxy using [FastEndpoints](https://fast-endpoints.com/) and [MongoDB](https://mongodb-entities.com/).
 
@@ -52,3 +52,5 @@ Like any other of my public web services it only logs an absolute minimal amount
 - [MongoDB Entities](https://mongodb-entities.com/)
 - [Nefarius.Utilities.AspNetCore](https://github.com/nefarius/Nefarius.Utilities.AspNetCore)
 - [PeNet](https://github.com/secana/PeNet)
+- [badger](https://github.com/8/badger)
+- [SkiaSharp](https://github.com/mono/SkiaSharp)

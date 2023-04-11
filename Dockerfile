@@ -15,6 +15,9 @@ FROM build AS publish
 RUN dotnet publish "WinDbgSymbolsCachingProxy.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
 FROM base AS final
+RUN apt-get update
+RUN apt-get install -y libfreetype6
+RUN apt-get install -y libfontconfig1
 WORKDIR /app
 COPY --from=publish /app/publish .
 ENTRYPOINT ["dotnet", "WinDbgSymbolsCachingProxy.dll"]

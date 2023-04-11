@@ -19,12 +19,18 @@
     <PackageReference Include="Nefarius.Utilities.AspNetCore" Version="1.4.1" />
     <PackageReference Include="PeNet" Version="3.0.0" />
     <PackageReference Include="Polly.Contrib.WaitAndRetry" Version="1.1.1" />
+    <PackageReference Include="SkiaSharp" Version="2.88.3" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="2.88.3" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Include="..\.dockerignore">
       <Link>.dockerignore</Link>
     </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Services\" />
   </ItemGroup>
 
 </Project>
