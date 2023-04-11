@@ -28,4 +28,9 @@ public class SymbolsEntity : FileEntity
     ///     The file name the upstream server originally returned.
     /// </summary>
     public string? UpstreamFileName { get; set; }
+    
+    /// <summary>
+    ///     The last time this entry was requested via REST.
+    /// </summary>
+    public DateTime LastAccessedAt { get; set; }
 }
