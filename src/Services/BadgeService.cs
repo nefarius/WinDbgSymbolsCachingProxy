@@ -74,7 +74,7 @@ public class BadgeService : IBadgeService
             IsStroke = false,
             Color = SKColors.White,
             TextSize = badge.Height - (GetTopBottomMargin(badge) * 2),
-            Typeface = SKTypeface.FromFamilyName("Verdana,Geneva,DejaVu Sans,sans-serif")
+            Typeface = SKTypeface.FromFamilyName("Verdana")
         };
     }
 
