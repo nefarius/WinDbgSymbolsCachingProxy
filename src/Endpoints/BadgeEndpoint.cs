@@ -15,10 +15,12 @@ public enum Badge
 public sealed class BadgeEndpoint : EndpointWithoutRequest
 {
     private readonly ISvgService _svgService;
+    private readonly ILogger<BadgeEndpoint> _logger;
 
-    public BadgeEndpoint(ISvgService svgService)
+    public BadgeEndpoint(ISvgService svgService, ILogger<BadgeEndpoint> logger)
     {
         _svgService = svgService;
+        _logger = logger;
     }
 
     public override void Configure()
@@ -38,6 +40,7 @@ public sealed class BadgeEndpoint : EndpointWithoutRequest
         switch (badge)
         {
             case Badge.CachedSymbolsTotal:
+                _logger.LogInformation("Returning cached symbol count");
                 long symbolsCount = await DB.CountAsync<SymbolsEntity>(cancellation: ct);
                 parameters.Label = "Cached Symbols";
                 parameters.Result = symbolsCount.ToString();
