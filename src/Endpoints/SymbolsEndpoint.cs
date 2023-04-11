@@ -105,6 +105,7 @@ public sealed class SymbolsEndpoint : Endpoint<SymbolsRequest>
 
         Stream upstreamContent = await response.Content.ReadAsStreamAsync(ct);
 
+        // cache in memory because we need to return it to the requester as well
         using MemoryStream cache = new();
         await upstreamContent.CopyToAsync(cache, ct);
         cache.Position = 0;
