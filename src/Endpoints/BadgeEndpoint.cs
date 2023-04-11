@@ -9,7 +9,9 @@ namespace WinDbgSymbolsCachingProxy.Endpoints;
 
 public enum Badge
 {
-    CachedSymbolsTotal
+    CachedSymbolsTotal,
+    CachedSymbolsNotFound,
+    CachedSymbolsFound,
 }
 
 public sealed class BadgeEndpoint : EndpointWithoutRequest
@@ -40,10 +42,22 @@ public sealed class BadgeEndpoint : EndpointWithoutRequest
         switch (badge)
         {
             case Badge.CachedSymbolsTotal:
-                _logger.LogInformation("Returning cached symbol count");
+                _logger.LogInformation("Returning cached symbols count");
                 long symbolsCount = await DB.CountAsync<SymbolsEntity>(cancellation: ct);
-                parameters.Label = "Cached Symbols";
+                parameters.Label = "Cached Symbols Total";
                 parameters.Result = symbolsCount.ToString();
+                break;
+            case Badge.CachedSymbolsNotFound:
+                _logger.LogInformation("Returning cached 404 symbols count");
+                long symbols404Count = await DB.CountAsync<SymbolsEntity>(s => s.NotFoundAt != null, cancellation: ct);
+                parameters.Label = "Cached Symbols 404";
+                parameters.Result = symbols404Count.ToString();
+                break;
+            case Badge.CachedSymbolsFound:
+                _logger.LogInformation("Returning cached existing symbols count");
+                long symbolsFoundCount = await DB.CountAsync<SymbolsEntity>(s => s.NotFoundAt == null, cancellation: ct);
+                parameters.Label = "Cached Symbols Found";
+                parameters.Result = symbolsFoundCount.ToString();
                 break;
             default:
                 await SendNotFoundAsync(ct);
