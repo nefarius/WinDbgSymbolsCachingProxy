@@ -4,6 +4,8 @@ using FastEndpoints;
 
 using MongoDB.Entities;
 
+using WinDbgSymbolsCachingProxy.Models;
+
 namespace WinDbgSymbolsCachingProxy.Endpoints;
 
 public sealed class SymbolsEndpoint : Endpoint<SymbolsRequest>

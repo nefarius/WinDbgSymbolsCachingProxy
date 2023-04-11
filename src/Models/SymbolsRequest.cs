@@ -1,4 +1,4 @@
-﻿namespace WinDbgSymbolsCachingProxy.Endpoints;
+﻿namespace WinDbgSymbolsCachingProxy.Models;
 
 public sealed class SymbolsRequest
 {

@@ -1,6 +1,6 @@
 ﻿using MongoDB.Entities;
 
-namespace WinDbgSymbolsCachingProxy.Endpoints;
+namespace WinDbgSymbolsCachingProxy.Models;
 
 public class SymbolsEntity : FileEntity
 {
