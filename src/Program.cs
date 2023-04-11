@@ -36,7 +36,7 @@ builder.Services.AddHttpClient("MicrosoftSymbolServer",
 string? database = builder.Configuration.GetValue<string>("DatabaseName");
 string? connectionString = builder.Configuration.GetValue<string>("ConnectionString");
 
-//await DB.InitAsync(database, MongoClientSettings.FromConnectionString(connectionString));
+await DB.InitAsync(database, MongoClientSettings.FromConnectionString(connectionString));
 
 WebApplication? app = builder.Build().Setup();
 
