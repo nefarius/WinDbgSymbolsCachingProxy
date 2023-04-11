@@ -110,6 +110,7 @@ public sealed class SymbolsEndpoint : Endpoint<SymbolsRequest>
         cache.Position = 0;
 
         newSymbol.UpstreamFileName = upstreamFilename;
+        newSymbol.NotFoundAt = null;
         await newSymbol.SaveAsync(cancellation: ct);
         await newSymbol.Data.UploadAsync(cache, cancellation: ct);
 
