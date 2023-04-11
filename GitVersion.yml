@@ -1,0 +1,17 @@
+next-version: 1.0
+mode: ContinuousDeployment
+assembly-versioning-scheme: MajorMinorPatch
+assembly-file-versioning-format: '{Major}.{Minor}.{PreReleaseNumber}'
+assembly-informational-format: '{Major}.{Minor}.{PreReleaseNumber}'
+branches:
+  master:        
+    regex: master    
+    tag: ''    
+    increment: Patch
+    prevent-increment-of-merged-branch-version: true
+    track-merge-target: false
+    tracks-release-branches: false
+    is-release-branch: false
+ignore:
+  sha: []
+merge-message-formats: {}
