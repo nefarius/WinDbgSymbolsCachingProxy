@@ -1,6 +1,4 @@
-﻿using Badger.Factory;
-
-using SkiaSharp;
+﻿using SkiaSharp;
 
 using WinDbgSymbolsCachingProxy.Models;
 
@@ -8,7 +6,7 @@ namespace WinDbgSymbolsCachingProxy.Services;
 
 public interface ISvgService
 {
-    void Draw(ParameterModel p);
+    void Draw(ParameterModel p, Stream result);
 }
 
 public class SvgService : ISvgService
@@ -23,18 +21,12 @@ public class SvgService : ISvgService
         _badgeFactory = badgeFactory;
     }
 
-    public void Draw(ParameterModel p)
+    public void Draw(ParameterModel p, Stream result)
     {
-        using (SKFileWStream stream = new SKFileWStream(p.OutputFile))
-        using (SKXmlStreamWriter writer = new SKXmlStreamWriter(stream))
-        {
-            BadgeModel badge = _badgeFactory.GetBadge(p);
-            float width = _badgeService.GetWidth(badge);
-            SKRect bounds = new SKRect(0, 0, width, p.Height);
-            using (SKCanvas? canvas = SKSvgCanvas.Create(bounds, writer))
-            {
-                _badgeService.DrawBadge(canvas, badge);
-            }
-        }
+        BadgeModel badge = _badgeFactory.GetBadge(p);
+        float width = _badgeService.GetWidth(badge);
+        SKRect bounds = new(0, 0, width, p.Height);
+        using SKCanvas? canvas = SKSvgCanvas.Create(bounds, result);
+        _badgeService.DrawBadge(canvas, badge);
     }
 }
