@@ -11,9 +11,4 @@ public sealed class RootResponse
     ///     Gets the project repository URL.
     /// </summary>
     public string ProjectUrl { get; set; } = "https://github.com/nefarius/WinDbgSymbolsCachingProxy";
-
-    /// <summary>
-    ///     Gets the total amount of cached entries.
-    /// </summary>
-    public ulong? CachedSymbolsTotal { get; set; }
 }
