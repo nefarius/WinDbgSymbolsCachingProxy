@@ -66,7 +66,7 @@ public class BadgeService : IBadgeService
         canvas.DrawText(badge.Result, rightTextX, textY, textPaint);
     }
 
-    private SKPaint GetTextPaint(BadgeModel badge)
+    private static SKPaint GetTextPaint(BadgeModel badge)
     {
         return new SKPaint
         {
@@ -84,32 +84,32 @@ public class BadgeService : IBadgeService
         return paint;
     }
 
-    private SKPaint GetResultBackgroundPaint(BadgeModel badge)
+    private static SKPaint GetResultBackgroundPaint(BadgeModel badge)
     {
         return new SKPaint { IsAntialias = true, IsStroke = false, Color = badge.ResultBackgroundColor };
     }
 
-    private SKPaint GetLabelBackgroundPaint(BadgeModel badge)
+    private static SKPaint GetLabelBackgroundPaint(BadgeModel badge)
     {
         return new SKPaint { IsAntialias = true, IsStroke = false, Color = badge.LabelBackgroundColor };
     }
 
-    private int GetOuterMargin(BadgeModel badge)
+    private static int GetOuterMargin(BadgeModel badge)
     {
         return badge.Height / 2;
     }
 
-    private int GetInnerMargin(BadgeModel badge)
+    private static int GetInnerMargin(BadgeModel badge)
     {
         return badge.Height / 4;
     }
 
-    private int GetTopBottomMargin(BadgeModel badge)
+    private static int GetTopBottomMargin(BadgeModel badge)
     {
         return badge.Height / 5;
     }
 
-    private int GetCornerRadius(BadgeModel badge)
+    private static int GetCornerRadius(BadgeModel badge)
     {
         return badge.Height / 5;
     }
