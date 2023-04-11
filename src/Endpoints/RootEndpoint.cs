@@ -53,7 +53,7 @@ public sealed class RootEndpoint : EndpointWithoutRequest<RootResponse>
         await SendOkAsync(new RootResponse()
         {
             ServerVersion = version,
-            CachedSymbols = (ulong)symbolsCount
+            CachedSymbolsTotal = (ulong)symbolsCount
         }, ct);
     }
 }
