@@ -41,6 +41,8 @@ Like any other of my public web services it only logs an absolute minimal amount
 - Add support to provide a custom directory where the server can pick up custom/private symbols from and cache them with the same methods.
 - Make retry and cache invalidation parameters configurable e.g. via `appsettings.json`
 - Maybe add custom "admin" endpoints to upload custom symbols, delete existing entries and invalidate cache on command?
+- Add timer to periodically check if 404ed symbols are now available
+- Add timer to automate some tasks, maybe log last symbol access and scrub some that never got requested after a few months or so
 
 ## 3rd party credits
 
