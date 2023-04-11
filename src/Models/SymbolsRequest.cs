@@ -1,5 +1,7 @@
 ﻿namespace WinDbgSymbolsCachingProxy.Models;
 
+#nullable disable
+
 public sealed class SymbolsRequest
 {
     public string Symbol { get; set; }
