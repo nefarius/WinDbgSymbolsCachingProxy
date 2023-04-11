@@ -6,7 +6,7 @@ namespace WinDbgSymbolsCachingProxy.Services;
 
 public interface ISvgService
 {
-    void Draw(ParameterModel p, Stream result);
+    void Draw(BadgeParameters p, Stream result);
 }
 
 public class SvgService : ISvgService
@@ -21,7 +21,7 @@ public class SvgService : ISvgService
         _badgeFactory = badgeFactory;
     }
 
-    public void Draw(ParameterModel p, Stream result)
+    public void Draw(BadgeParameters p, Stream result)
     {
         BadgeModel badge = _badgeFactory.GetBadge(p);
         float width = _badgeService.GetWidth(badge);

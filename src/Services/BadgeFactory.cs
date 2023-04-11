@@ -9,14 +9,14 @@ namespace WinDbgSymbolsCachingProxy.Services;
 
 public interface IBadgeFactory
 {
-    BadgeModel GetBadge(ParameterModel p);
+    BadgeModel GetBadge(BadgeParameters p);
 }
 
 public partial class BadgeFactory : IBadgeFactory
 {
     private static readonly Regex HexColorRegex = MyRegex();
 
-    public BadgeModel GetBadge(ParameterModel p)
+    public BadgeModel GetBadge(BadgeParameters p)
     {
         return new BadgeModel
         {
