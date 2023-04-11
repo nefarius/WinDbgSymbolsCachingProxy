@@ -1,6 +1,8 @@
 using System.Net.Http.Headers;
 using System.Reflection;
 
+using Coravel;
+
 using FastEndpoints;
 
 using MongoDB.Driver;
@@ -11,6 +13,7 @@ using Nefarius.Utilities.AspNetCore;
 using Polly;
 using Polly.Contrib.WaitAndRetry;
 
+using WinDbgSymbolsCachingProxy.Jobs;
 using WinDbgSymbolsCachingProxy.Services;
 
 WebApplicationBuilder? builder = WebApplication.CreateBuilder(args).Setup();
@@ -18,6 +21,9 @@ WebApplicationBuilder? builder = WebApplication.CreateBuilder(args).Setup();
 builder.Services.AddSingleton<IBadgeFactory, BadgeFactory>();
 builder.Services.AddSingleton<IBadgeService, BadgeService>();
 builder.Services.AddSingleton<ISvgService, SvgService>();
+builder.Services.AddTransient<RecheckNotFoundJob>();
+
+builder.Services.AddScheduler();
 
 builder.Services.AddFastEndpoints();
 
@@ -39,6 +45,13 @@ string? connectionString = builder.Configuration.GetValue<string>("ConnectionStr
 await DB.InitAsync(database, MongoClientSettings.FromConnectionString(connectionString));
 
 WebApplication? app = builder.Build().Setup();
+
+app.Services.UseScheduler(scheduler =>
+{
+    scheduler
+        .Schedule<RecheckNotFoundJob>()
+        .DailyAtHour(3);
+});
 
 app.UseAuthorization();
 app.UseFastEndpoints();
