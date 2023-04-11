@@ -11,7 +11,13 @@ using Nefarius.Utilities.AspNetCore;
 using Polly;
 using Polly.Contrib.WaitAndRetry;
 
+using WinDbgSymbolsCachingProxy.Services;
+
 WebApplicationBuilder? builder = WebApplication.CreateBuilder(args).Setup();
+
+builder.Services.AddSingleton<IBadgeFactory, BadgeFactory>();
+builder.Services.AddSingleton<IBadgeService, BadgeService>();
+builder.Services.AddSingleton<ISvgService, SvgService>();
 
 builder.Services.AddFastEndpoints();
 
@@ -30,7 +36,7 @@ builder.Services.AddHttpClient("MicrosoftSymbolServer",
 string? database = builder.Configuration.GetValue<string>("DatabaseName");
 string? connectionString = builder.Configuration.GetValue<string>("ConnectionString");
 
-await DB.InitAsync(database, MongoClientSettings.FromConnectionString(connectionString));
+//await DB.InitAsync(database, MongoClientSettings.FromConnectionString(connectionString));
 
 WebApplication? app = builder.Build().Setup();
 
