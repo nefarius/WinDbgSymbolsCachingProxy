@@ -54,3 +54,4 @@ Like any other of my public web services it only logs an absolute minimal amount
 - [PeNet](https://github.com/secana/PeNet)
 - [badger](https://github.com/8/badger)
 - [SkiaSharp](https://github.com/mono/SkiaSharp)
+- [Resourcer.Fody](https://github.com/Fody/Resourcer)

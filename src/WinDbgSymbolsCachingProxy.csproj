@@ -10,6 +10,10 @@
   <ItemGroup>
     <PackageReference Include="FastDeepCloner" Version="1.3.6" />
     <PackageReference Include="FastEndpoints" Version="5.8.1" />
+    <PackageReference Include="Fody" Version="6.6.4">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
     <PackageReference Include="GitVersion.MsBuild" Version="5.12.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -19,6 +23,7 @@
     <PackageReference Include="Nefarius.Utilities.AspNetCore" Version="1.4.1" />
     <PackageReference Include="PeNet" Version="3.0.0" />
     <PackageReference Include="Polly.Contrib.WaitAndRetry" Version="1.1.1" />
+    <PackageReference Include="Resourcer.Fody" Version="1.8.1" />
     <PackageReference Include="SkiaSharp" Version="2.88.3" />
     <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="2.88.3" />
   </ItemGroup>
@@ -31,6 +36,11 @@
 
   <ItemGroup>
     <Folder Include="Services\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="favicon.ico" />
+    <EmbeddedResource Include="favicon.ico" />
   </ItemGroup>
 
 </Project>
