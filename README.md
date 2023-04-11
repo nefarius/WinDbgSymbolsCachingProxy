@@ -2,7 +2,7 @@
 
 # WinDbgSymbolsCachingProxy
 
-![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/nefarius/WinDbgSymbolsCachingProxy/docker-image.yml) ![Cached Symbols Count](https://symbols.nefarius.at/api/badges/cachedSymbolsTotal)
+![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/nefarius/WinDbgSymbolsCachingProxy/docker-image.yml)
 
 Microsoft debugging symbols caching proxy using [FastEndpoints](https://fast-endpoints.com/) and [MongoDB](https://mongodb-entities.com/).
 
@@ -27,6 +27,8 @@ Let's see if my efforts paid off, shall we! I've opened a kernel memory dump whi
 **48 seconds**. Heck yeah! 🥳
 
 ## Public instance
+
+![Cached Symbols Count](https://symbols.nefarius.at/api/badges/cachedSymbolsTotal)
 
 I'm hosting an instance of this project at [`https://symbols.nefarius.at/`](https://symbols.nefarius.at/) which you can consume and help growing by adjusting your symbol source settings like so:
 
