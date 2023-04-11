@@ -24,6 +24,18 @@ Let's see if my efforts paid off, shall we! I've opened a kernel memory dump whi
 
 **48 seconds**. Heck yeah! 🥳
 
+## Public instance
+
+I'm hosting an instance of this project at [`https://symbols.nefarius.at/`](https://symbols.nefarius.at/) which you can consume and help growing by adjusting your symbol source settings like so:
+
+```text
+.sympath cache*D:\symbols;srv*https://symbols.nefarius.at/download/symbols
+```
+
+This means my local symbol cache resides at `D:\symbols`, adjust to your own preferences.
+
+Like any other of my public web services it only logs an absolute minimal amount required for debugging purposes and I'll never sell your data out to the big bois 😉
+
 ## TODOs
 
 - Add support to provide a custom directory where the server can pick up custom/private symbols from and cache them with the same methods.
