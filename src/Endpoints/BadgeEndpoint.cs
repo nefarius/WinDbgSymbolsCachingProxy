@@ -11,13 +11,13 @@ public enum Badge
 {
     CachedSymbolsTotal,
     CachedSymbolsNotFound,
-    CachedSymbolsFound,
+    CachedSymbolsFound
 }
 
 public sealed class BadgeEndpoint : EndpointWithoutRequest
 {
-    private readonly ISvgService _svgService;
     private readonly ILogger<BadgeEndpoint> _logger;
+    private readonly ISvgService _svgService;
 
     public BadgeEndpoint(ISvgService svgService, ILogger<BadgeEndpoint> logger)
     {
@@ -49,13 +49,18 @@ public sealed class BadgeEndpoint : EndpointWithoutRequest
                 break;
             case Badge.CachedSymbolsNotFound:
                 _logger.LogInformation("Returning cached 404 symbols count");
-                long symbols404Count = await DB.CountAsync<SymbolsEntity>(s => s.NotFoundAt != null, cancellation: ct);
+                long symbols404Count = await DB.CountAsync<SymbolsEntity>(
+                    s => s.NotFoundAt != null,
+                    cancellation: ct);
                 parameters.Label = "Cached Symbols 404";
                 parameters.Result = symbols404Count.ToString();
                 break;
             case Badge.CachedSymbolsFound:
                 _logger.LogInformation("Returning cached existing symbols count");
-                long symbolsFoundCount = await DB.CountAsync<SymbolsEntity>(s => s.NotFoundAt == null, cancellation: ct);
+                long symbolsFoundCount =
+                    await DB.CountAsync<SymbolsEntity>(
+                        s => s.NotFoundAt == null,
+                        cancellation: ct);
                 parameters.Label = "Cached Symbols Found";
                 parameters.Result = symbolsFoundCount.ToString();
                 break;
