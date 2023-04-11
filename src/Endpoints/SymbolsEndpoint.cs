@@ -8,7 +8,7 @@ namespace WinDbgSymbolsCachingProxy.Endpoints;
 
 public sealed class SymbolsEndpoint : Endpoint<SymbolsRequest>
 {
-    private static readonly TimeSpan UpstreamRecheckPeriod = TimeSpan.FromDays(1);
+    private static readonly TimeSpan UpstreamRecheckPeriod = TimeSpan.FromDays(7);
     private readonly IHttpClientFactory _clientFactory;
 
     private readonly ILogger<SymbolsEndpoint> _logger;
