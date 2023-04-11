@@ -24,7 +24,9 @@
     <PackageReference Include="Nefarius.Utilities.AspNetCore" Version="1.4.1" />
     <PackageReference Include="PeNet" Version="3.0.0" />
     <PackageReference Include="Polly.Contrib.WaitAndRetry" Version="1.1.1" />
-    <PackageReference Include="Resourcer.Fody" Version="1.8.1" />
+    <PackageReference Include="Resourcer.Fody" Version="1.8.1">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
     <PackageReference Include="SkiaSharp" Version="2.88.3" />
     <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="2.88.3" />
   </ItemGroup>
