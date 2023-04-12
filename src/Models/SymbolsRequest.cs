@@ -1,7 +1,10 @@
-﻿namespace WinDbgSymbolsCachingProxy.Models;
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace WinDbgSymbolsCachingProxy.Models;
 
 #nullable disable
 
+[SuppressMessage("ReSharper", "ClassNeverInstantiated.Global")]
 public sealed class SymbolsRequest
 {
     public string Symbol { get; set; }

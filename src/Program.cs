@@ -13,6 +13,7 @@ using Nefarius.Utilities.AspNetCore;
 using Polly;
 using Polly.Contrib.WaitAndRetry;
 
+using WinDbgSymbolsCachingProxy.Core;
 using WinDbgSymbolsCachingProxy.Jobs;
 using WinDbgSymbolsCachingProxy.Services;
 
@@ -27,6 +28,17 @@ builder.Services.AddScheduler();
 
 builder.Services.AddFastEndpoints();
 
+ServiceConfig? serviceConfig =
+    builder.Configuration.GetValue<ServiceConfig>(nameof(ServiceConfig));
+
+if (serviceConfig is null)
+{
+    Console.WriteLine("Missing service configuration, can't continue!");
+    return;
+}
+
+builder.Services.Configure<ServiceConfig>(builder.Configuration.GetSection(nameof(ServiceConfig)));
+
 builder.Services.AddHttpClient("MicrosoftSymbolServer",
         client =>
         {
@@ -34,15 +46,13 @@ builder.Services.AddHttpClient("MicrosoftSymbolServer",
                 Assembly.GetEntryAssembly()?.GetName().Name!,
                 Assembly.GetEntryAssembly()?.GetName().Version!.ToString()));
 
-            client.BaseAddress = new Uri("https://msdl.microsoft.com/");
+            client.BaseAddress = new Uri(serviceConfig.UpstreamUrl);
         })
     .AddTransientHttpErrorPolicy(pb =>
         pb.WaitAndRetryAsync(Backoff.DecorrelatedJitterBackoffV2(TimeSpan.FromSeconds(3), 10)));
 
-string? database = builder.Configuration.GetValue<string>("DatabaseName");
-string? connectionString = builder.Configuration.GetValue<string>("ConnectionString");
-
-await DB.InitAsync(database, MongoClientSettings.FromConnectionString(connectionString));
+await DB.InitAsync(serviceConfig.DatabaseName,
+    MongoClientSettings.FromConnectionString(serviceConfig.ConnectionString));
 
 WebApplication? app = builder.Build().Setup();
 

@@ -1,5 +1,9 @@
-﻿namespace WinDbgSymbolsCachingProxy.Models;
+﻿using System.Diagnostics.CodeAnalysis;
 
+namespace WinDbgSymbolsCachingProxy.Models;
+
+[SuppressMessage("ReSharper", "UnusedMember.Global")]
+[SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Global")]
 public sealed class RootResponse
 {
     /// <summary>

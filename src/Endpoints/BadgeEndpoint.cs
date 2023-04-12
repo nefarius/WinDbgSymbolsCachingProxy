@@ -1,9 +1,11 @@
 ﻿using FastEndpoints;
 
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 
 using MongoDB.Entities;
 
+using WinDbgSymbolsCachingProxy.Core;
 using WinDbgSymbolsCachingProxy.Models;
 using WinDbgSymbolsCachingProxy.Services;
 
@@ -20,11 +22,13 @@ public sealed class BadgeEndpoint : EndpointWithoutRequest
 {
     private readonly ILogger<BadgeEndpoint> _logger;
     private readonly ISvgService _svgService;
+    private readonly IOptions<ServiceConfig> _options;
 
-    public BadgeEndpoint(ISvgService svgService, ILogger<BadgeEndpoint> logger)
+    public BadgeEndpoint(ISvgService svgService, ILogger<BadgeEndpoint> logger, IOptions<ServiceConfig> options)
     {
         _svgService = svgService;
         _logger = logger;
+        _options = options;
     }
 
     public override void Configure()
@@ -76,7 +80,7 @@ public sealed class BadgeEndpoint : EndpointWithoutRequest
         ms.Position = 0;
 
         DateTime now = DateTime.UtcNow;
-        const int expiresSeconds = 30;
+        int expiresSeconds = _options.Value.BadgeExpiresSeconds;
 
         // cache control
         HttpContext.Response.Headers.CacheControl =

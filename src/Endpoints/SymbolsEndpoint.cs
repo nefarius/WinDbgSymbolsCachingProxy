@@ -2,23 +2,27 @@
 
 using FastEndpoints;
 
+using Microsoft.Extensions.Options;
+
 using MongoDB.Entities;
 
+using WinDbgSymbolsCachingProxy.Core;
 using WinDbgSymbolsCachingProxy.Models;
 
 namespace WinDbgSymbolsCachingProxy.Endpoints;
 
 public sealed class SymbolsEndpoint : Endpoint<SymbolsRequest>
 {
-    private static readonly TimeSpan UpstreamRecheckPeriod = TimeSpan.FromDays(7);
     private readonly IHttpClientFactory _clientFactory;
-
     private readonly ILogger<SymbolsEndpoint> _logger;
+    private readonly IOptions<ServiceConfig> _options;
 
-    public SymbolsEndpoint(ILogger<SymbolsEndpoint> logger, IHttpClientFactory clientFactory)
+    public SymbolsEndpoint(ILogger<SymbolsEndpoint> logger, IHttpClientFactory clientFactory,
+        IOptions<ServiceConfig> options)
     {
         _logger = logger;
         _clientFactory = clientFactory;
+        _options = options;
     }
 
     public override void Configure()
@@ -44,7 +48,7 @@ public sealed class SymbolsEndpoint : Endpoint<SymbolsRequest>
 
             // has been checked for existence recently so skip check and return immediately 
             if (existingSymbol.NotFoundAt.HasValue &&
-                existingSymbol.NotFoundAt.Value.Add(UpstreamRecheckPeriod) > DateTime.UtcNow)
+                existingSymbol.NotFoundAt.Value.Add(_options.Value.UpstreamRecheckPeriod) > DateTime.UtcNow)
             {
                 _logger.LogInformation("Cached symbol marked as not found");
 
@@ -78,6 +82,7 @@ public sealed class SymbolsEndpoint : Endpoint<SymbolsRequest>
         {
             _logger.LogInformation("Requested symbol {@Symbol} not found upstream", req);
 
+            // set last 404 timestamp
             newSymbol.NotFoundAt = DateTime.UtcNow;
             await newSymbol.SaveAsync(cancellation: ct);
             await SendNotFoundAsync(ct);
@@ -98,18 +103,22 @@ public sealed class SymbolsEndpoint : Endpoint<SymbolsRequest>
             return;
         }
 
+        // grab the filename we got after 302 got resolved
         string upstreamFilename = Path.GetFileName(response.RequestMessage.RequestUri.AbsolutePath);
 
         if (string.IsNullOrEmpty(upstreamFilename))
         {
             _logger.LogWarning("Failed to extract upstream filename");
+
+            // fallback value
+            upstreamFilename = req.File;
         }
 
         _logger.LogInformation("Got requested symbol {@Symbol} ({Filename}), caching", req, upstreamFilename);
 
         Stream upstreamContent = await response.Content.ReadAsStreamAsync(ct);
 
-        // cache in memory because we need to return it to the requester as well
+        // cache in memory because we need to return it to database AND requester
         using MemoryStream cache = new();
         await upstreamContent.CopyToAsync(cache, ct);
         cache.Position = 0;
