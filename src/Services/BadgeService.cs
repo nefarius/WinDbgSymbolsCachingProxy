@@ -40,7 +40,7 @@ public class BadgeService : IBadgeService
         float leftTextWidth = textPaint.MeasureText(badge.Label);
         float leftSideWidth = outerMargin + leftTextWidth + innerMargin;
         float topBottomMargin = GetTopBottomMargin(badge);
-        float textY = (badge.Height / 2) + textPaint.FontMetrics.Bottom + 1;
+        float textY = (badge.Height / 2) + textPaint.FontMetrics.Bottom + 2;
         float cornerRadius = GetCornerRadius(badge);
 
         /* draw left background */
