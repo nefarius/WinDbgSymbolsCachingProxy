@@ -28,8 +28,9 @@ builder.Services.AddScheduler();
 
 builder.Services.AddFastEndpoints();
 
-ServiceConfig? serviceConfig =
-    builder.Configuration.GetValue<ServiceConfig>(nameof(ServiceConfig));
+IConfigurationSection section = builder.Configuration.GetSection(nameof(ServiceConfig));
+
+ServiceConfig? serviceConfig = section.Get<ServiceConfig>();
 
 if (serviceConfig is null)
 {
