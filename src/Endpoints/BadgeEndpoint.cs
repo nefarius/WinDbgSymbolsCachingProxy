@@ -75,9 +75,17 @@ public sealed class BadgeEndpoint : EndpointWithoutRequest
 
         ms.Position = 0;
 
-        HttpContext.Response.Headers.CacheControl = new StringValues("no-store,no-cache");
-        HttpContext.Response.Headers.Pragma = new StringValues("no-cache");
-        
+        DateTime now = DateTime.UtcNow;
+        const int expiresSeconds = 30;
+
+        // cache control
+        HttpContext.Response.Headers.CacheControl =
+            new StringValues($"max-age={expiresSeconds}, s-maxage={expiresSeconds}");
+        HttpContext.Response.Headers.Age = new StringValues("0");
+        HttpContext.Response.Headers.Date = new StringValues(now.ToString("R"));
+        HttpContext.Response.Headers.LastModified = new StringValues(now.ToString("R"));
+        HttpContext.Response.Headers.Expires = new StringValues(now.AddSeconds(expiresSeconds).ToString("R"));
+
         await SendStreamAsync(ms, contentType: "image/svg+xml", cancellation: ct);
     }
 }
