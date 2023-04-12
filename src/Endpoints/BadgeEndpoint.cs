@@ -43,7 +43,7 @@ public sealed class BadgeEndpoint : EndpointWithoutRequest
 
         using MemoryStream ms = new();
 
-        BadgeParameters parameters = new() { ResultColor = "#2ac33bff" };
+        BadgeParameters parameters = new();
 
         switch (badge)
         {
@@ -52,6 +52,7 @@ public sealed class BadgeEndpoint : EndpointWithoutRequest
                 long symbolsCount = await DB.CountAsync<SymbolsEntity>(cancellation: ct);
                 parameters.Label = "Cached Symbols Total";
                 parameters.Result = symbolsCount.ToString();
+                parameters.ResultColor = "#2ac33bff"; // green
                 break;
             case Badge.CachedSymbolsNotFound:
                 _logger.LogDebug("Returning cached 404 symbols count");
@@ -60,6 +61,7 @@ public sealed class BadgeEndpoint : EndpointWithoutRequest
                     cancellation: ct);
                 parameters.Label = "Cached Symbols 404";
                 parameters.Result = symbols404Count.ToString();
+                parameters.ResultColor = "#dcb135ff"; // yellow
                 break;
             case Badge.CachedSymbolsFound:
                 _logger.LogDebug("Returning cached existing symbols count");
@@ -69,6 +71,7 @@ public sealed class BadgeEndpoint : EndpointWithoutRequest
                         cancellation: ct);
                 parameters.Label = "Cached Symbols Found";
                 parameters.Result = symbolsFoundCount.ToString();
+                parameters.ResultColor = "#0f82bfff"; // blue
                 break;
             default:
                 await SendNotFoundAsync(ct);
