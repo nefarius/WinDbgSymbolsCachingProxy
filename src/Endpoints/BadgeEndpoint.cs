@@ -43,7 +43,7 @@ public sealed class BadgeEndpoint : EndpointWithoutRequest
 
         using MemoryStream ms = new();
 
-        BadgeParameters parameters = new();
+        BadgeParameters parameters = new() { ResultColor = "#2ac33bff" };
 
         switch (badge)
         {
