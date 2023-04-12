@@ -48,13 +48,13 @@ public sealed class BadgeEndpoint : EndpointWithoutRequest
         switch (badge)
         {
             case Badge.CachedSymbolsTotal:
-                _logger.LogInformation("Returning cached symbols count");
+                _logger.LogDebug("Returning cached symbols count");
                 long symbolsCount = await DB.CountAsync<SymbolsEntity>(cancellation: ct);
                 parameters.Label = "Cached Symbols Total";
                 parameters.Result = symbolsCount.ToString();
                 break;
             case Badge.CachedSymbolsNotFound:
-                _logger.LogInformation("Returning cached 404 symbols count");
+                _logger.LogDebug("Returning cached 404 symbols count");
                 long symbols404Count = await DB.CountAsync<SymbolsEntity>(
                     s => s.NotFoundAt != null,
                     cancellation: ct);
@@ -62,7 +62,7 @@ public sealed class BadgeEndpoint : EndpointWithoutRequest
                 parameters.Result = symbols404Count.ToString();
                 break;
             case Badge.CachedSymbolsFound:
-                _logger.LogInformation("Returning cached existing symbols count");
+                _logger.LogDebug("Returning cached existing symbols count");
                 long symbolsFoundCount =
                     await DB.CountAsync<SymbolsEntity>(
                         s => s.NotFoundAt == null,
