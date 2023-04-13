@@ -22,10 +22,10 @@ public sealed class RecheckNotFoundService
 
         HttpClient client = _clientFactory.CreateClient("MicrosoftSymbolServer");
 
-        foreach (SymbolsEntity symbol in notFoundSymbols)
+        await Parallel.ForEachAsync(notFoundSymbols, ct, async (symbol, token) =>
         {
             HttpResponseMessage response =
-                await client.GetAsync($"download/symbols/{symbol.Symbol}/{symbol.Hash}/{symbol.File}", ct);
+                await client.GetAsync($"download/symbols/{symbol.Symbol}/{symbol.Hash}/{symbol.File}", token);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -33,19 +33,19 @@ public sealed class RecheckNotFoundService
 
                 symbol.NotFoundAt = DateTime.UtcNow;
                 await symbol.SaveAsync(cancellation: ct);
-                continue;
+                return;
             }
 
             if (response.RequestMessage is null)
             {
                 _logger.LogError("Missing request message");
-                continue;
+                return;
             }
 
             if (response.RequestMessage.RequestUri is null)
             {
                 _logger.LogError("Missing request URI");
-                continue;
+                return;
             }
 
             string upstreamFilename = Path.GetFileName(response.RequestMessage.RequestUri.AbsolutePath);
@@ -53,20 +53,20 @@ public sealed class RecheckNotFoundService
             if (string.IsNullOrEmpty(upstreamFilename))
             {
                 _logger.LogWarning("Failed to extract upstream filename");
-                continue;
+                return;
             }
 
             _logger.LogInformation("Got requested symbol {@Symbol} ({Filename}), caching",
                 symbol, upstreamFilename);
 
-            Stream upstreamContent = await response.Content.ReadAsStreamAsync(ct);
+            Stream upstreamContent = await response.Content.ReadAsStreamAsync(token);
 
             symbol.NotFoundAt = null;
-            await symbol.SaveAsync(cancellation: ct);
-            await symbol.Data.UploadAsync(upstreamContent, cancellation: ct);
+            await symbol.SaveAsync(cancellation: token);
+            await symbol.Data.UploadAsync(upstreamContent, cancellation: token);
 
             _logger.LogInformation("Symbol {@Symbol} ({Filename}) cached",
                 symbol, upstreamFilename);
-        }
+        });
     }
 }
