@@ -33,4 +33,9 @@ public class SymbolsEntity : FileEntity
     ///     The last time this entry was requested via REST.
     /// </summary>
     public DateTime LastAccessedAt { get; set; }
+
+    public override string ToString()
+    {
+        return $"{Symbol} - {File} ({Hash})";
+    }
 }

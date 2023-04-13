@@ -29,7 +29,7 @@ public sealed class RecheckNotFoundService
 
             if (!response.IsSuccessStatusCode)
             {
-                _logger.LogInformation("Requested symbol {@Symbol} not found upstream", symbol);
+                _logger.LogInformation("Requested symbol {Symbol} not found upstream", symbol);
 
                 symbol.NotFoundAt = DateTime.UtcNow;
                 await symbol.SaveAsync(cancellation: ct);
@@ -56,7 +56,7 @@ public sealed class RecheckNotFoundService
                 return;
             }
 
-            _logger.LogInformation("Got requested symbol {@Symbol} ({Filename}), caching",
+            _logger.LogInformation("Got requested symbol {Symbol} ({Filename}), caching",
                 symbol, upstreamFilename);
 
             Stream upstreamContent = await response.Content.ReadAsStreamAsync(token);
@@ -65,7 +65,7 @@ public sealed class RecheckNotFoundService
             await symbol.SaveAsync(cancellation: token);
             await symbol.Data.UploadAsync(upstreamContent, cancellation: token);
 
-            _logger.LogInformation("Symbol {@Symbol} ({Filename}) cached",
+            _logger.LogInformation("Symbol {Symbol} ({Filename}) cached",
                 symbol, upstreamFilename);
         });
     }
