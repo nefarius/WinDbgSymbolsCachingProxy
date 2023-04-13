@@ -85,7 +85,7 @@ public sealed class BadgeEndpoint : EndpointWithoutRequest
         DateTime now = DateTime.UtcNow;
         int expiresSeconds = _options.Value.BadgeExpiresSeconds;
 
-        // cache control
+        // cache control, otherwise GitHub etc. will not request an update for like a day or so
         HttpContext.Response.Headers.CacheControl =
             new StringValues($"max-age={expiresSeconds}, s-maxage={expiresSeconds}");
         HttpContext.Response.Headers.Age = new StringValues("0");
