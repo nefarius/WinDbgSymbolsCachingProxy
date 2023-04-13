@@ -2,6 +2,8 @@
 
 using FastEndpoints;
 
+using MongoDB.Entities;
+
 using PeNet;
 using PeNet.Header.Resource;
 
@@ -48,6 +50,16 @@ public sealed class RootEndpoint : EndpointWithoutRequest<RootResponse>
 
         Version version = System.Version.Parse(productVersion);
 
-        await SendOkAsync(new RootResponse { ServerVersion = version }, ct);
+        await SendOkAsync(new RootResponse
+        {
+            ServerVersion = version,
+            CachedSymbolsTotal = await DB.CountAsync<SymbolsEntity>(cancellation: ct),
+            CachedSymbols404 = await DB.CountAsync<SymbolsEntity>(
+                s => s.NotFoundAt != null,
+                cancellation: ct),
+            CachedSymbolsFound = await DB.CountAsync<SymbolsEntity>(
+                s => s.NotFoundAt == null,
+                cancellation: ct)
+        }, ct);
     }
 }
