@@ -3,9 +3,9 @@
 public sealed class StartupService : BackgroundService
 {
     private readonly RecheckNotFoundService _recheckNotFoundService;
-    private readonly ILogger _logger;
+    private readonly ILogger<StartupService> _logger;
 
-    public StartupService(RecheckNotFoundService recheckNotFoundService, ILogger logger)
+    public StartupService(RecheckNotFoundService recheckNotFoundService, ILogger<StartupService> logger)
     {
         _recheckNotFoundService = recheckNotFoundService;
         _logger = logger;
