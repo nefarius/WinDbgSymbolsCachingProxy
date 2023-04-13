@@ -19,6 +19,11 @@ using WinDbgSymbolsCachingProxy.Services;
 
 WebApplicationBuilder? builder = WebApplication.CreateBuilder(args).Setup();
 
+builder.WebHost.ConfigureKestrel(o =>
+{
+    o.Limits.MaxRequestBodySize = 200_000_000; // 200 MB
+});
+
 builder.Services.AddSingleton<IBadgeFactory, BadgeFactory>();
 builder.Services.AddSingleton<IBadgeService, BadgeService>();
 builder.Services.AddSingleton<ISvgService, SvgService>();

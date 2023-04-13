@@ -29,6 +29,7 @@
     </PackageReference>
     <PackageReference Include="SkiaSharp" Version="2.88.3" />
     <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="2.88.3" />
+    <PackageReference Include="Smx.PDBSharp" Version="1.0.0-alpha" />
   </ItemGroup>
 
   <ItemGroup>
