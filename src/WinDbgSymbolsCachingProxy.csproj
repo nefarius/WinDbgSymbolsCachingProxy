@@ -38,10 +38,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Services\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <None Remove="favicon.ico" />
     <EmbeddedResource Include="favicon.ico" />
   </ItemGroup>
