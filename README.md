@@ -61,3 +61,4 @@ If you like this idea and want to keep my public instance happy, up and running 
 - [Resourcer.Fody](https://github.com/Fody/Resourcer)
 - [PDBSharp](https://github.com/smx-smx/PDBSharp)
 - [Mime-Detective](https://github.com/MediatedCommunications/Mime-Detective)
+- [idunno.Authentication](https://github.com/blowdart/idunno.Authentication)
