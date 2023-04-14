@@ -34,6 +34,16 @@ public class SymbolsEntity : FileEntity
     /// </summary>
     public DateTime LastAccessedAt { get; set; }
 
+    /// <summary>
+    ///     Gets whether this symbol has been added via REST API.
+    /// </summary>
+    public bool IsCustom { get; set; }
+
+    /// <summary>
+    ///     Gets when this symbol was added manually via file upload. 
+    /// </summary>
+    public DateTime? UploadedAt { get; set; }
+
     public override string ToString()
     {
         return $"{Symbol} - {File} ({Hash})";
