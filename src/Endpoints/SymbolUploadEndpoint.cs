@@ -97,9 +97,12 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
 
                 string hash = $"{guid:N}{age:X}".ToUpperInvariant();
                 string file = section.FileName;
+                string name = section.Name;
 
+                // duplicate check
                 if ((await DB.Find<SymbolsEntity>()
                         .ManyAsync(lr =>
+                                lr.Eq(r => r.Symbol, name) &
                                 lr.Eq(r => r.Hash, hash) &
                                 lr.Eq(r => r.File, file)
                             , ct)).Any())
@@ -108,9 +111,10 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
                     continue;
                 }
 
+                // new entry
                 SymbolsEntity symbol = new()
                 {
-                    Symbol = section.Name,
+                    Symbol = name,
                     File = file,
                     Hash = hash,
                     IsCustom = true,
@@ -119,6 +123,7 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
 
                 ms.Position = 0;
 
+                // upload blob
                 await symbol.SaveAsync(cancellation: ct);
                 await symbol.Data.UploadAsync(ms, cancellation: ct);
 
