@@ -129,9 +129,11 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
 
                 _logger.LogInformation("Added new symbol {Symbol}", symbol);
             }
-
-            _logger.LogWarning("Couldn't detect supported file type, skipping {Name}", section.FileName);
-            // TODO: implement me
+            else
+            {
+                _logger.LogWarning("Couldn't detect supported file type, skipping {Name}", section.FileName);
+                // TODO: implement me
+            }
         }
 
         await SendOkAsync("Upload complete.", ct);
