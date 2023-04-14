@@ -47,7 +47,6 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
     {
         Post("/api/uploads/symbol");
         AllowFileUploads(true);
-        AllowAnonymous();
     }
 
     public override async Task HandleAsync(CancellationToken ct)

@@ -1,9 +1,15 @@
 using System.Net.Http.Headers;
 using System.Reflection;
+using System.Security.Claims;
 
 using Coravel;
 
 using FastEndpoints;
+
+using idunno.Authentication.Basic;
+
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Options;
 
 using MongoDB.Driver;
 using MongoDB.Entities;
@@ -60,6 +66,48 @@ builder.Services.AddHttpClient("MicrosoftSymbolServer",
     .AddTransientHttpErrorPolicy(pb =>
         pb.WaitAndRetryAsync(Backoff.DecorrelatedJitterBackoffV2(TimeSpan.FromSeconds(3), 10)));
 
+// adds Basic Auth for protected endpoints
+builder.Services.AddAuthentication(BasicAuthenticationDefaults.AuthenticationScheme)
+    .AddBasic(options =>
+    {
+        options.Realm = "Basic Authentication";
+        options.Events = new BasicAuthenticationEvents
+        {
+            OnValidateCredentials = context =>
+            {
+                // valid credentials pulled from appsettings.json
+                ServiceConfig config = context.HttpContext.RequestServices
+                    .GetRequiredService<IOptions<ServiceConfig>>()
+                    .Value;
+
+                BasicAuthCredentials credential = new() { Username = context.Username, Password = context.Password };
+
+                if (config.BasicAuthCredentials == null ||
+                    !config.BasicAuthCredentials.Contains(credential))
+                {
+                    return Task.CompletedTask;
+                }
+
+                Claim[] claims =
+                {
+                    new(ClaimTypes.NameIdentifier, context.Username, ClaimValueTypes.String,
+                        context.Options.ClaimsIssuer),
+                    new(ClaimTypes.Name, context.Username, ClaimValueTypes.String,
+                        context.Options.ClaimsIssuer)
+                };
+
+                context.Principal = new ClaimsPrincipal(new ClaimsIdentity(claims, context.Scheme.Name));
+                context.Success();
+
+                return Task.CompletedTask;
+            }
+        };
+    });
+builder.Services.AddAuthorization(options =>
+{
+    options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
+});
+
 await DB.InitAsync(serviceConfig.DatabaseName,
     MongoClientSettings.FromConnectionString(serviceConfig.ConnectionString));
 
@@ -72,6 +120,7 @@ app.Services.UseScheduler(scheduler =>
         .DailyAtHour(3);
 });
 
+app.UseAuthentication();
 app.UseAuthorization();
 app.UseFastEndpoints();
 
