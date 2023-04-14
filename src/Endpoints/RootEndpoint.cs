@@ -36,7 +36,7 @@ public sealed class RootEndpoint : EndpointWithoutRequest<RootResponse>
             await SendErrorsAsync(500, ct);
             return;
         }
-
+        
         StringTable stringTable = peFile.Resources.VsVersionInfo!.StringFileInfo.StringTable.First();
 
         string? productVersion = stringTable.ProductVersion;
