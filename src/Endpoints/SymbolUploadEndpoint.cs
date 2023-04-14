@@ -80,7 +80,7 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
                 { MimeType: "application/x-ms-pdb", Description: "Microsoft Program DataBase (v7)" })
             {
                 _logger.LogInformation("{FileName} is a PDB v7, parsing...", section.FileName);
-                
+
                 using PDBFile? pdb = PDBFile.Open(ms);
                 await using DBIReader dbi = pdb.Services.GetService<DBIReader>();
 
@@ -97,7 +97,7 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
 
                 string hash = $"{guid:N}{age:X}".ToUpperInvariant();
                 string file = section.FileName;
-                string name = section.Name;
+                string name = string.IsNullOrEmpty(section.Name) ? file : section.Name;
 
                 // duplicate check
                 if ((await DB.Find<SymbolsEntity>()
@@ -108,7 +108,7 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
                             , ct)).Any())
                 {
                     await SendAsync($"Symbol with name {file} and hash {hash} already exists.", 409, ct);
-                    continue;
+                    return;
                 }
 
                 // new entry
@@ -129,7 +129,7 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
 
                 _logger.LogInformation("Added new symbol {Symbol}", symbol);
             }
-            
+
             _logger.LogWarning("Couldn't detect supported file type, skipping {Name}", section.FileName);
             // TODO: implement me
         }
