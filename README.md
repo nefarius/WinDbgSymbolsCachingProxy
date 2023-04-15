@@ -45,17 +45,35 @@ If you like this idea and want to keep my public instance happy, up and running 
 ## TODOs and ideas
 
 - [ ] Add support to provide a custom directory where the server can pick up custom/private symbols from and cache them with the same methods.
+  - [X] Add support for PDB files
+  - [ ] Add support for binaries (`.sys`, `.dll`, `.exe`)
 - [X] Make retry and cache invalidation parameters configurable e.g. via `appsettings.json`
 - [ ] Maybe add custom "admin" endpoints to upload custom symbols, delete existing entries and invalidate cache on command?
 - [X] Add timer to periodically check if 404ed symbols are now available
 - [ ] Add timer to automate some tasks, maybe log last symbol access and scrub some that never got requested after a few months or so
 
-## 3rd party credits
+## Sources & 3rd party credits
+
+This application benefits from these awesome projects ❤ (appearance in no special order):
+
+### Web, Database
 
 - [FastEndpoints](https://fast-endpoints.com/)
 - [MongoDB Entities](https://mongodb-entities.com/)
-- [Nefarius.Utilities.AspNetCore](https://github.com/nefarius/Nefarius.Utilities.AspNetCore)
+
+### PE, PDB, etc. parsing
+
+- [PDBSharp](https://github.com/smx-smx/PDBSharp)
 - [PeNet](https://github.com/secana/PeNet)
+- [Mime-Detective](https://github.com/MediatedCommunications/Mime-Detective)
+
+### Badge generation
+
 - [badger](https://github.com/8/badger)
 - [SkiaSharp](https://github.com/mono/SkiaSharp)
+
+### Misc.
+
 - [Resourcer.Fody](https://github.com/Fody/Resourcer)
+- [Nefarius.Utilities.AspNetCore](https://github.com/nefarius/Nefarius.Utilities.AspNetCore)
+- [idunno.Authentication](https://github.com/blowdart/idunno.Authentication)

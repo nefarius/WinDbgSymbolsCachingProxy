@@ -9,6 +9,7 @@ services:
       - wdscp-db
     volumes:
       - ./data/logs:/app/logs
+      - ./data/keys:/root/.aspnet
     environment:
       - TZ=Europe/Vienna
     networks:
