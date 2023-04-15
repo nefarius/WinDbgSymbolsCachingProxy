@@ -10,7 +10,8 @@ public class SymbolsEntity : FileEntity
     public string Symbol { get; set; } = null!;
 
     /// <summary>
-    ///     The symbol hash.
+    ///     The symbol "hash". This is a hex representation of the signature (UInt32 pre-v7 and Guid >=v7) and the Age
+    ///     concatenated without leading zeros.
     /// </summary>
     public string Hash { get; set; } = null!;
 
@@ -28,7 +29,7 @@ public class SymbolsEntity : FileEntity
     ///     The file name the upstream server originally returned.
     /// </summary>
     public string? UpstreamFileName { get; set; }
-    
+
     /// <summary>
     ///     The last time this entry was requested via REST.
     /// </summary>
@@ -40,7 +41,7 @@ public class SymbolsEntity : FileEntity
     public bool IsCustom { get; set; }
 
     /// <summary>
-    ///     Gets when this symbol was added manually via file upload. 
+    ///     Gets when this symbol was added manually via file upload.
     /// </summary>
     public DateTime? UploadedAt { get; set; }
 

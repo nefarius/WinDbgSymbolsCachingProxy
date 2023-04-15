@@ -134,7 +134,7 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
                 case { MimeType: "application/octet-stream", Description: "Microsoft Program DataBase (generic)" }:
                     {
                         _logger.LogInformation("{FileName} is an older PDB, parsing...", section.FileName);
-                        
+
                         using PDBFile? pdb = PDBFile.Open(ms);
 
                         if (pdb.Type == PDBType.Old)
@@ -152,8 +152,16 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
                             return;
                         }
 
+                        PdbStreamReader? pdbStream = pdb.Services.GetService<PdbStreamReader>();
+                        
+                        if (pdbStream is null)
+                        {
+                            await SendAsync("Failed to get PDB stream.", 500, ct);
+                            return;
+                        }
+                        
                         uint age = hdr.Age;
-                        uint signature = hdr.Signature;
+                        uint signature = pdbStream.Signature;
 
                         string hash = $"{signature:X}{age:X}".ToUpperInvariant();
                         string file = section.FileName;
