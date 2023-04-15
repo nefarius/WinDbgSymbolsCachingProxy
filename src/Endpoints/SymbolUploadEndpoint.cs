@@ -74,64 +74,123 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
 
             DefinitionMatch detectedType = fileTypeDetection.First();
 
-            // PDB v7 has been uploaded
-            if (detectedType.Definition.File is
-                { MimeType: "application/x-ms-pdb", Description: "Microsoft Program DataBase (v7)" })
+            switch (detectedType.Definition.File)
             {
-                _logger.LogInformation("{FileName} is a PDB v7, parsing...", section.FileName);
+                // PDB v7 has been uploaded
+                case { MimeType: "application/x-ms-pdb", Description: "Microsoft Program DataBase (v7)" }:
+                    {
+                        _logger.LogInformation("{FileName} is a PDB v7, parsing...", section.FileName);
 
-                using PDBFile? pdb = PDBFile.Open(ms);
-                await using DBIReader dbi = pdb.Services.GetService<DBIReader>();
+                        using PDBFile? pdb = PDBFile.Open(ms);
+                        await using DBIReader dbi = pdb.Services.GetService<DBIReader>();
 
-                if (dbi.Header is not DBIHeaderNew hdr)
-                {
-                    await SendAsync("Failed to parse PDB header.", 500, ct);
-                    return;
-                }
+                        if (dbi.Header is not DBIHeaderNew hdr)
+                        {
+                            await SendAsync("Failed to parse PDB header.", 500, ct);
+                            return;
+                        }
 
-                uint age = hdr.Age;
+                        uint age = hdr.Age;
 
-                await using PdbStreamReader? pdbStream = pdb.Services.GetService<PdbStreamReader>();
-                Guid guid = pdbStream.NewSignature;
+                        await using PdbStreamReader? pdbStream = pdb.Services.GetService<PdbStreamReader>();
+                        Guid guid = pdbStream.NewSignature;
 
-                string hash = $"{guid:N}{age:X}".ToUpperInvariant();
-                string file = section.FileName;
-                string name = string.IsNullOrEmpty(section.Name) ? file : section.Name;
+                        string hash = $"{guid:N}{age:X}".ToUpperInvariant();
+                        string file = section.FileName;
+                        string name = string.IsNullOrEmpty(section.Name) ? file : section.Name;
 
-                // duplicate check
-                if ((await DB.Find<SymbolsEntity>()
-                        .ManyAsync(lr =>
-                                lr.Eq(r => r.Symbol, name) &
-                                lr.Eq(r => r.Hash, hash) &
-                                lr.Eq(r => r.File, file)
-                            , ct)).Any())
-                {
-                    await SendAsync($"Symbol with name {file} and hash {hash} already exists.", 409, ct);
-                    return;
-                }
+                        // duplicate check
+                        if ((await DB.Find<SymbolsEntity>()
+                                .ManyAsync(lr =>
+                                        lr.Eq(r => r.Symbol, name) &
+                                        lr.Eq(r => r.Hash, hash) &
+                                        lr.Eq(r => r.File, file)
+                                    , ct)).Any())
+                        {
+                            await SendAsync($"Symbol with name {file} and hash {hash} already exists.", 409, ct);
+                            return;
+                        }
 
-                // new entry
-                SymbolsEntity symbol = new()
-                {
-                    Symbol = name,
-                    File = file,
-                    Hash = hash,
-                    IsCustom = true,
-                    UploadedAt = DateTime.UtcNow
-                };
+                        // new entry
+                        SymbolsEntity symbol = new()
+                        {
+                            Symbol = name,
+                            File = file,
+                            Hash = hash,
+                            IsCustom = true,
+                            UploadedAt = DateTime.UtcNow
+                        };
 
-                ms.Position = 0;
+                        ms.Position = 0;
 
-                // upload blob
-                await symbol.SaveAsync(cancellation: ct);
-                await symbol.Data.UploadAsync(ms, cancellation: ct);
+                        // upload blob
+                        await symbol.SaveAsync(cancellation: ct);
+                        await symbol.Data.UploadAsync(ms, cancellation: ct);
 
-                _logger.LogInformation("Added new symbol {Symbol}", symbol);
-            }
-            else
-            {
-                _logger.LogWarning("Couldn't detect supported file type, skipping {Name}", section.FileName);
-                // TODO: implement me
+                        _logger.LogInformation("Added new symbol {Symbol}", symbol);
+                        break;
+                    }
+                // Pre-v7 PDB has been uploaded
+                case { MimeType: "application/octet-stream", Description: "Microsoft Program DataBase (generic)" }:
+                    {
+                        _logger.LogInformation("{FileName} is an older PDB, parsing...", section.FileName);
+
+                        // TODO: fixup below!
+                        
+                        using PDBFile? pdb = PDBFile.Open(ms);
+                        await using DBIReader dbi = pdb.Services.GetService<DBIReader>();
+
+                        if (dbi.Header is not DBIHeaderNew hdr)
+                        {
+                            await SendAsync("Failed to parse PDB header.", 500, ct);
+                            return;
+                        }
+
+                        uint age = hdr.Age;
+
+                        await using PdbStreamReader? pdbStream = pdb.Services.GetService<PdbStreamReader>();
+                        Guid guid = pdbStream.NewSignature;
+
+                        string hash = $"{guid:N}{age:X}".ToUpperInvariant();
+                        string file = section.FileName;
+                        string name = string.IsNullOrEmpty(section.Name) ? file : section.Name;
+
+                        // duplicate check
+                        if ((await DB.Find<SymbolsEntity>()
+                                .ManyAsync(lr =>
+                                        lr.Eq(r => r.Symbol, name) &
+                                        lr.Eq(r => r.Hash, hash) &
+                                        lr.Eq(r => r.File, file)
+                                    , ct)).Any())
+                        {
+                            await SendAsync($"Symbol with name {file} and hash {hash} already exists.", 409, ct);
+                            return;
+                        }
+
+                        // new entry
+                        SymbolsEntity symbol = new()
+                        {
+                            Symbol = name,
+                            File = file,
+                            Hash = hash,
+                            IsCustom = true,
+                            UploadedAt = DateTime.UtcNow
+                        };
+
+                        ms.Position = 0;
+
+                        // upload blob
+                        await symbol.SaveAsync(cancellation: ct);
+                        await symbol.Data.UploadAsync(ms, cancellation: ct);
+
+                        _logger.LogInformation("Added new symbol {Symbol}", symbol);
+
+                        break;
+                    }
+                default:
+                    _logger.LogWarning("Couldn't detect supported file type, skipping {Name}", section.FileName);
+                    // TODO: implement me
+                    break;
             }
         }
 
