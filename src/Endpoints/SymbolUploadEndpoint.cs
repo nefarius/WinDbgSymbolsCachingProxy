@@ -134,10 +134,16 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
                 case { MimeType: "application/octet-stream", Description: "Microsoft Program DataBase (generic)" }:
                     {
                         _logger.LogInformation("{FileName} is an older PDB, parsing...", section.FileName);
-
-                        // TODO: fixup below!
                         
                         using PDBFile? pdb = PDBFile.Open(ms);
+
+                        if (pdb.Type == PDBType.Old)
+                        {
+                            _logger.LogWarning("The uploaded PDB {File} version is not supported", section.FileName);
+                            await SendAsync("The provided PDB format is too old and not supported.", 400, ct);
+                            return;
+                        }
+
                         await using DBIReader dbi = pdb.Services.GetService<DBIReader>();
 
                         if (dbi.Header is not DBIHeaderNew hdr)
@@ -147,11 +153,9 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
                         }
 
                         uint age = hdr.Age;
+                        uint signature = hdr.Signature;
 
-                        await using PdbStreamReader? pdbStream = pdb.Services.GetService<PdbStreamReader>();
-                        Guid guid = pdbStream.NewSignature;
-
-                        string hash = $"{guid:N}{age:X}".ToUpperInvariant();
+                        string hash = $"{signature:X}{age:X}".ToUpperInvariant();
                         string file = section.FileName;
                         string name = string.IsNullOrEmpty(section.Name) ? file : section.Name;
 
