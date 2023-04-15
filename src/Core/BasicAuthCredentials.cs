@@ -2,6 +2,9 @@
 
 namespace WinDbgSymbolsCachingProxy.Core;
 
+/// <summary>
+///     Represents basic credentials required for Basic Authentication.
+/// </summary>
 [SuppressMessage("ReSharper", "MemberCanBePrivate.Global")]
 [SuppressMessage("ReSharper", "AutoPropertyCanBeMadeGetOnly.Global")]
 [SuppressMessage("ReSharper", "ClassNeverInstantiated.Global")]
