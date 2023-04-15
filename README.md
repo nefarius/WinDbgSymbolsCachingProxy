@@ -74,6 +74,7 @@ This application benefits from these awesome projects ❤ (appearance in no spec
 
 ### Misc.
 
+- [Coravel](https://docs.coravel.net/)
 - [Resourcer.Fody](https://github.com/Fody/Resourcer)
 - [Nefarius.Utilities.AspNetCore](https://github.com/nefarius/Nefarius.Utilities.AspNetCore)
 - [idunno.Authentication](https://github.com/blowdart/idunno.Authentication)
