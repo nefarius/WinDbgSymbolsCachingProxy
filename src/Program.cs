@@ -16,27 +16,12 @@ using MongoDB.Entities;
 
 using Nefarius.Utilities.AspNetCore;
 
-using PeNet;
-
 using Polly;
 using Polly.Contrib.WaitAndRetry;
 
 using WinDbgSymbolsCachingProxy.Core;
 using WinDbgSymbolsCachingProxy.Jobs;
 using WinDbgSymbolsCachingProxy.Services;
-
-
-PeFile peFile = new(@"F:\Downloads\SetupImgBurn_2.5.8.0.exe");
-
-if (peFile.Resources is null)
-{
-    return;
-}
-
-var debug = peFile.ImageDebugDirectory;
-
-var sig = peFile.ImageNtHeaders.Signature.ToString("X");
-
 
 WebApplicationBuilder? builder = WebApplication.CreateBuilder(args).Setup();
 
