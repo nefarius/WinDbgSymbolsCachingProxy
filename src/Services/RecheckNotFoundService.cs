@@ -18,7 +18,7 @@ public sealed class RecheckNotFoundService
     public async Task Run(CancellationToken ct = default)
     {
         List<SymbolsEntity>? notFoundSymbols = await DB.Find<SymbolsEntity>().ManyAsync(
-            sym => sym.NotFoundAt != null, ct);
+            sym => sym.NotFoundAt != null && !sym.IsCustom, ct);
 
         HttpClient client = _clientFactory.CreateClient("MicrosoftSymbolServer");
 
