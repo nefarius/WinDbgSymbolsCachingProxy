@@ -59,13 +59,13 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
                 case ".sys":
                     {
                         key = await ParseExecutable(filename, ms);
-                        signature = key.Split('/').Last();
+                        signature = key.Split('/')[1];
                         break;
                     }
                 case ".pdb":
                     {
                         key = await ParsePdb(filename, ms);
-                        signature = key.Split('/').Last();
+                        signature = key.Split('/')[1];
                         break;
                     }
                 default:
@@ -111,7 +111,7 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
     /// </summary>
     /// <param name="fileName">The file  name (with extension, without path).</param>
     /// <param name="stream">The stream containing the file content.</param>
-    /// <returns>The key of the symbol.</returns>
+    /// <returns>The index prefix of the symbol.</returns>
     private Task<string> ParseExecutable(string fileName, MemoryStream stream)
     {
         KeyTypeFlags flags = KeyTypeFlags.IdentityKey | KeyTypeFlags.SymbolKey | KeyTypeFlags.ClrKeys;
@@ -133,7 +133,7 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
     /// </summary>
     /// <param name="fileName">The file  name (with extension, without path).</param>
     /// <param name="stream">The stream containing the file content.</param>
-    /// <returns>The key of the PDB.</returns>
+    /// <returns>The index prefix of the PDB.</returns>
     /// <exception cref="FailedToParsePdbException">Thrown on error.</exception>
     private async Task<string> ParsePdb(string fileName, MemoryStream stream)
     {
@@ -170,7 +170,8 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
                     uint age = hdr.Age;
                     uint signature = pdbStream.Signature;
 
-                    return $"{signature:X}{age:X}".ToUpperInvariant();
+                    string key = $"{signature:X}{age:X}".ToUpperInvariant();
+                    return $"{fileName}/{key}/";
                 }
             case PDBType.Big:
                 {
@@ -187,7 +188,7 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
                     Guid guid = pdbStream.NewSignature;
 
                     string key = $"{guid:N}{age:X}".ToUpperInvariant();
-                    string indexPrefix = $"{fileName}/{key.ToLowerInvariant()}/";
+                    string indexPrefix = $"{fileName}/{key}/";
 
                     pdb.Dispose();
                     stream.Position = 0;
@@ -203,12 +204,12 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
 
                     SymbolStoreKeyWrapper symStoreKey = keys.First();
 
-                    if (!indexPrefix.Equals(symStoreKey.Key.IndexPrefix))
+                    if (!indexPrefix.Equals(symStoreKey.Key.IndexPrefix, StringComparison.OrdinalIgnoreCase))
                     {
                         throw new FailedToParsePdbException("PDB parsing signature+age mismatches symstore keys.");
                     }
 
-                    return key;
+                    return indexPrefix;
                 }
         }
 
