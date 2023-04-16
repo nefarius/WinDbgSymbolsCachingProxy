@@ -95,6 +95,7 @@ internal sealed class SymStoreService
         }
     }
 
+    [Obsolete("We don't want to deal with disk read and write, do MemoryStream etc. only.")]
     private async Task WriteFile(SymbolStoreFile file, SymbolStoreKeyWrapper wrapper)
     {
         if (OutputDirectory != null)
@@ -108,6 +109,7 @@ internal sealed class SymStoreService
         }
     }
 
+    [Obsolete("We don't want to deal with disk read and write, do MemoryStream etc. only.")]
     private async Task WriteFileToDirectory(Stream stream, string fileName, string destinationDirectory)
     {
         stream.Position = 0;
