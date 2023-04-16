@@ -31,7 +31,7 @@ public sealed class RecheckNotFoundService
             HttpClient client = _clientFactory.CreateClient("MicrosoftSymbolServer");
 
             HttpResponseMessage response =
-                await client.GetAsync($"download/symbols/{symbol.Symbol}/{symbol.Hash}/{symbol.File}", token);
+                await client.GetAsync($"download/symbols/{symbol.Symbol}/{symbol.SignatureAge}/{symbol.File}", token);
 
             if (!response.IsSuccessStatusCode)
             {

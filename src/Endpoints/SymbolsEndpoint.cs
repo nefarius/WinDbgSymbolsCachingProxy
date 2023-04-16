@@ -11,6 +11,9 @@ using WinDbgSymbolsCachingProxy.Models;
 
 namespace WinDbgSymbolsCachingProxy.Endpoints;
 
+/// <summary>
+///     Serves symbol downloads, mirroring the behaviour of the Microsoft Symbol Server.
+/// </summary>
 public sealed class SymbolsEndpoint : Endpoint<SymbolsRequest>
 {
     private readonly IHttpClientFactory _clientFactory;
@@ -36,7 +39,7 @@ public sealed class SymbolsEndpoint : Endpoint<SymbolsRequest>
         SymbolsEntity? existingSymbol = (await DB.Find<SymbolsEntity>()
                 .ManyAsync(lr =>
                         lr.Eq(r => r.Symbol, req.Symbol) &
-                        lr.Eq(r => r.Hash, req.SignatureAge) &
+                        lr.Eq(r => r.SignatureAge, req.SignatureAge) &
                         lr.Eq(r => r.File, req.File)
                     , ct)
             ).FirstOrDefault();

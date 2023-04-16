@@ -4,16 +4,20 @@ namespace WinDbgSymbolsCachingProxy.Models;
 
 public class SymbolsEntity : FileEntity
 {
+    // TODO: should we use the symbol "key" as the primary key (ID) in the DB? "Should" be unique after all...
+
     /// <summary>
-    ///     The symbol name.
+    ///     The symbol name (left-hand part of the so-called "key" of a symbol).
     /// </summary>
     public string Symbol { get; set; } = null!;
 
     /// <summary>
-    ///     The symbol "hash". This is a hex representation of the signature (UInt32 pre-v7 and Guid >=v7) and the Age
+    ///     The symbol "hash" (misleading name, therefore changed property name but kept DB field name to not break backwards
+    ///     compatibility). This is a hex representation of the signature (UInt32 pre-v7 and Guid >=v7) and the Age
     ///     concatenated without leading zeros.
     /// </summary>
-    public string Hash { get; set; } = null!;
+    [Field("Hash")]
+    public string SignatureAge { get; set; } = null!;
 
     /// <summary>
     ///     The symbol blob file name.
@@ -26,7 +30,8 @@ public class SymbolsEntity : FileEntity
     public DateTime? NotFoundAt { get; set; }
 
     /// <summary>
-    ///     The file name the upstream server originally returned.
+    ///     The file name the upstream server originally returned. This will most likely differ since most symbol path requests
+    ///     upstream will end in a redirect.
     /// </summary>
     public string? UpstreamFileName { get; set; }
 
@@ -47,6 +52,6 @@ public class SymbolsEntity : FileEntity
 
     public override string ToString()
     {
-        return $"{Symbol} - {File} ({Hash})";
+        return $"{Symbol} - {File} ({SignatureAge})";
     }
 }
