@@ -71,7 +71,7 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
                 default:
                     throw new InvalidOperationException($"File {filename} has unsupported extension.");
             }
-            
+
             _logger.LogInformation("Got key {Key} with signature {Signature}", key, signature);
 
             // duplicate check
@@ -174,11 +174,18 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
                 }
             case PDBType.Big:
                 {
+                    List<SymbolStoreKeyWrapper> keys;
+                    const KeyTypeFlags flags = KeyTypeFlags.IdentityKey | KeyTypeFlags.SymbolKey | KeyTypeFlags.ClrKeys;
+
                     await using DBIReader dbi = pdb.Services.GetService<DBIReader>();
 
                     if (dbi.Header is not DBIHeaderNew hdr)
                     {
-                        throw new FailedToParsePdbException("Failed to parse PDB header.");
+                        _logger.LogWarning("Couldn't get DBIHeaderNew, using symstore fallback");
+                        
+                        keys = _symStore.GetKeys(flags, fileName, stream).ToList();
+
+                        return keys.First().Key.IndexPrefix;
                     }
 
                     uint age = hdr.Age;
@@ -192,9 +199,7 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
                     pdb.Dispose();
                     stream.Position = 0;
 
-                    const KeyTypeFlags flags = KeyTypeFlags.IdentityKey | KeyTypeFlags.SymbolKey | KeyTypeFlags.ClrKeys;
-
-                    List<SymbolStoreKeyWrapper> keys = _symStore.GetKeys(flags, fileName, stream).ToList();
+                    keys = _symStore.GetKeys(flags, fileName, stream).ToList();
 
                     if (!keys.Any())
                     {
