@@ -20,6 +20,7 @@ public sealed class RecheckNotFoundService
         List<SymbolsEntity>? notFoundSymbols = await DB.Find<SymbolsEntity>().ManyAsync(
             sym => sym.NotFoundAt != null && !sym.IsCustom, ct);
 
+        // https://stackoverflow.com/a/9290531
         ParallelOptions opts = new()
         {
             CancellationToken = ct,
