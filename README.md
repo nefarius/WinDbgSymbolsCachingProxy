@@ -65,7 +65,7 @@ This application benefits from these awesome projects ❤ (appearance in no spec
 
 - [PDBSharp](https://github.com/smx-smx/PDBSharp)
 - [PeNet](https://github.com/secana/PeNet)
-- [Mime-Detective](https://github.com/MediatedCommunications/Mime-Detective)
+- [Microsoft.SymbolStore](https://github.com/dotnet/symstore)
 
 ### Badge generation
 

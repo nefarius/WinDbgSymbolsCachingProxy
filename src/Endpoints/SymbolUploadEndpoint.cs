@@ -1,19 +1,14 @@
-﻿using System.Collections.Immutable;
-
-using FastEndpoints;
+﻿using FastEndpoints;
 
 using Microsoft.AspNetCore.WebUtilities;
-
-using MimeDetective;
-using MimeDetective.Definitions;
-using MimeDetective.Definitions.Licensing;
-using MimeDetective.Engine;
-using MimeDetective.Storage;
+using Microsoft.SymbolStore.KeyGenerators;
 
 using MongoDB.Entities;
 
 using Smx.PDBSharp;
 
+using WinDbgSymbolsCachingProxy.Core;
+using WinDbgSymbolsCachingProxy.Core.Exceptions;
 using WinDbgSymbolsCachingProxy.Models;
 using WinDbgSymbolsCachingProxy.Services;
 
@@ -21,22 +16,6 @@ namespace WinDbgSymbolsCachingProxy.Endpoints;
 
 public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
 {
-    private static readonly ImmutableArray<Definition> AllDefinitions = new ExhaustiveBuilder
-    {
-        UsageType = UsageType.PersonalNonCommercial
-    }.Build();
-
-    private static readonly ImmutableHashSet<string> Extensions =
-        new[] { "pdb", "sys", "exe", "dll" }.ToImmutableHashSet(StringComparer.InvariantCultureIgnoreCase);
-
-    private static readonly ImmutableArray<Definition> ScopedDefinitions = AllDefinitions
-        .ScopeExtensions(Extensions)
-        .TrimMeta()
-        .ToImmutableArray();
-
-    private static readonly ContentInspector Inspector =
-        new ContentInspectorBuilder { Definitions = ScopedDefinitions }.Build();
-
     private readonly ILogger<SymbolUploadEndpoint> _logger;
     private readonly SymStoreService _symStore;
 
@@ -62,153 +41,177 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
                 continue;
             }
 
+            string filename = section.FileName;
+            string extension = Path.GetExtension(section.FileName).ToLowerInvariant();
+
             using MemoryStream ms = new();
             await section.Section.Body.CopyToAsync(ms, 1024 * 64, ct);
             ms.Position = 0;
 
-            ImmutableArray<DefinitionMatch> fileTypeDetection = Inspector.Inspect(ms);
-            ms.Position = 0;
+            string key;
+            string signature;
+            string name = string.IsNullOrEmpty(section.Name) ? filename : section.Name;
 
-            if (!fileTypeDetection.Any())
+            switch (extension)
             {
-                await SendAsync($"Couldn't detect file type for {section.FileName}", 400, ct);
-                return;
-            }
-
-            DefinitionMatch detectedType = fileTypeDetection.First();
-
-            switch (detectedType.Definition.File)
-            {
-                // PDB v7 has been uploaded
-                case { MimeType: "application/x-ms-pdb", Description: "Microsoft Program DataBase (v7)" }:
+                case ".exe":
+                case ".dll":
+                case ".sys":
                     {
-                        _logger.LogInformation("{FileName} is a PDB v7, parsing...", section.FileName);
-
-                        using PDBFile? pdb = PDBFile.Open(ms);
-                        await using DBIReader dbi = pdb.Services.GetService<DBIReader>();
-
-                        if (dbi.Header is not DBIHeaderNew hdr)
-                        {
-                            await SendAsync("Failed to parse PDB header.", 500, ct);
-                            return;
-                        }
-
-                        uint age = hdr.Age;
-
-                        await using PdbStreamReader? pdbStream = pdb.Services.GetService<PdbStreamReader>();
-                        Guid guid = pdbStream.NewSignature;
-
-                        string hash = $"{guid:N}{age:X}".ToUpperInvariant();
-                        string file = section.FileName;
-                        string name = string.IsNullOrEmpty(section.Name) ? file : section.Name;
-
-                        // duplicate check
-                        if ((await DB.Find<SymbolsEntity>()
-                                .ManyAsync(lr =>
-                                        lr.Eq(r => r.Symbol, name) &
-                                        lr.Eq(r => r.SignatureAge, hash) &
-                                        lr.Eq(r => r.File, file)
-                                    , ct)).Any())
-                        {
-                            await SendAsync($"Symbol with name {file} and hash {hash} already exists.", 409, ct);
-                            return;
-                        }
-
-                        // new entry
-                        SymbolsEntity symbol = new()
-                        {
-                            Symbol = name,
-                            File = file,
-                            SignatureAge = hash,
-                            IsCustom = true,
-                            UploadedAt = DateTime.UtcNow
-                        };
-
-                        ms.Position = 0;
-
-                        // upload blob
-                        await symbol.SaveAsync(cancellation: ct);
-                        await symbol.Data.UploadAsync(ms, cancellation: ct);
-
-                        _logger.LogInformation("Added new symbol {Symbol}", symbol);
+                        key = await ParseExecutable(filename, ms);
+                        signature = key.Split('/').Last();
                         break;
                     }
-                // Pre-v7 PDB has been uploaded
-                case { MimeType: "application/octet-stream", Description: "Microsoft Program DataBase (generic)" }:
+                case ".pdb":
                     {
-                        _logger.LogInformation("{FileName} is an older PDB, parsing...", section.FileName);
-
-                        using PDBFile? pdb = PDBFile.Open(ms);
-
-                        if (pdb.Type == PDBType.Old)
-                        {
-                            _logger.LogWarning("The uploaded PDB {File} version is not supported", section.FileName);
-                            await SendAsync("The provided PDB format is too old and not supported.", 400, ct);
-                            return;
-                        }
-
-                        await using DBIReader dbi = pdb.Services.GetService<DBIReader>();
-
-                        if (dbi.Header is not DBIHeaderNew hdr)
-                        {
-                            await SendAsync("Failed to parse PDB header.", 500, ct);
-                            return;
-                        }
-
-                        PdbStreamReader? pdbStream = pdb.Services.GetService<PdbStreamReader>();
-                        
-                        if (pdbStream is null)
-                        {
-                            await SendAsync("Failed to get PDB stream.", 500, ct);
-                            return;
-                        }
-                        
-                        uint age = hdr.Age;
-                        uint signature = pdbStream.Signature;
-
-                        string hash = $"{signature:X}{age:X}".ToUpperInvariant();
-                        string file = section.FileName;
-                        string name = string.IsNullOrEmpty(section.Name) ? file : section.Name;
-
-                        // duplicate check
-                        if ((await DB.Find<SymbolsEntity>()
-                                .ManyAsync(lr =>
-                                        lr.Eq(r => r.Symbol, name) &
-                                        lr.Eq(r => r.SignatureAge, hash) &
-                                        lr.Eq(r => r.File, file)
-                                    , ct)).Any())
-                        {
-                            await SendAsync($"Symbol with name {file} and hash {hash} already exists.", 409, ct);
-                            return;
-                        }
-
-                        // new entry
-                        SymbolsEntity symbol = new()
-                        {
-                            Symbol = name,
-                            File = file,
-                            SignatureAge = hash,
-                            IsCustom = true,
-                            UploadedAt = DateTime.UtcNow
-                        };
-
-                        ms.Position = 0;
-
-                        // upload blob
-                        await symbol.SaveAsync(cancellation: ct);
-                        await symbol.Data.UploadAsync(ms, cancellation: ct);
-
-                        _logger.LogInformation("Added new symbol {Symbol}", symbol);
-
+                        key = await ParsePdb(filename, ms);
+                        signature = key.Split('/').Last();
                         break;
                     }
                 default:
-                    _logger.LogWarning("Couldn't detect supported file type, skipping {Name}", section.FileName);
-                    // TODO: implement me
-                    break;
+                    throw new InvalidOperationException($"File {filename} has unsupported extension.");
             }
+
+            // duplicate check
+            if ((await DB.Find<SymbolsEntity>()
+                    .ManyAsync(lr =>
+                            lr.Eq(r => r.Symbol, name) &
+                            lr.Eq(r => r.SignatureAge, signature) &
+                            lr.Eq(r => r.File, filename)
+                        , ct)).Any())
+            {
+                await SendAsync($"Symbol with name {filename} and key {key} already exists.", 409, ct);
+                return;
+            }
+
+            // new entry
+            SymbolsEntity symbol = new()
+            {
+                Symbol = name,
+                File = filename,
+                SignatureAge = signature,
+                IsCustom = true,
+                UploadedAt = DateTime.UtcNow
+            };
+
+            ms.Position = 0;
+
+            // upload blob
+            await symbol.SaveAsync(cancellation: ct);
+            await symbol.Data.UploadAsync(ms, cancellation: ct);
+
+            _logger.LogInformation("Added new symbol {Symbol}", symbol);
         }
 
         await SendOkAsync("Upload complete.", ct);
+    }
+
+    /// <summary>
+    ///     Parses various portable executable formats.
+    /// </summary>
+    /// <param name="fileName">The file  name (with extension, without path).</param>
+    /// <param name="stream">The stream containing the file content.</param>
+    /// <returns>The key of the symbol.</returns>
+    private Task<string> ParseExecutable(string fileName, MemoryStream stream)
+    {
+        KeyTypeFlags flags = KeyTypeFlags.IdentityKey | KeyTypeFlags.SymbolKey | KeyTypeFlags.ClrKeys;
+
+        IEnumerable<SymbolStoreKeyWrapper> keys = _symStore.GetKeys(flags, fileName, stream).ToList();
+
+        if (!keys.Any())
+        {
+            throw new FailedToParseExecutableException($"Couldn't get any keys for file {fileName}.");
+        }
+
+        SymbolStoreKeyWrapper key = keys.First();
+
+        return Task.FromResult(key.Key.IndexPrefix);
+    }
+
+    /// <summary>
+    ///     Parses various versions of PDB files.
+    /// </summary>
+    /// <param name="fileName">The file  name (with extension, without path).</param>
+    /// <param name="stream">The stream containing the file content.</param>
+    /// <returns>The key of the PDB.</returns>
+    /// <exception cref="FailedToParsePdbException">Thrown on error.</exception>
+    private async Task<string> ParsePdb(string fileName, MemoryStream stream)
+    {
+        using PDBFile? pdb = PDBFile.Open(stream);
+
+        if (pdb is null)
+        {
+            throw new FailedToParsePdbException($"Couldn't parse {fileName} as PDB file.");
+        }
+
+        if (pdb.Type == PDBType.Old)
+        {
+            throw new FailedToParsePdbException($"The uploaded PDB {fileName} version is not supported.");
+        }
+
+        switch (pdb.Type)
+        {
+            case PDBType.Small:
+                {
+                    await using DBIReader dbi = pdb.Services.GetService<DBIReader>();
+
+                    if (dbi.Header is not DBIHeaderNew hdr)
+                    {
+                        throw new FailedToParsePdbException("Failed to parse PDB header.");
+                    }
+
+                    PdbStreamReader? pdbStream = pdb.Services.GetService<PdbStreamReader>();
+
+                    if (pdbStream is null)
+                    {
+                        throw new FailedToParsePdbException("Failed to get PDB stream.");
+                    }
+
+                    uint age = hdr.Age;
+                    uint signature = pdbStream.Signature;
+
+                    return $"{signature:X}{age:X}".ToUpperInvariant();
+                }
+            case PDBType.Big:
+                {
+                    await using DBIReader dbi = pdb.Services.GetService<DBIReader>();
+
+                    if (dbi.Header is not DBIHeaderNew hdr)
+                    {
+                        throw new FailedToParsePdbException("Failed to parse PDB header.");
+                    }
+
+                    uint age = hdr.Age;
+
+                    await using PdbStreamReader? pdbStream = pdb.Services.GetService<PdbStreamReader>();
+                    Guid guid = pdbStream.NewSignature;
+
+                    string key = $"{guid:N}{age:X}".ToUpperInvariant();
+                    string indexPrefix = $"{fileName}/{key.ToLowerInvariant()}/";
+
+                    pdb.Dispose();
+                    stream.Position = 0;
+
+                    KeyTypeFlags flags = KeyTypeFlags.IdentityKey | KeyTypeFlags.SymbolKey | KeyTypeFlags.ClrKeys;
+
+                    List<SymbolStoreKeyWrapper> keys = _symStore.GetKeys(flags, fileName, stream).ToList();
+
+                    if (!keys.Any())
+                    {
+                        throw new FailedToParsePdbException("Failed to get symstore keys.");
+                    }
+
+                    SymbolStoreKeyWrapper symStoreKey = keys.First();
+
+                    if (!indexPrefix.Equals(symStoreKey.Key.IndexPrefix))
+                    {
+                        throw new FailedToParsePdbException("PDB parsing signature+age mismatches symstore keys.");
+                    }
+
+                    return key;
+                }
+        }
+
+        throw new FailedToParsePdbException($"Couldn't find the signature of PDB {fileName}.");
     }
 }

@@ -10,6 +10,7 @@ using idunno.Authentication.Basic;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
+using Microsoft.SymbolStore;
 
 using MongoDB.Driver;
 using MongoDB.Entities;
@@ -36,6 +37,7 @@ builder.Services.AddSingleton<ISvgService, SvgService>();
 builder.Services.AddTransient<RecheckNotFoundJob>();
 builder.Services.AddSingleton<RecheckNotFoundService>();
 builder.Services.AddTransient<SymStoreService>();
+builder.Services.AddTransient<ITracer, Tracer>();
 
 builder.Services.AddHostedService<StartupService>();
 
