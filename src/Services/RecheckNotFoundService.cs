@@ -20,10 +20,16 @@ public sealed class RecheckNotFoundService
         List<SymbolsEntity>? notFoundSymbols = await DB.Find<SymbolsEntity>().ManyAsync(
             sym => sym.NotFoundAt != null && !sym.IsCustom, ct);
 
-        HttpClient client = _clientFactory.CreateClient("MicrosoftSymbolServer");
-
-        await Parallel.ForEachAsync(notFoundSymbols, ct, async (symbol, token) =>
+        ParallelOptions opts = new()
         {
+            CancellationToken = ct,
+            MaxDegreeOfParallelism = Convert.ToInt32(Math.Ceiling(Environment.ProcessorCount * 0.75 * 1.0))
+        };
+
+        await Parallel.ForEachAsync(notFoundSymbols, opts, async (symbol, token) =>
+        {
+            HttpClient client = _clientFactory.CreateClient("MicrosoftSymbolServer");
+
             HttpResponseMessage response =
                 await client.GetAsync($"download/symbols/{symbol.Symbol}/{symbol.Hash}/{symbol.File}", token);
 
