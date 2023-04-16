@@ -114,7 +114,7 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
     /// <returns>The index prefix of the symbol.</returns>
     private Task<string> ParseExecutable(string fileName, MemoryStream stream)
     {
-        KeyTypeFlags flags = KeyTypeFlags.IdentityKey | KeyTypeFlags.SymbolKey | KeyTypeFlags.ClrKeys;
+        const KeyTypeFlags flags = KeyTypeFlags.IdentityKey | KeyTypeFlags.SymbolKey | KeyTypeFlags.ClrKeys;
 
         IEnumerable<SymbolStoreKeyWrapper> keys = _symStore.GetKeys(flags, fileName, stream).ToList();
 
@@ -144,13 +144,10 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
             throw new FailedToParsePdbException($"Couldn't parse {fileName} as PDB file.");
         }
 
-        if (pdb.Type == PDBType.Old)
-        {
-            throw new FailedToParsePdbException($"The uploaded PDB {fileName} version is not supported.");
-        }
-
         switch (pdb.Type)
         {
+            case PDBType.Old:
+                throw new FailedToParsePdbException($"The uploaded PDB {fileName} version is not supported.");
             case PDBType.Small:
                 {
                     await using DBIReader dbi = pdb.Services.GetService<DBIReader>();
@@ -193,7 +190,7 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
                     pdb.Dispose();
                     stream.Position = 0;
 
-                    KeyTypeFlags flags = KeyTypeFlags.IdentityKey | KeyTypeFlags.SymbolKey | KeyTypeFlags.ClrKeys;
+                    const KeyTypeFlags flags = KeyTypeFlags.IdentityKey | KeyTypeFlags.SymbolKey | KeyTypeFlags.ClrKeys;
 
                     List<SymbolStoreKeyWrapper> keys = _symStore.GetKeys(flags, fileName, stream).ToList();
 
@@ -211,8 +208,8 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
 
                     return indexPrefix;
                 }
+            default:
+                throw new FailedToParsePdbException($"Couldn't find the signature of PDB {fileName}.");
         }
-
-        throw new FailedToParsePdbException($"Couldn't find the signature of PDB {fileName}.");
     }
 }
