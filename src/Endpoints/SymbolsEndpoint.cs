@@ -27,7 +27,7 @@ public sealed class SymbolsEndpoint : Endpoint<SymbolsRequest>
 
     public override void Configure()
     {
-        Get("/download/symbols/{Symbol}/{Hash}/{File}");
+        Get("/download/symbols/{Symbol}/{Signature}/{File}");
         AllowAnonymous();
     }
 
@@ -36,7 +36,7 @@ public sealed class SymbolsEndpoint : Endpoint<SymbolsRequest>
         SymbolsEntity? existingSymbol = (await DB.Find<SymbolsEntity>()
                 .ManyAsync(lr =>
                         lr.Eq(r => r.Symbol, req.Symbol) &
-                        lr.Eq(r => r.Hash, req.Hash) &
+                        lr.Eq(r => r.Hash, req.Signature) &
                         lr.Eq(r => r.File, req.File)
                     , ct)
             ).FirstOrDefault();
@@ -73,7 +73,7 @@ public sealed class SymbolsEndpoint : Endpoint<SymbolsRequest>
         HttpClient client = _clientFactory.CreateClient("MicrosoftSymbolServer");
 
         HttpResponseMessage response =
-            await client.GetAsync($"download/symbols/{req.Symbol}/{req.Hash}/{req.File}", ct);
+            await client.GetAsync($"download/symbols/{req.Symbol}/{req.Signature}/{req.File}", ct);
 
         SymbolsEntity newSymbol = new();
         req.CloneTo(newSymbol);
