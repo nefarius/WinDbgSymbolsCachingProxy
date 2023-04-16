@@ -35,6 +35,7 @@ builder.Services.AddSingleton<IBadgeService, BadgeService>();
 builder.Services.AddSingleton<ISvgService, SvgService>();
 builder.Services.AddTransient<RecheckNotFoundJob>();
 builder.Services.AddSingleton<RecheckNotFoundService>();
+builder.Services.AddTransient<SymStoreService>();
 
 builder.Services.AddHostedService<StartupService>();
 

@@ -2,7 +2,7 @@
 
 namespace WinDbgSymbolsCachingProxy.Core;
 
-internal sealed class SymbolStoreKeyWrapper
+public sealed class SymbolStoreKeyWrapper
 {
     public readonly string InputFile;
     public readonly SymbolStoreKey Key;

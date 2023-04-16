@@ -15,6 +15,7 @@ using MongoDB.Entities;
 using Smx.PDBSharp;
 
 using WinDbgSymbolsCachingProxy.Models;
+using WinDbgSymbolsCachingProxy.Services;
 
 namespace WinDbgSymbolsCachingProxy.Endpoints;
 
@@ -37,10 +38,12 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
         new ContentInspectorBuilder { Definitions = ScopedDefinitions }.Build();
 
     private readonly ILogger<SymbolUploadEndpoint> _logger;
+    private readonly SymStoreService _symStore;
 
-    public SymbolUploadEndpoint(ILogger<SymbolUploadEndpoint> logger)
+    public SymbolUploadEndpoint(ILogger<SymbolUploadEndpoint> logger, SymStoreService symStore)
     {
         _logger = logger;
+        _symStore = symStore;
     }
 
     public override void Configure()
