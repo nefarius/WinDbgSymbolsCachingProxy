@@ -59,13 +59,13 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
                 case ".sys":
                     {
                         key = await ParseExecutable(filename, ms);
-                        signature = key.Split('/')[1];
+                        signature = key.Split('/')[1].ToUpper();
                         break;
                     }
                 case ".pdb":
                     {
                         key = await ParsePdb(filename, ms);
-                        signature = key.Split('/')[1];
+                        signature = key.Split('/')[1].ToUpper();
                         break;
                     }
                 default:
