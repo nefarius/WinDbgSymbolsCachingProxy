@@ -71,6 +71,8 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
                 default:
                     throw new InvalidOperationException($"File {filename} has unsupported extension.");
             }
+            
+            _logger.LogInformation("Got key {Key} with signature {Signature}", key, signature);
 
             // duplicate check
             if ((await DB.Find<SymbolsEntity>()
