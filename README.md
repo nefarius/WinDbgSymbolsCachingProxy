@@ -53,7 +53,7 @@ If you like this idea and want to keep my public instance happy, up and running 
   - `/api/badges/cachedSymbolsFound`
     - Gets the amount of records found upstream (these actually contain the data).
   - `/api/badges/cachedSymbolsNotFound`
-    - Gets the amount of records not found upstream. These get stored with a flag to speed up the 404 responses.  
+    - Gets the amount of records flagged as "not found" upstream.  
 
 ## TODOs and ideas
 
