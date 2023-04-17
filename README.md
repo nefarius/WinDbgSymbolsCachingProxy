@@ -42,6 +42,19 @@ Like any other of my public web services it only logs an absolute minimal amount
 
 If you like this idea and want to keep my public instance happy, up and running [consider making a donation](https://vigem.org/Community-Support/) 💸
 
+## Features
+
+- Caching! Pretty much the main purpose 😁
+  - `/download/symbols/{Symbol}/{SignaturePlusAge}/{File}`
+    - Serves the typical download request the debugger invokes. 
+- Badges! Embed server statistics anywhere via generated SVGs 🖼️
+  - `/api/badges/cachedSymbolsTotal`
+    - Gets total amount of cached records.
+  - `/api/badges/cachedSymbolsFound`
+    - Gets the amount of records found upstream (these actually contain the data).
+  - `/api/badges/cachedSymbolsNotFound`
+    - Gets the amount of records not found upstream. These get stored with a flag to speed up the 404 responses.  
+
 ## TODOs and ideas
 
 - [ ] Add support to provide a custom directory where the server can pick up custom/private symbols from and cache them with the same methods.
