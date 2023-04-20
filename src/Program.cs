@@ -114,6 +114,8 @@ builder.Services.AddAuthorization(options =>
 await DB.InitAsync(serviceConfig.DatabaseName,
     MongoClientSettings.FromConnectionString(serviceConfig.ConnectionString));
 
+await DB.MigrateAsync();
+
 WebApplication? app = builder.Build().Setup();
 
 app.Services.UseScheduler(scheduler =>

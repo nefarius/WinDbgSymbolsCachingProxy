@@ -4,11 +4,39 @@ namespace WinDbgSymbolsCachingProxy.Models;
 
 public class SymbolsEntity : FileEntity
 {
-    // TODO: should we use the symbol "key" as the primary key (ID) in the DB? "Should" be unique after all...
+    /*
+     * Relative URI format explanation:
+     *
+     *
+     * |<=============== Index Prefix ===============>|
+     *              |<============= Key =============>|
+     *                                                |<== File ===>|
+     * WerKernel.pdb/B96A69E1F3383F24ED7E10BBD2B3FFC81/WerKernel.pdb
+     *               \                             / \
+     *                `---------Signature---------´   `Age
+     *
+     */
+
+    /// <summary>
+    ///     The unique identifier of a specific symbol.
+    /// </summary>
+    public string IndexPrefix { get; set; } = null!;
+
+    /// <summary>
+    ///     A hex-encoded concatenated string of the Signature and Age where the Signature in "modern" PDB v7 symbols is
+    ///     represented in a GUID format and the Age is an unsigned 32-bit integer without leading zeroes.
+    /// </summary>
+    public string SymbolKey { get; set; } = null!;
+
+    /// <summary>
+    ///     The symbol blob file name.
+    /// </summary>
+    public string FileName { get; set; } = null!;
 
     /// <summary>
     ///     The symbol name (left-hand part of the so-called "key" of a symbol).
     /// </summary>
+    [Obsolete("Migrate to 'IndexPrefix'")]
     public string Symbol { get; set; } = null!;
 
     /// <summary>
@@ -16,12 +44,13 @@ public class SymbolsEntity : FileEntity
     ///     compatibility). This is a hex representation of the signature (UInt32 pre-v7 and Guid >=v7) and the Age
     ///     concatenated without leading zeros.
     /// </summary>
-    [Field("Hash")]
-    public string SignatureAge { get; set; } = null!;
+    [Obsolete("Migrate to 'SymbolKey' and 'IndexPrefix'")]
+    public string Hash { get; set; } = null!;
 
     /// <summary>
     ///     The symbol blob file name.
     /// </summary>
+    [Obsolete("Migrate to 'FileName'")]
     public string File { get; set; } = null!;
 
     /// <summary>
@@ -52,6 +81,6 @@ public class SymbolsEntity : FileEntity
 
     public override string ToString()
     {
-        return $"{Symbol} - {File} ({SignatureAge})";
+        return $"{IndexPrefix}/{FileName}";
     }
 }

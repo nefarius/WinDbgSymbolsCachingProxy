@@ -18,17 +18,17 @@ public sealed class SymbolsRequest
     /// <summary>
     ///     A string of the two values "Signature" and "Age" as concatenated hex-values.
     /// </summary>
-    public string SignatureAge { get; set; }
+    public string Key { get; set; }
 
     /// <summary>
     ///     The requested file name. This can be the symbol itself or a text file containing a "redirect path" where the symbol
     ///     can be found.
     /// </summary>
-    public string File { get; set; }
+    public string FileName { get; set; }
 
     /// <summary>
-    ///     Gets what is called the "key" of the symbol which uniquely identifies it.
+    ///     The index prefix is built as a relative URL segment from <see cref="Symbol"/> and <see cref="Key"/>.
     /// </summary>
     [JsonIgnore]
-    public string Key => $"{Symbol}/{SignatureAge}";
+    public string IndexPrefix => $"{Symbol}/{Key.ToUpperInvariant()}";
 }

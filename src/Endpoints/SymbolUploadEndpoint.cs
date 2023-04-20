@@ -78,7 +78,7 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
             if ((await DB.Find<SymbolsEntity>()
                     .ManyAsync(lr =>
                             lr.Eq(r => r.Symbol, name) &
-                            lr.Eq(r => r.SignatureAge, signature) &
+                            lr.Eq(r => r.Hash, signature) &
                             lr.Eq(r => r.File, filename)
                         , ct)).Any())
             {
@@ -91,7 +91,7 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
             {
                 Symbol = name,
                 File = filename,
-                SignatureAge = signature,
+                Hash = signature,
                 IsCustom = true,
                 UploadedAt = DateTime.UtcNow
             };
