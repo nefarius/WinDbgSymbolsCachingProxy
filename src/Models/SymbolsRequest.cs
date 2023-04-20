@@ -18,7 +18,7 @@ public sealed class SymbolsRequest
     /// <summary>
     ///     A string of the two values "Signature" and "Age" as concatenated hex-values.
     /// </summary>
-    public string Key { get; set; }
+    public string SymbolKey { get; set; }
 
     /// <summary>
     ///     The requested file name. This can be the symbol itself or a text file containing a "redirect path" where the symbol
@@ -27,8 +27,8 @@ public sealed class SymbolsRequest
     public string FileName { get; set; }
 
     /// <summary>
-    ///     The index prefix is built as a relative URL segment from <see cref="Symbol"/> and <see cref="Key"/>.
+    ///     The index prefix is built as a relative URL segment from <see cref="Symbol"/> and <see cref="SymbolKey"/>.
     /// </summary>
     [JsonIgnore]
-    public string IndexPrefix => $"{Symbol}/{Key.ToUpperInvariant()}";
+    public string IndexPrefix => $"{Symbol}/{SymbolKey.ToUpperInvariant()}";
 }
