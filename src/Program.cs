@@ -22,6 +22,7 @@ using Polly.Contrib.WaitAndRetry;
 
 using WinDbgSymbolsCachingProxy.Core;
 using WinDbgSymbolsCachingProxy.Jobs;
+using WinDbgSymbolsCachingProxy.Models;
 using WinDbgSymbolsCachingProxy.Services;
 
 WebApplicationBuilder? builder = WebApplication.CreateBuilder(args).Setup();
@@ -114,7 +115,12 @@ builder.Services.AddAuthorization(options =>
 await DB.InitAsync(serviceConfig.DatabaseName,
     MongoClientSettings.FromConnectionString(serviceConfig.ConnectionString));
 
-//await DB.MigrateAsync();
+await DB.MigrateAsync();
+
+await DB.Index<SymbolsEntity>()
+    .Key(a => a.IndexPrefix, KeyType.Text)
+    .Key(a => a.FileName, KeyType.Text)
+    .CreateAsync();
 
 WebApplication? app = builder.Build().Setup();
 
