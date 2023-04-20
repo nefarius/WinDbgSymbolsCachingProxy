@@ -48,7 +48,7 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
             await section.Section.Body.CopyToAsync(ms, 1024 * 64, ct);
             ms.Position = 0;
 
-            string key;
+            string indexPrefix;
             string signature;
             string name = string.IsNullOrEmpty(section.Name) ? filename : section.Name;
 
@@ -58,40 +58,38 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
                 case ".dll":
                 case ".sys":
                     {
-                        key = await ParseExecutable(filename, ms);
-                        signature = key.Split('/')[1].ToUpper();
+                        indexPrefix = await ParseExecutable(filename, ms);
+                        signature = indexPrefix.Split('/')[1].ToUpper();
                         break;
                     }
                 case ".pdb":
                     {
-                        key = await ParsePdb(filename, ms);
-                        signature = key.Split('/')[1].ToUpper();
+                        indexPrefix = await ParsePdb(filename, ms);
+                        signature = indexPrefix.Split('/')[1].ToUpper();
                         break;
                     }
                 default:
                     throw new InvalidOperationException($"File {filename} has unsupported extension.");
             }
 
-            _logger.LogInformation("Got key {Key} with signature {Signature}", key, signature);
+            _logger.LogInformation("Got key {IndexPrefix} with signature {Signature}", indexPrefix, signature);
 
             // duplicate check
             if ((await DB.Find<SymbolsEntity>()
                     .ManyAsync(lr =>
-                            lr.Eq(r => r.Symbol, name) &
-                            lr.Eq(r => r.Hash, signature) &
-                            lr.Eq(r => r.File, filename)
+                            lr.Eq(r => r.IndexPrefix, indexPrefix) &
+                            lr.Eq(r => r.FileName, filename)
                         , ct)).Any())
             {
-                await SendAsync($"Symbol with name {filename} and key {key} already exists.", 409, ct);
+                await SendAsync($"Symbol with name {filename} and index prefix {indexPrefix} already exists.", 409, ct);
                 return;
             }
 
             // new entry
             SymbolsEntity symbol = new()
             {
-                Symbol = name,
-                File = filename,
-                Hash = signature,
+                IndexPrefix = indexPrefix,
+                FileName = filename,
                 IsCustom = true,
                 UploadedAt = DateTime.UtcNow
             };

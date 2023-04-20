@@ -36,26 +36,6 @@ public class SymbolsEntity : FileEntity
     public string FileName { get; set; } = null!;
 
     /// <summary>
-    ///     The symbol name (left-hand part of the so-called "key" of a symbol).
-    /// </summary>
-    [Obsolete("Migrate to 'IndexPrefix'")]
-    public string Symbol { get; set; } = null!;
-
-    /// <summary>
-    ///     The symbol "hash" (misleading name, therefore changed property name but kept DB field name to not break backwards
-    ///     compatibility). This is a hex representation of the signature (UInt32 pre-v7 and Guid >=v7) and the Age
-    ///     concatenated without leading zeros.
-    /// </summary>
-    [Obsolete("Migrate to 'SymbolKey' and 'IndexPrefix'")]
-    public string Hash { get; set; } = null!;
-
-    /// <summary>
-    ///     The symbol blob file name.
-    /// </summary>
-    [Obsolete("Migrate to 'FileName'")]
-    public string File { get; set; } = null!;
-
-    /// <summary>
     ///     Last timestamp that its existence was checked upstream, yet not found.
     /// </summary>
     public DateTime? NotFoundAt { get; set; }
