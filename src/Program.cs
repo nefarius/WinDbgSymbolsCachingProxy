@@ -112,10 +112,16 @@ builder.Services.AddAuthorization(options =>
     options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
 });
 
+Console.WriteLine("Initializing database connection");
+
 await DB.InitAsync(serviceConfig.DatabaseName,
     MongoClientSettings.FromConnectionString(serviceConfig.ConnectionString));
 
+Console.WriteLine("Running database migrations (if any)");
+
 await DB.MigrateAsync();
+
+Console.WriteLine("Creating index");
 
 await DB.Index<SymbolsEntity>()
     .Key(a => a.IndexPrefix, KeyType.Text)
