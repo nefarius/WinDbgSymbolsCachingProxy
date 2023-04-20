@@ -1,4 +1,6 @@
-﻿using MongoDB.Entities;
+﻿using System.Text.Json.Serialization;
+
+using MongoDB.Entities;
 
 namespace WinDbgSymbolsCachingProxy.Models;
 
@@ -79,6 +81,12 @@ public class SymbolsEntity : FileEntity
     /// </summary>
     public DateTime? UploadedAt { get; set; }
 
+    /// <summary>
+    ///     Gets the relative URI (built from <see cref="IndexPrefix"/> and <see cref="FileName"/>).
+    /// </summary>
+    [Ignore]
+    public string RelativeUri => $"{IndexPrefix}{FileName}";
+    
     public override string ToString()
     {
         return $"{IndexPrefix}/{FileName}";

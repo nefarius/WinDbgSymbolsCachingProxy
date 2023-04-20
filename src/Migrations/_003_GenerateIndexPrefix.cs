@@ -10,7 +10,7 @@ public class _003_GenerateIndexPrefix : IMigration
     {
         return DB.Update<SymbolsEntity>()
             .Match(_ => true)
-            .WithPipelineStage("{$set:{IndexPrefix:{$concat:['$Symbol','/','$SymbolKey']}}}")
+            .WithPipelineStage("{$set:{IndexPrefix:{$concat:['$Symbol','/','$SymbolKey','/']}}}")
             .ExecutePipelineAsync();
     }
 }

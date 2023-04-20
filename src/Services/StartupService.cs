@@ -15,6 +15,10 @@ public sealed class StartupService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        #if DEBUG
+        return;
+        #endif
+        
         Stopwatch sw = Stopwatch.StartNew();
 
         _logger.LogInformation("Running 404 re-check");
