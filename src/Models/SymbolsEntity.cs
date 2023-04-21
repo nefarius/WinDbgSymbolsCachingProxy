@@ -1,5 +1,7 @@
 ﻿using System.Text.Json.Serialization;
 
+using MongoDB.Bson;
+using MongoDB.Bson.Serialization.Attributes;
 using MongoDB.Entities;
 
 namespace WinDbgSymbolsCachingProxy.Models;
@@ -37,6 +39,7 @@ public class SymbolsEntity : FileEntity
 
     public ulong Signature { get; set; }
 
+    [BsonGuidRepresentation(GuidRepresentation.Standard)]
     public Guid? NewSignature { get; set; }
 
     public ulong Age { get; set; }

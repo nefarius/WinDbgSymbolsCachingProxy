@@ -12,6 +12,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
 using Microsoft.SymbolStore;
 
+using MongoDB.Bson;
+using MongoDB.Bson.Serialization;
+using MongoDB.Bson.Serialization.Serializers;
 using MongoDB.Driver;
 using MongoDB.Entities;
 
@@ -113,6 +116,8 @@ builder.Services.AddAuthorization(options =>
 });
 
 Console.WriteLine("Initializing database connection");
+
+BsonSerializer.RegisterSerializer(new GuidSerializer(GuidRepresentation.Standard));
 
 await DB.InitAsync(serviceConfig.DatabaseName,
     MongoClientSettings.FromConnectionString(serviceConfig.ConnectionString));
