@@ -1,8 +1,4 @@
-﻿using System.Text.Json.Serialization;
-
-using MongoDB.Bson;
-using MongoDB.Bson.Serialization.Attributes;
-using MongoDB.Entities;
+﻿using MongoDB.Entities;
 
 namespace WinDbgSymbolsCachingProxy.Models;
 
@@ -37,10 +33,19 @@ public class SymbolsEntity : FileEntity
     /// </summary>
     public string FileName { get; set; } = null!;
 
+    /// <summary>
+    ///     The pre-v7 PDB UInt32 Signature.
+    /// </summary>
     public ulong Signature { get; set; }
 
+    /// <summary>
+    ///     The "new", current Signature in GUID format.
+    /// </summary>
     public Guid? NewSignature { get; set; }
 
+    /// <summary>
+    ///     The UInt32 Age value.
+    /// </summary>
     public ulong Age { get; set; }
 
     /// <summary>
