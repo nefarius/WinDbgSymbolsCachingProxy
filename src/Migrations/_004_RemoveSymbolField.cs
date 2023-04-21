@@ -10,7 +10,7 @@ public class _004_RemoveSymbolField : IMigration
     {
         return DB.Update<SymbolsEntity>()
             .Match(_ => true)
-            .WithPipelineStage("{ $unset: { $Symbol: '' } }")
+            .WithPipelineStage("{ $unset: \"Symbol\" }")
             .ExecutePipelineAsync();
     }
 }
