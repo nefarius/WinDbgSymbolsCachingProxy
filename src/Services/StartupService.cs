@@ -130,8 +130,14 @@ public sealed class StartupService : BackgroundService
             {
                 _logger.LogWarning(ex, "Failed to open {IndexPrefix}", symbol.IndexPrefix);
             }
+            catch (NullReferenceException ex)
+            {
+                _logger.LogWarning(ex, "Failed to open {IndexPrefix}", symbol.IndexPrefix);
+            }
         });
 
+        _logger.LogInformation("Parsing finished");
+        
         return;
 #endif
 
