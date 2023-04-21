@@ -35,6 +35,12 @@ public class SymbolsEntity : FileEntity
     /// </summary>
     public string FileName { get; set; } = null!;
 
+    public uint Signature { get; set; }
+
+    public Guid? NewSignature { get; set; }
+
+    public uint Age { get; set; }
+
     /// <summary>
     ///     Last timestamp that its existence was checked upstream, yet not found.
     /// </summary>
