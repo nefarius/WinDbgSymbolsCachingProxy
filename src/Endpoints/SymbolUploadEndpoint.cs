@@ -87,10 +87,7 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
             // new entry
             SymbolsEntity symbol = new()
             {
-                IndexPrefix = indexPrefix,
-                FileName = filename,
-                IsCustom = true,
-                UploadedAt = DateTime.UtcNow
+                IndexPrefix = indexPrefix, FileName = filename, IsCustom = true, UploadedAt = DateTime.UtcNow
             };
 
             ms.Position = 0;
@@ -179,7 +176,7 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
                     if (dbi.Header is not DBIHeaderNew hdr)
                     {
                         _logger.LogWarning("Couldn't get DBIHeaderNew, using symstore fallback");
-                        
+
                         keys = _symStore.GetKeys(flags, fileName, stream).ToList();
 
                         return keys.First().Key.IndexPrefix;
@@ -188,7 +185,17 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
                     uint age = hdr.Age;
 
                     await using PdbStreamReader? pdbStream = pdb.Services.GetService<PdbStreamReader>();
-                    Guid guid = pdbStream.NewSignature;
+
+                    if (pdbStream.NewSignature is null)
+                    {
+                        _logger.LogWarning("Couldn't get NewSignature, using symstore fallback");
+
+                        keys = _symStore.GetKeys(flags, fileName, stream).ToList();
+
+                        return keys.First().Key.IndexPrefix;
+                    }
+
+                    Guid guid = pdbStream.NewSignature.Value;
 
                     string key = $"{guid:N}{age:X}".ToUpperInvariant();
                     string indexPrefix = $"{fileName}/{key}/";
