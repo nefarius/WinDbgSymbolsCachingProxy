@@ -69,6 +69,9 @@ public sealed class StartupService : BackgroundService
                         symbol.Signature = pdbStream.Signature;
                         symbol.Age = hdr.Age;
 
+                        _logger.LogInformation("Got {Signature} and {Age} for {IndexPrefix}", 
+                            symbol.Signature, symbol.Age, symbol.IndexPrefix);
+                        
                         await symbol.SaveAsync(cancellation: token);
                         return;
                     }
@@ -94,8 +97,12 @@ public sealed class StartupService : BackgroundService
                             return;
                         }
 
+                        symbol.Signature = pdbStream.Signature;
                         symbol.NewSignature = pdbStream.NewSignature;
                         symbol.Age = hdr.Age;
+                        
+                        _logger.LogInformation("Got {NewSignature} and {Age} for {IndexPrefix}", 
+                            symbol.NewSignature, symbol.Age, symbol.IndexPrefix);
 
                         await symbol.SaveAsync(cancellation: token);
                         return;
