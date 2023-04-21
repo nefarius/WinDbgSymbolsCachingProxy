@@ -50,7 +50,6 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
 
             string indexPrefix;
             string signature;
-            string name = string.IsNullOrEmpty(section.Name) ? filename : section.Name;
 
             switch (extension)
             {
