@@ -4,7 +4,7 @@ using WinDbgSymbolsCachingProxy.Models;
 
 namespace WinDbgSymbolsCachingProxy.Migrations;
 
-public class _001_HashToSymbolKeyMigration : IMigration
+public class _001_HashToSymbolKey : IMigration
 {
     public Task UpgradeAsync()
     {

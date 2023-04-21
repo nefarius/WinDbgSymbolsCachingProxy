@@ -4,7 +4,7 @@ using WinDbgSymbolsCachingProxy.Models;
 
 namespace WinDbgSymbolsCachingProxy.Migrations;
 
-public class _002_FileToFileNameMigration : IMigration
+public class _002_FileToFileName : IMigration
 {
     public Task UpgradeAsync()
     {
