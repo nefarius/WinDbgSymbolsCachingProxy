@@ -30,7 +30,7 @@ public sealed class SymbolsEndpoint : Endpoint<SymbolsRequest>
 
     public override void Configure()
     {
-        Get("/download/symbols/{Symbol}/{Signature}/{File}");
+        Get("/download/symbols/{Symbol}/{SymbolKey}/{FileName}");
         AllowAnonymous();
     }
 
@@ -38,9 +38,8 @@ public sealed class SymbolsEndpoint : Endpoint<SymbolsRequest>
     {
         SymbolsEntity? existingSymbol = (await DB.Find<SymbolsEntity>()
                 .ManyAsync(lr =>
-                        lr.Eq(r => r.Symbol, req.Symbol) &
-                        lr.Eq(r => r.SignatureAge, req.SignatureAge) &
-                        lr.Eq(r => r.File, req.File)
+                        lr.Eq(r => r.IndexPrefix, req.IndexPrefix) &
+                        lr.Eq(r => r.FileName, req.FileName)
                     , ct)
             ).FirstOrDefault();
 
@@ -65,7 +64,7 @@ public sealed class SymbolsEndpoint : Endpoint<SymbolsRequest>
             using MemoryStream ms = new();
             await existingSymbol.Data.DownloadAsync(ms, cancellation: ct);
             ms.Position = 0;
-            await SendStreamAsync(ms, existingSymbol.UpstreamFileName ?? existingSymbol.File, cancellation: ct);
+            await SendStreamAsync(ms, existingSymbol.UpstreamFileName ?? existingSymbol.FileName, cancellation: ct);
 
             existingSymbol.LastAccessedAt = DateTime.UtcNow;
             await existingSymbol.SaveAsync(cancellation: ct);
@@ -76,7 +75,7 @@ public sealed class SymbolsEndpoint : Endpoint<SymbolsRequest>
         HttpClient client = _clientFactory.CreateClient("MicrosoftSymbolServer");
 
         HttpResponseMessage response =
-            await client.GetAsync($"download/symbols/{req.Symbol}/{req.SignatureAge}/{req.File}", ct);
+            await client.GetAsync($"download/symbols/{req.Symbol}/{req.SymbolKey}/{req.FileName}", ct);
 
         SymbolsEntity newSymbol = new();
         req.CloneTo(newSymbol);
@@ -114,7 +113,7 @@ public sealed class SymbolsEndpoint : Endpoint<SymbolsRequest>
             _logger.LogWarning("Failed to extract upstream filename");
 
             // fallback value
-            upstreamFilename = req.File;
+            upstreamFilename = req.FileName;
         }
 
         _logger.LogInformation("Got requested symbol {@Symbol} ({Filename}), caching", req, upstreamFilename);

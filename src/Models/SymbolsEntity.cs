@@ -4,25 +4,49 @@ namespace WinDbgSymbolsCachingProxy.Models;
 
 public class SymbolsEntity : FileEntity
 {
-    // TODO: should we use the symbol "key" as the primary key (ID) in the DB? "Should" be unique after all...
+    /*
+     * Relative URI format explanation:
+     *
+     *
+     * |<=============== Index Prefix ===============>|
+     *              |<============= Key =============>|
+     *                                                |<== File ===>|
+     * WerKernel.pdb/B96A69E1F3383F24ED7E10BBD2B3FFC81/WerKernel.pdb
+     *               \                             / \
+     *                `---------Signature---------´   `Age
+     *
+     */
 
     /// <summary>
-    ///     The symbol name (left-hand part of the so-called "key" of a symbol).
+    ///     The unique identifier of a specific symbol.
     /// </summary>
-    public string Symbol { get; set; } = null!;
+    public string IndexPrefix { get; set; } = null!;
 
     /// <summary>
-    ///     The symbol "hash" (misleading name, therefore changed property name but kept DB field name to not break backwards
-    ///     compatibility). This is a hex representation of the signature (UInt32 pre-v7 and Guid >=v7) and the Age
-    ///     concatenated without leading zeros.
+    ///     A hex-encoded concatenated string of the Signature and Age where the Signature in "modern" PDB v7 symbols is
+    ///     represented in a GUID format and the Age is an unsigned 32-bit integer without leading zeroes.
     /// </summary>
-    [Field("Hash")]
-    public string SignatureAge { get; set; } = null!;
+    public string SymbolKey { get; set; } = null!;
 
     /// <summary>
     ///     The symbol blob file name.
     /// </summary>
-    public string File { get; set; } = null!;
+    public string FileName { get; set; } = null!;
+
+    /// <summary>
+    ///     The pre-v7 PDB UInt32 Signature.
+    /// </summary>
+    public ulong Signature { get; set; }
+
+    /// <summary>
+    ///     The "new", current Signature in GUID format.
+    /// </summary>
+    public Guid? NewSignature { get; set; }
+
+    /// <summary>
+    ///     The UInt32 Age value.
+    /// </summary>
+    public ulong Age { get; set; }
 
     /// <summary>
     ///     Last timestamp that its existence was checked upstream, yet not found.
@@ -50,8 +74,14 @@ public class SymbolsEntity : FileEntity
     /// </summary>
     public DateTime? UploadedAt { get; set; }
 
+    /// <summary>
+    ///     Gets the relative URI (built from <see cref="IndexPrefix"/> and <see cref="FileName"/>).
+    /// </summary>
+    [Ignore]
+    public string RelativeUri => $"{IndexPrefix}{FileName}";
+    
     public override string ToString()
     {
-        return $"{Symbol} - {File} ({SignatureAge})";
+        return $"{IndexPrefix}/{FileName}";
     }
 }

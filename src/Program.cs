@@ -12,6 +12,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
 using Microsoft.SymbolStore;
 
+using MongoDB.Bson;
+using MongoDB.Bson.Serialization;
+using MongoDB.Bson.Serialization.Serializers;
 using MongoDB.Driver;
 using MongoDB.Entities;
 
@@ -22,6 +25,7 @@ using Polly.Contrib.WaitAndRetry;
 
 using WinDbgSymbolsCachingProxy.Core;
 using WinDbgSymbolsCachingProxy.Jobs;
+using WinDbgSymbolsCachingProxy.Models;
 using WinDbgSymbolsCachingProxy.Services;
 
 WebApplicationBuilder? builder = WebApplication.CreateBuilder(args).Setup();
@@ -111,8 +115,23 @@ builder.Services.AddAuthorization(options =>
     options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
 });
 
+Console.WriteLine("Initializing database connection");
+
+BsonSerializer.RegisterSerializer(new GuidSerializer(GuidRepresentation.Standard));
+
 await DB.InitAsync(serviceConfig.DatabaseName,
     MongoClientSettings.FromConnectionString(serviceConfig.ConnectionString));
+
+Console.WriteLine("Running database migrations (if any)");
+
+await DB.MigrateAsync();
+
+Console.WriteLine("Creating index");
+
+await DB.Index<SymbolsEntity>()
+    .Key(a => a.IndexPrefix, KeyType.Text)
+    .Key(a => a.FileName, KeyType.Text)
+    .CreateAsync();
 
 WebApplication? app = builder.Build().Setup();
 
