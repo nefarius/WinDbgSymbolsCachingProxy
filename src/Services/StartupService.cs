@@ -26,6 +26,24 @@ public sealed class StartupService : BackgroundService
     {
 #if DEBUG
 
+        //await ParseAllEntries(stoppingToken);
+
+        return;
+#endif
+
+        Stopwatch sw = Stopwatch.StartNew();
+
+        _logger.LogInformation("Running 404 re-check");
+
+        await _recheckNotFoundService.Run(stoppingToken);
+
+        sw.Stop();
+
+        _logger.LogInformation("Re-check finished after {Timespan}", sw.Elapsed);
+    }
+
+    private async Task ParseAllEntries(CancellationToken stoppingToken)
+    {
         _logger.LogInformation("Parsing all symbols ind database");
 
         List<SymbolsEntity>? symbols = await DB.Find<SymbolsEntity>()
@@ -137,18 +155,5 @@ public sealed class StartupService : BackgroundService
         });
 
         _logger.LogInformation("Parsing finished");
-        
-        return;
-#endif
-
-        Stopwatch sw = Stopwatch.StartNew();
-
-        _logger.LogInformation("Running 404 re-check");
-
-        await _recheckNotFoundService.Run(stoppingToken);
-
-        sw.Stop();
-
-        _logger.LogInformation("Re-check finished after {Timespan}", sw.Elapsed);
     }
 }
