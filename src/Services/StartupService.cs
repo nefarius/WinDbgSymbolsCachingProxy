@@ -13,11 +13,12 @@ namespace WinDbgSymbolsCachingProxy.Services;
 
 public sealed class StartupService : BackgroundService
 {
+    private readonly IConfiguration _config;
     private readonly ILogger<StartupService> _logger;
     private readonly RecheckNotFoundService _recheckNotFoundService;
-    private readonly IConfiguration _config;
 
-    public StartupService(RecheckNotFoundService recheckNotFoundService, ILogger<StartupService> logger, IConfiguration config)
+    public StartupService(RecheckNotFoundService recheckNotFoundService, ILogger<StartupService> logger,
+        IConfiguration config)
     {
         _recheckNotFoundService = recheckNotFoundService;
         _logger = logger;
