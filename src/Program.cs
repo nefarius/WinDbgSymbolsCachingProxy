@@ -23,6 +23,8 @@ using Nefarius.Utilities.AspNetCore;
 using Polly;
 using Polly.Contrib.WaitAndRetry;
 
+using Serilog;
+
 using WinDbgSymbolsCachingProxy.Core;
 using WinDbgSymbolsCachingProxy.Jobs;
 using WinDbgSymbolsCachingProxy.Models;
@@ -115,18 +117,18 @@ builder.Services.AddAuthorization(options =>
     options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
 });
 
-Console.WriteLine("Initializing database connection");
+Log.Logger.Information("Initializing database connection");
 
 BsonSerializer.RegisterSerializer(new GuidSerializer(GuidRepresentation.Standard));
 
 await DB.InitAsync(serviceConfig.DatabaseName,
     MongoClientSettings.FromConnectionString(serviceConfig.ConnectionString));
 
-Console.WriteLine("Running database migrations (if any)");
+Log.Logger.Information("Running database migrations (if any)");
 
 await DB.MigrateAsync();
 
-Console.WriteLine("Creating index");
+Log.Logger.Information("Creating index");
 
 await DB.Index<SymbolsEntity>()
     .Key(a => a.IndexPrefix, KeyType.Text)
