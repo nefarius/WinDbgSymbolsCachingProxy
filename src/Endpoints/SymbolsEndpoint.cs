@@ -66,7 +66,10 @@ public sealed class SymbolsEndpoint : Endpoint<SymbolsRequest>
             ms.Position = 0;
             await SendStreamAsync(ms, existingSymbol.UpstreamFileName ?? existingSymbol.FileName, cancellation: ct);
 
+            // update statistics
             existingSymbol.LastAccessedAt = DateTime.UtcNow;
+            existingSymbol.AccessedCount = ++existingSymbol.AccessedCount ?? 1;
+
             await existingSymbol.SaveAsync(cancellation: ct);
 
             return;
@@ -128,6 +131,9 @@ public sealed class SymbolsEndpoint : Endpoint<SymbolsRequest>
         newSymbol.UpstreamFileName = upstreamFilename;
         newSymbol.NotFoundAt = null;
         newSymbol.LastAccessedAt = DateTime.UtcNow;
+        newSymbol.AccessedCount = 1;
+        
+        // save and upload to DB
         await newSymbol.SaveAsync(cancellation: ct);
         await newSymbol.Data.UploadAsync(cache, cancellation: ct);
 

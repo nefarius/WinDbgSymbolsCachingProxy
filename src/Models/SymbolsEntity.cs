@@ -70,6 +70,11 @@ public class SymbolsEntity : FileEntity
     public DateTime? LastAccessedAt { get; set; }
 
     /// <summary>
+    ///     The amount of times this symbol got requested, if ever.
+    /// </summary>
+    public ulong? AccessedCount { get; set; }
+
+    /// <summary>
     ///     Gets whether this symbol has been added via REST API.
     /// </summary>
     public bool IsCustom { get; set; }
