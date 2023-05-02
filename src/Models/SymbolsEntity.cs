@@ -1,7 +1,12 @@
-﻿using MongoDB.Entities;
+﻿using System.Diagnostics.CodeAnalysis;
+
+using MongoDB.Entities;
 
 namespace WinDbgSymbolsCachingProxy.Models;
 
+[SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Global")]
+[SuppressMessage("ReSharper", "UnusedMember.Global")]
+[SuppressMessage("ReSharper", "PropertyCanBeMadeInitOnly.Global")]
 public class SymbolsEntity : FileEntity
 {
     /*
