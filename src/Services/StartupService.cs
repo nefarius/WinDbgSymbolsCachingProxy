@@ -15,31 +15,36 @@ public sealed class StartupService : BackgroundService
 {
     private readonly ILogger<StartupService> _logger;
     private readonly RecheckNotFoundService _recheckNotFoundService;
+    private readonly IConfiguration _config;
 
-    public StartupService(RecheckNotFoundService recheckNotFoundService, ILogger<StartupService> logger)
+    public StartupService(RecheckNotFoundService recheckNotFoundService, ILogger<StartupService> logger, IConfiguration config)
     {
         _recheckNotFoundService = recheckNotFoundService;
         _logger = logger;
+        _config = config;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-#if DEBUG
+        // run PDBSharp parsing for all DB entries, if enabled
+        if (bool.TryParse(_config.GetSection("RunParser").Value, out bool runParser) && runParser)
+        {
+            await ParseAllEntries(stoppingToken);
+        }
 
-        //await ParseAllEntries(stoppingToken);
+        // run 404 re-check, if enabled
+        if (bool.TryParse(_config.GetSection("RunRecheck").Value, out bool runRecheck) && runRecheck)
+        {
+            Stopwatch sw = Stopwatch.StartNew();
 
-        return;
-#endif
+            _logger.LogInformation("Running 404 re-check");
 
-        Stopwatch sw = Stopwatch.StartNew();
+            await _recheckNotFoundService.Run(stoppingToken);
 
-        _logger.LogInformation("Running 404 re-check");
+            sw.Stop();
 
-        await _recheckNotFoundService.Run(stoppingToken);
-
-        sw.Stop();
-
-        _logger.LogInformation("Re-check finished after {Timespan}", sw.Elapsed);
+            _logger.LogInformation("Re-check finished after {Timespan}", sw.Elapsed);
+        }
     }
 
     private async Task ParseAllEntries(CancellationToken stoppingToken)
