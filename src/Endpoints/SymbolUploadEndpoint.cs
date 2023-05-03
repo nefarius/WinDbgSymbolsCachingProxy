@@ -171,7 +171,7 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
                     List<SymbolStoreKeyWrapper> keys;
                     const KeyTypeFlags flags = KeyTypeFlags.IdentityKey | KeyTypeFlags.SymbolKey | KeyTypeFlags.ClrKeys;
 
-                    await using DBIReader? dbi = pdb.Services.GetService<DBIReader>();
+                    await using DBIReader? dbi = pdb.Services.GetService<DBIReader?>();
 
                     if (dbi is null)
                     {
