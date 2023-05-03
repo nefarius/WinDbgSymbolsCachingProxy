@@ -171,8 +171,17 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
                     List<SymbolStoreKeyWrapper> keys;
                     const KeyTypeFlags flags = KeyTypeFlags.IdentityKey | KeyTypeFlags.SymbolKey | KeyTypeFlags.ClrKeys;
 
-                    await using DBIReader dbi = pdb.Services.GetService<DBIReader>();
+                    await using DBIReader? dbi = pdb.Services.GetService<DBIReader>();
 
+                    if (dbi is null)
+                    {
+                        _logger.LogWarning("Couldn't get DBIReader, using symstore fallback");
+
+                        keys = _symStore.GetKeys(flags, fileName, stream).ToList();
+
+                        return keys.First().Key.IndexPrefix;
+                    }
+                    
                     if (dbi.Header is not DBIHeaderNew hdr)
                     {
                         _logger.LogWarning("Couldn't get DBIHeaderNew, using symstore fallback");
