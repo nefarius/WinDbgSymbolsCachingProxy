@@ -92,6 +92,6 @@ public class SymbolsEntity : FileEntity
     
     public override string ToString()
     {
-        return $"{IndexPrefix}/{FileName}";
+        return $"{IndexPrefix}{FileName}";
     }
 }
