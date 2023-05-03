@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Security.Claims;
 
 using Coravel;
@@ -9,6 +10,7 @@ using FastEndpoints;
 using idunno.Authentication.Basic;
 
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Hosting.WindowsServices;
 using Microsoft.Extensions.Options;
 using Microsoft.SymbolStore;
 
@@ -30,7 +32,26 @@ using WinDbgSymbolsCachingProxy.Jobs;
 using WinDbgSymbolsCachingProxy.Models;
 using WinDbgSymbolsCachingProxy.Services;
 
-WebApplicationBuilder? builder = WebApplication.CreateBuilder(args).Setup();
+
+WebApplicationOptions opts = new()
+{
+    Args = args,
+    ContentRootPath = AppContext.BaseDirectory
+};
+
+Directory.SetCurrentDirectory(AppContext.BaseDirectory);
+
+WebApplicationBuilder? builder = WebApplication.CreateBuilder(opts).Setup();
+
+if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+{
+    Log.Logger.Information("Configuring Windows Service");
+    
+    builder.Host.UseWindowsService(options =>
+    {
+        options.ServiceName = "WinDbgSymbolsCachingProxy";
+    });
+}
 
 builder.WebHost.ConfigureKestrel(o =>
 {
