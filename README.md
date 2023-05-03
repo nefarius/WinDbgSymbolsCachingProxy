@@ -65,6 +65,12 @@ If you like this idea and want to keep my public instance happy, up and running 
 - [X] Add timer to periodically check if 404ed symbols are now available
 - [ ] Add timer to automate some tasks, maybe log last symbol access and scrub some that never got requested after a few months or so
 
+## How to publish
+
+```PowerShell
+dotnet publish -p:PublishProfile=Properties\PublishProfiles\release-win-x64.pubxml -c:Release .\WinDbgSymbolsCachingProxy.sln
+```
+
 ## Sources & 3rd party credits
 
 This application benefits from these awesome projects ❤ (appearance in no special order):
