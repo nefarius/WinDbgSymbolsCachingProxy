@@ -20,7 +20,7 @@ Let's see if my efforts paid off, shall we! I've opened a kernel memory dump whi
 
 ### With proxy, no local cache
 
-**1 minute, 20 seconds**.  Whoa, we're getting somewhere! 😃
+**1 minute, 20 seconds**. Whoa, we're getting somewhere! 😃
 
 ### With proxy and local cache
 
