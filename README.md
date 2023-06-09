@@ -57,6 +57,8 @@ If you like this idea and want to keep my public instance happy, up and running 
 
 ## TODOs and ideas
 
+A non-exhaustive list of notes about features that I may implement some day:
+
 - [ ] Add support to provide a custom directory where the server can pick up custom/private symbols from and cache them with the same methods.
   - [X] Add support for PDB files
   - [X] Add support for binaries (`.sys`, `.dll`, `.exe`)
