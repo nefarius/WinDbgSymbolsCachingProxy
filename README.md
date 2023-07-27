@@ -40,7 +40,7 @@ This means my local symbol cache resides at `D:\symbols`, adjust to your own pre
 
 Like any other of my public web services it only logs an absolute minimal amount required for debugging purposes and I'll never sell your data out to the big bois 😉
 
-If you like this idea and want to keep my public instance happy, up and running [consider making a donation](https://vigem.org/Community-Support/) 💸
+If you like this idea and want to keep my public instance happy, up and running [consider making a donation](https://docs.nefarius.at/Community-Support/) 💸
 
 ## Features
 
@@ -99,4 +99,4 @@ This application benefits from these awesome projects ❤ (appearance in no spec
 - [Resourcer.Fody](https://github.com/Fody/Resourcer)
 - [Nefarius.Utilities.AspNetCore](https://github.com/nefarius/Nefarius.Utilities.AspNetCore)
 - [idunno.Authentication](https://github.com/blowdart/idunno.Authentication)
-- [Fix Symbol loading for Kernel Driver minidump analysis](https://vigem.org/research/PDB-in-WinDbg-Session/)
+- [Fix Symbol loading for Kernel Driver minidump analysis](https://docs.nefarius.at/research/PDB-in-WinDbg-Session/)
