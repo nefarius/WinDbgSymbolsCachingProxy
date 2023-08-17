@@ -59,12 +59,14 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
                     {
                         indexPrefix = await ParseExecutable(filename, ms);
                         signature = indexPrefix.Split('/')[1].ToUpper();
+                        _logger.LogInformation("File {File} (EXE/DLL/SYS) has signature {Signature}", filename, signature);
                         break;
                     }
                 case ".pdb":
                     {
                         indexPrefix = await ParsePdb(filename, ms);
                         signature = indexPrefix.Split('/')[1].ToUpper();
+                        _logger.LogInformation("File {File} (PDB) has signature {Signature}", filename, signature);
                         break;
                     }
                 default:
