@@ -38,8 +38,8 @@ public sealed class SymbolsEndpoint : Endpoint<SymbolsRequest>
     {
         SymbolsEntity? existingSymbol = (await DB.Find<SymbolsEntity>()
                 .ManyAsync(lr =>
-                        lr.Eq(r => r.IndexPrefix, req.IndexPrefix) &
-                        lr.Eq(r => r.FileName, req.FileName)
+                        lr.Eq(r => r.IndexPrefix, req.IndexPrefix.ToLowerInvariant()) &
+                        lr.Eq(r => r.FileName, req.FileName.ToLowerInvariant())
                     , ct)
             ).FirstOrDefault();
 
@@ -116,7 +116,7 @@ public sealed class SymbolsEndpoint : Endpoint<SymbolsRequest>
             _logger.LogWarning("Failed to extract upstream filename");
 
             // fallback value
-            upstreamFilename = req.FileName;
+            upstreamFilename = req.FileName.ToLowerInvariant();
         }
 
         _logger.LogInformation("Got requested symbol {@Symbol} ({Filename}), caching", req, upstreamFilename);

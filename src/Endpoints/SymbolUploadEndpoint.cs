@@ -41,8 +41,8 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
                 continue;
             }
 
-            string filename = section.FileName;
-            string extension = Path.GetExtension(section.FileName).ToLowerInvariant();
+            string filename = section.FileName.ToLowerInvariant();
+            string extension = Path.GetExtension(filename).ToLowerInvariant();
 
             using MemoryStream ms = new();
             await section.Section.Body.CopyToAsync(ms, 1024 * 64, ct);
@@ -57,14 +57,14 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
                 case ".dll":
                 case ".sys":
                     {
-                        indexPrefix = await ParseExecutable(filename, ms);
+                        indexPrefix = (await ParseExecutable(filename, ms)).ToLowerInvariant();
                         signature = indexPrefix.Split('/')[1].ToUpper();
                         _logger.LogInformation("File {File} (EXE/DLL/SYS) has signature {Signature}", filename, signature);
                         break;
                     }
                 case ".pdb":
                     {
-                        indexPrefix = await ParsePdb(filename, ms);
+                        indexPrefix = (await ParsePdb(filename, ms)).ToLowerInvariant();
                         signature = indexPrefix.Split('/')[1].ToUpper();
                         _logger.LogInformation("File {File} (PDB) has signature {Signature}", filename, signature);
                         break;
