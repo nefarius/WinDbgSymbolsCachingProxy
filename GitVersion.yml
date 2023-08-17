@@ -1,4 +1,4 @@
-next-version: 1.6
+next-version: 1.7
 mode: ContinuousDeployment
 assembly-versioning-scheme: MajorMinorPatch
 assembly-file-versioning-format: '{Major}.{Minor}.{PreReleaseNumber}'
