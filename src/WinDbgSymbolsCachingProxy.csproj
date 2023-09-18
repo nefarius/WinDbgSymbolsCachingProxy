@@ -26,7 +26,7 @@
     <PackageReference Include="Microsoft.FileFormats" Version="1.0.445401" />
     <PackageReference Include="Microsoft.SymbolStore" Version="1.0.445401" />
     <PackageReference Include="MongoDB.Entities" Version="22.1.0" />
-    <PackageReference Include="Nefarius.Utilities.AspNetCore" Version="1.8.4" />
+    <PackageReference Include="Nefarius.Utilities.AspNetCore" Version="1.11.0" />
     <PackageReference Include="PeNet" Version="4.0.1" />
     <PackageReference Include="Polly.Contrib.WaitAndRetry" Version="1.1.1" />
     <PackageReference Include="Resourcer.Fody" Version="1.8.1">
