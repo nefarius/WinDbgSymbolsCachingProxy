@@ -32,7 +32,7 @@
     <PackageReference Include="Resourcer.Fody" Version="1.8.1">
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="SkiaSharp" Version="2.88.5" />
+    <PackageReference Include="SkiaSharp" Version="2.88.6" />
     <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="2.88.5" />
     <PackageReference Include="Smx.PDBSharp" Version="1.0.0-alpha4" />
     <PackageReference Include="Smx.SharpIO" Version="1.0.0" />
