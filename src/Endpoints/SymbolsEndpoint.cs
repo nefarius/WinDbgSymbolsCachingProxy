@@ -60,17 +60,26 @@ public sealed class SymbolsEndpoint : Endpoint<SymbolsRequest>
 
             // deliver cached copy of symbol blob
             using MemoryStream ms = new();
-            await existingSymbol.Data.DownloadAsync(ms, cancellation: ct);
-            ms.Position = 0;
-            await SendStreamAsync(ms, existingSymbol.UpstreamFileName ?? existingSymbol.FileName, cancellation: ct);
 
-            // update statistics
-            existingSymbol.LastAccessedAt = DateTime.UtcNow;
-            existingSymbol.AccessedCount = ++existingSymbol.AccessedCount ?? 1;
+            try
+            {
+                await existingSymbol.Data.DownloadAsync(ms, cancellation: ct);
 
-            await existingSymbol.SaveAsync(cancellation: ct);
+                ms.Position = 0;
+                await SendStreamAsync(ms, existingSymbol.UpstreamFileName ?? existingSymbol.FileName, cancellation: ct);
 
-            return;
+                // update statistics
+                existingSymbol.LastAccessedAt = DateTime.UtcNow;
+                existingSymbol.AccessedCount = ++existingSymbol.AccessedCount ?? 1;
+
+                await existingSymbol.SaveAsync(cancellation: ct);
+
+                return;
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Failed to fetch cached copy, re-downloading from upstream");
+            }
         }
 
         HttpClient client = _clientFactory.CreateClient("MicrosoftSymbolServer");
@@ -78,7 +87,7 @@ public sealed class SymbolsEndpoint : Endpoint<SymbolsRequest>
         HttpResponseMessage response =
             await client.GetAsync($"download/symbols/{req.Symbol}/{req.SymbolKey}/{req.FileName}", ct);
 
-        SymbolsEntity newSymbol = new()
+        SymbolsEntity newSymbol = existingSymbol ?? new SymbolsEntity
         {
             SymbolKey = req.SymbolKey.ToLowerInvariant(),
             FileName = req.FileName.ToLowerInvariant(),
