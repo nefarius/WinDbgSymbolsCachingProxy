@@ -76,7 +76,11 @@ public sealed class SymbolsEndpoint : Endpoint<SymbolsRequest>
 
                 return;
             }
-            catch (InvalidOperationException ex)
+            catch (InvalidOperationException)
+            {
+                _logger.LogWarning("Failed to fetch cached copy, re-downloading from upstream");
+            }
+            catch(Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to fetch cached copy, re-downloading from upstream");
             }
