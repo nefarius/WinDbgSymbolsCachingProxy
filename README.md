@@ -73,6 +73,12 @@ A non-exhaustive list of notes about features that I may implement some day:
 dotnet publish -p:PublishProfile=Properties\PublishProfiles\release-win-x64.pubxml -c:Release .\WinDbgSymbolsCachingProxy.sln
 ```
 
+<details><summary>Docker build</summary>
+```PowerShell
+docker build -t nefarius.azurecr.io/wdscp:latest . ; docker push nefarius.azurecr.io/wdscp:latest
+```
+</details>
+
 ## Sources & 3rd party credits
 
 This application benefits from these awesome projects ❤ (appearance in no special order):
