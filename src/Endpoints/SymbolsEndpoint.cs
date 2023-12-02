@@ -1,6 +1,4 @@
-﻿using FastDeepCloner;
-
-using FastEndpoints;
+﻿using FastEndpoints;
 
 using Microsoft.Extensions.Options;
 
@@ -80,8 +78,12 @@ public sealed class SymbolsEndpoint : Endpoint<SymbolsRequest>
         HttpResponseMessage response =
             await client.GetAsync($"download/symbols/{req.Symbol}/{req.SymbolKey}/{req.FileName}", ct);
 
-        SymbolsEntity newSymbol = new();
-        req.CloneTo(newSymbol);
+        SymbolsEntity newSymbol = new()
+        {
+            SymbolKey = req.SymbolKey.ToLowerInvariant(),
+            FileName = req.FileName.ToLowerInvariant(),
+            IndexPrefix = req.IndexPrefix.ToLowerInvariant()
+        };
 
         if (!response.IsSuccessStatusCode)
         {
@@ -132,7 +134,7 @@ public sealed class SymbolsEndpoint : Endpoint<SymbolsRequest>
         newSymbol.NotFoundAt = null;
         newSymbol.LastAccessedAt = DateTime.UtcNow;
         newSymbol.AccessedCount = 1;
-        
+
         // save and upload to DB
         await newSymbol.SaveAsync(cancellation: ct);
         await newSymbol.Data.UploadAsync(cache, cancellation: ct);

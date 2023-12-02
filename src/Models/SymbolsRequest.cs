@@ -30,5 +30,5 @@ public sealed class SymbolsRequest
     ///     The index prefix is built as a relative URL segment from <see cref="Symbol"/> and <see cref="SymbolKey"/>.
     /// </summary>
     [JsonIgnore]
-    public string IndexPrefix => $"{Symbol}/{SymbolKey.ToUpperInvariant()}/";
+    public string IndexPrefix => $"{Symbol}/{SymbolKey.ToLowerInvariant()}/";
 }
