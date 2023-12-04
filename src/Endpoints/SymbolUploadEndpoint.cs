@@ -33,6 +33,8 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
 
     public override async Task HandleAsync(CancellationToken ct)
     {
+        bool? force = Query<bool?>("force", false);
+
         // multiple files per request are supported 
         await foreach (FileMultipartSection? section in FormFileSectionsAsync(ct))
         {
@@ -59,7 +61,8 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
                     {
                         indexPrefix = (await ParseExecutable(filename, ms)).ToLowerInvariant();
                         signature = indexPrefix.Split('/')[1].ToUpper();
-                        _logger.LogInformation("File {File} (EXE/DLL/SYS) has signature {Signature}", filename, signature);
+                        _logger.LogInformation("File {File} (EXE/DLL/SYS) has signature {Signature}", filename,
+                            signature);
                         break;
                     }
                 case ".pdb":
@@ -75,6 +78,8 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
 
             _logger.LogInformation("Got key {IndexPrefix} with signature {Signature}", indexPrefix, signature);
 
+            SymbolsEntity? existingSymbol = null;
+
             // duplicate check
             if ((await DB.Find<SymbolsEntity>()
                     .ManyAsync(lr =>
@@ -82,15 +87,32 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
                             lr.Eq(r => r.FileName, filename)
                         , ct)).Any())
             {
-                await SendAsync($"Symbol with name {filename} and index prefix {indexPrefix} already exists.", 409, ct);
-                return;
+                if (force.HasValue && force.Value)
+                {
+                    existingSymbol = (await DB.Find<SymbolsEntity>()
+                            .ManyAsync(lr =>
+                                    lr.Eq(r => r.IndexPrefix, indexPrefix) &
+                                    lr.Eq(r => r.FileName, filename)
+                                , ct)
+                        ).FirstOrDefault();
+                }
+                else
+                {
+                    await SendAsync($"Symbol with name {filename} and index prefix {indexPrefix} already exists.", 409,
+                        ct);
+                    return;
+                }
             }
 
-            // new entry
-            SymbolsEntity symbol = new()
+            // new or existing entry
+            SymbolsEntity symbol = existingSymbol ?? new SymbolsEntity
             {
-                IndexPrefix = indexPrefix, FileName = filename, IsCustom = true, UploadedAt = DateTime.UtcNow
+                IndexPrefix = indexPrefix, FileName = filename
             };
+
+            symbol.IsCustom = true;
+            symbol.UploadedAt = DateTime.UtcNow;
+            symbol.NotFoundAt = null;
 
             ms.Position = 0;
 
@@ -183,7 +205,7 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
 
                         return keys.First().Key.IndexPrefix;
                     }
-                    
+
                     if (dbi.Header is not DBIHeaderNew hdr)
                     {
                         _logger.LogWarning("Couldn't get DBIHeaderNew, using symstore fallback");
