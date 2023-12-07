@@ -1,9 +1,9 @@
-﻿FROM mcr.microsoft.com/dotnet/aspnet:7.0 AS base
+﻿FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 WORKDIR /app
 EXPOSE 80
 EXPOSE 443
 
-FROM mcr.microsoft.com/dotnet/sdk:7.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 COPY ./nuget.config .
 COPY ["src/WinDbgSymbolsCachingProxy.csproj", "src/"]
@@ -17,12 +17,15 @@ RUN dotnet publish "WinDbgSymbolsCachingProxy.csproj" -c Release -o /app/publish
 
 FROM base AS final
 ENV DEBIAN_FRONTEND noninteractive
-RUN sed -i'.bak' 's/$/ contrib/' /etc/apt/sources.list
-RUN apt-get update
-RUN apt-get install -y fontconfig    
-RUN apt-get install -y ttf-mscorefonts-installer
-RUN apt-get install -y libfreetype6
-RUN apt-get install -y libfontconfig1
+RUN echo "deb http://deb.debian.org/debian/ bookworm main contrib non-free-firmware" > /etc/apt/sources.list.d/contrib.list
+RUN apt update
+RUN apt install software-properties-common -y
+RUN apt-add-repository contrib non-free -y
+RUN apt update
+RUN apt install -y fontconfig    
+RUN apt install -y ttf-mscorefonts-installer
+RUN apt install -y libfreetype6
+RUN apt install -y libfontconfig1
 WORKDIR /app
 COPY --from=publish /app/publish .
 ENTRYPOINT ["dotnet", "WinDbgSymbolsCachingProxy.dll"]
