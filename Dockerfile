@@ -18,14 +18,15 @@ RUN dotnet publish "WinDbgSymbolsCachingProxy.csproj" -c Release -o /app/publish
 FROM base AS final
 ENV DEBIAN_FRONTEND noninteractive
 RUN echo "deb http://deb.debian.org/debian/ bookworm main contrib non-free-firmware" > /etc/apt/sources.list.d/contrib.list
-RUN apt update
-RUN apt install software-properties-common -y
-RUN apt-add-repository contrib non-free -y
-RUN apt update
-RUN apt install -y fontconfig    
-RUN apt install -y ttf-mscorefonts-installer
-RUN apt install -y libfreetype6
-RUN apt install -y libfontconfig1
+RUN apt update && \
+    apt install software-properties-common -y && \
+    apt-add-repository contrib non-free -y && \
+    apt update && \
+    apt install -y fontconfig && \    
+    apt install -y ttf-mscorefonts-installer && \
+    apt install -y libfreetype6 && \
+    apt install -y libfontconfig1 && \
 WORKDIR /app
 COPY --from=publish /app/publish .
+
 ENTRYPOINT ["dotnet", "WinDbgSymbolsCachingProxy.dll"]
