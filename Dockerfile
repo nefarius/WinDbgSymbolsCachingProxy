@@ -25,7 +25,7 @@ RUN apt update && \
     apt install -y fontconfig && \    
     apt install -y ttf-mscorefonts-installer && \
     apt install -y libfreetype6 && \
-    apt install -y libfontconfig1 && \
+    apt install -y libfontconfig1
 WORKDIR /app
 COPY --from=publish /app/publish .
 
