@@ -22,8 +22,8 @@
     <PackageReference Include="idunno.Authentication.Basic" Version="2.3.1" />
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Http.Polly" Version="8.0.2" />
-    <PackageReference Include="Microsoft.FileFormats" Version="1.0.510501" />
-    <PackageReference Include="Microsoft.SymbolStore" Version="1.0.510501" />
+    <PackageReference Include="Microsoft.FileFormats" Version="1.0.511201" />
+    <PackageReference Include="Microsoft.SymbolStore" Version="1.0.511201" />
     <PackageReference Include="MongoDB.Entities" Version="23.0.1" />
     <PackageReference Include="Nefarius.Utilities.AspNetCore" Version="2.2.0" />
     <PackageReference Include="PeNet" Version="4.0.4" />
