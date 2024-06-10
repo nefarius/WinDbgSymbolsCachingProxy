@@ -108,3 +108,4 @@ This application benefits from these awesome projects ❤ (appearance in no spec
 - [Nefarius.Utilities.AspNetCore](https://github.com/nefarius/Nefarius.Utilities.AspNetCore)
 - [idunno.Authentication](https://github.com/blowdart/idunno.Authentication)
 - [Fix Symbol loading for Kernel Driver minidump analysis](https://docs.nefarius.at/research/PDB-in-WinDbg-Session/)
+- [The C5 Generic Collection Library for C# and CLI](https://www.itu.dk/research/c5/)
