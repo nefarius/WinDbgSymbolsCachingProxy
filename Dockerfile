@@ -22,7 +22,7 @@ RUN apt update && \
     apt install software-properties-common -y && \
     apt-add-repository contrib non-free -y && \
     apt update && \
-    apt install -y fontconfig && \    
+    apt install -y fontconfig && \
     apt install -y ttf-mscorefonts-installer && \
     apt install -y libfreetype6 && \
     apt install -y libfontconfig1

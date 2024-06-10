@@ -10,7 +10,6 @@ using FastEndpoints;
 using idunno.Authentication.Basic;
 
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.Extensions.Hosting.WindowsServices;
 using Microsoft.Extensions.Options;
 using Microsoft.SymbolStore;
 
