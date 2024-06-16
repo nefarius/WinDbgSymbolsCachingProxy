@@ -1,6 +1,4 @@
-<img src="assets/NSS-128x128.png" align="right" />
-
-# WinDbgSymbolsCachingProxy
+# <img src="assets/NSS-128x128.png" align="left" />WinDbgSymbolsCachingProxy
 
 ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/nefarius/WinDbgSymbolsCachingProxy/docker-image.yml)
 
