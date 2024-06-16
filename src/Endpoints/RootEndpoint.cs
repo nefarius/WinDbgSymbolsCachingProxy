@@ -36,7 +36,7 @@ public sealed class RootEndpoint : EndpointWithoutRequest<RootResponse>
             await SendErrorsAsync(500, ct);
             return;
         }
-        
+
         StringTable stringTable = peFile.Resources.VsVersionInfo!.StringFileInfo.StringTable.First();
 
         string? productVersion = stringTable.ProductVersion;
@@ -48,11 +48,9 @@ public sealed class RootEndpoint : EndpointWithoutRequest<RootResponse>
             return;
         }
 
-        Version version = System.Version.Parse(productVersion);
-
         await SendOkAsync(new RootResponse
         {
-            ServerVersion = version,
+            ServerVersion = productVersion,
             CachedSymbolsTotal = await DB.CountAsync<SymbolsEntity>(cancellation: ct),
             CachedSymbols404 = await DB.CountAsync<SymbolsEntity>(
                 s => s.NotFoundAt != null,
