@@ -1,45 +1,49 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
-  </PropertyGroup>
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+    </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="C5" Version="3.0.0" />
-    <PackageReference Include="Coravel" Version="5.0.3" />
-    <PackageReference Include="FastEndpoints" Version="5.26.0" />
-    <PackageReference Include="Fody" Version="6.8.1">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-    <PackageReference Include="GitVersion.MsBuild" Version="5.12.0">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-    <PackageReference Include="idunno.Authentication.Basic" Version="2.3.1" />
-    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="8.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Http.Polly" Version="8.0.6" />
-    <PackageReference Include="Microsoft.FileFormats" Version="1.0.530801" />
-    <PackageReference Include="Microsoft.SymbolStore" Version="1.0.530801" />
-    <PackageReference Include="MongoDB.Entities" Version="23.1.0" />
-    <PackageReference Include="Nefarius.Utilities.AspNetCore" Version="2.3.0" />
-    <PackageReference Include="PeNet" Version="4.0.5" />
-    <PackageReference Include="Polly.Contrib.WaitAndRetry" Version="1.1.1" />
-    <PackageReference Include="Resourcer.Fody" Version="1.8.1">
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
-    <PackageReference Include="SkiaSharp" Version="2.88.8" />
-    <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="2.88.8" />
-    <PackageReference Include="Smx.PDBSharp" Version="1.0.0-alpha4" />
-    <PackageReference Include="Smx.SharpIO" Version="1.0.0" />
-  </ItemGroup>
+    <PropertyGroup>
+        <MinVerTagPrefix>v</MinVerTagPrefix>
+    </PropertyGroup>
 
-  <ItemGroup>
-    <None Remove="favicon.ico" />
-    <EmbeddedResource Include="favicon.ico" />
-  </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="C5" Version="3.0.0"/>
+        <PackageReference Include="Coravel" Version="5.0.3"/>
+        <PackageReference Include="FastEndpoints" Version="5.26.0"/>
+        <PackageReference Include="Fody" Version="6.8.1">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="idunno.Authentication.Basic" Version="2.3.1"/>
+        <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="8.0.0"/>
+        <PackageReference Include="Microsoft.Extensions.Http.Polly" Version="8.0.6"/>
+        <PackageReference Include="Microsoft.FileFormats" Version="1.0.530801"/>
+        <PackageReference Include="Microsoft.SymbolStore" Version="1.0.530801"/>
+        <PackageReference Include="MinVer" Version="5.0.0">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="MongoDB.Entities" Version="23.1.0"/>
+        <PackageReference Include="Nefarius.Utilities.AspNetCore" Version="2.3.0"/>
+        <PackageReference Include="PeNet" Version="4.0.5"/>
+        <PackageReference Include="Polly.Contrib.WaitAndRetry" Version="1.1.1"/>
+        <PackageReference Include="Resourcer.Fody" Version="1.8.1">
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+        <PackageReference Include="SkiaSharp" Version="2.88.8"/>
+        <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="2.88.8"/>
+        <PackageReference Include="Smx.PDBSharp" Version="1.0.0-alpha4"/>
+        <PackageReference Include="Smx.SharpIO" Version="1.0.0"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Remove="favicon.ico"/>
+        <EmbeddedResource Include="favicon.ico"/>
+    </ItemGroup>
 
 </Project>
