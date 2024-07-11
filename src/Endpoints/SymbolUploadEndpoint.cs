@@ -233,6 +233,7 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
                     string key = $"{guid:N}{age:X}".ToUpperInvariant();
                     string indexPrefix = $"{fileName}/{key}/";
 
+                    // ReSharper disable once DisposeOnUsingVariable
                     pdb.Dispose();
                     stream.Position = 0;
 
