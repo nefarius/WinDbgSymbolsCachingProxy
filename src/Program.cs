@@ -132,10 +132,9 @@ builder.Services.AddAuthentication(BasicAuthenticationDefaults.AuthenticationSch
             }
         };
     });
-builder.Services.AddAuthorization(options =>
-{
-    options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
-});
+
+builder.Services.AddAuthorizationBuilder()
+    .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
 
 Log.Logger.Information("Initializing database connection");
 
