@@ -15,6 +15,10 @@ public sealed class RecheckNotFoundService
         _logger = logger;
     }
 
+    /// <summary>
+    ///     Queries all 404 symbols from DB and contacts the upstream server to check if they have become available since the
+    ///     last run.
+    /// </summary>
     public async Task Run(CancellationToken ct = default)
     {
         List<SymbolsEntity>? notFoundSymbols = await DB.Find<SymbolsEntity>().ManyAsync(
@@ -27,6 +31,7 @@ public sealed class RecheckNotFoundService
             MaxDegreeOfParallelism = Convert.ToInt32(Math.Ceiling(Environment.ProcessorCount * 0.75 * 1.0))
         };
 
+        // boost performance by issuing requests in parallel
         await Parallel.ForEachAsync(notFoundSymbols, opts, async (symbol, token) =>
         {
             HttpClient client = _clientFactory.CreateClient("MicrosoftSymbolServer");
