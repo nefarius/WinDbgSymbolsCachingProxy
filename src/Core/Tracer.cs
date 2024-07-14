@@ -3,7 +3,7 @@
 namespace WinDbgSymbolsCachingProxy.Core;
 
 /// <summary>
-///     Simple trace/logging support.
+///     Simple trace/logging support. Used by SymStoreService.
 /// </summary>
 internal sealed class Tracer : ITracer
 {
