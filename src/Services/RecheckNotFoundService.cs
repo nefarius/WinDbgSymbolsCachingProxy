@@ -21,7 +21,7 @@ public sealed class RecheckNotFoundService
     /// </summary>
     public async Task Run(CancellationToken ct = default)
     {
-        List<SymbolsEntity>? notFoundSymbols = await DB.Find<SymbolsEntity>().ManyAsync(
+        List<SymbolsEntity> notFoundSymbols = await DB.Find<SymbolsEntity>().ManyAsync(
             sym => sym.NotFoundAt != null && !sym.IsCustom, ct);
 
         // https://stackoverflow.com/a/9290531
@@ -34,9 +34,9 @@ public sealed class RecheckNotFoundService
         // boost performance by issuing requests in parallel
         await Parallel.ForEachAsync(notFoundSymbols, opts, async (symbol, token) =>
         {
-            HttpClient client = _clientFactory.CreateClient("MicrosoftSymbolServer");
+            using HttpClient client = _clientFactory.CreateClient("MicrosoftSymbolServer");
 
-            HttpResponseMessage response =
+            using HttpResponseMessage response =
                 await client.GetAsync($"download/symbols/{symbol.RelativeUri}", token);
 
             if (!response.IsSuccessStatusCode)
@@ -71,7 +71,7 @@ public sealed class RecheckNotFoundService
             _logger.LogInformation("Got requested symbol {Symbol} ({Filename}), caching",
                 symbol, upstreamFilename);
 
-            Stream upstreamContent = await response.Content.ReadAsStreamAsync(token);
+            await using Stream upstreamContent = await response.Content.ReadAsStreamAsync(token);
 
             symbol.NotFoundAt = null;
             await symbol.SaveAsync(cancellation: token);
