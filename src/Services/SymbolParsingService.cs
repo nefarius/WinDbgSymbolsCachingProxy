@@ -1,4 +1,6 @@
-﻿using Microsoft.SymbolStore.KeyGenerators;
+﻿using System.Diagnostics.CodeAnalysis;
+
+using Microsoft.SymbolStore.KeyGenerators;
 
 using Smx.PDBSharp;
 
@@ -9,6 +11,7 @@ namespace WinDbgSymbolsCachingProxy.Services;
 
 public sealed record SymbolParsingResult(string FileName, string IndexPrefix, string Signature);
 
+[SuppressMessage("ReSharper", "UnusedMember.Global")]
 public sealed class SymbolParsingService
 {
     private readonly ILogger<SymbolParsingService> _logger;
@@ -22,12 +25,18 @@ public sealed class SymbolParsingService
 
     public async Task<SymbolParsingResult> ParseSymbol(string filename, Stream stream, CancellationToken ct = default)
     {
-        filename = filename.ToLowerInvariant();
-        string extension = Path.GetExtension(filename).ToLowerInvariant();
-
         using MemoryStream ms = new();
         await stream.CopyToAsync(ms, 1024 * 64, ct);
         ms.Position = 0;
+
+        return await ParseSymbol(filename, ms, ct);
+    }
+
+    public async Task<SymbolParsingResult> ParseSymbol(string filename, MemoryStream stream,
+        CancellationToken ct = default)
+    {
+        filename = filename.ToLowerInvariant();
+        string extension = Path.GetExtension(filename).ToLowerInvariant();
 
         string indexPrefix;
         string signature;
@@ -38,7 +47,7 @@ public sealed class SymbolParsingService
             case ".dll":
             case ".sys":
                 {
-                    indexPrefix = (await ParseExecutable(filename, ms)).ToLowerInvariant();
+                    indexPrefix = (await ParseExecutable(filename, stream)).ToLowerInvariant();
                     signature = indexPrefix.Split('/')[1].ToUpper();
                     _logger.LogInformation("File {File} (EXE/DLL/SYS) has signature {Signature}", filename,
                         signature);
@@ -46,7 +55,7 @@ public sealed class SymbolParsingService
                 }
             case ".pdb":
                 {
-                    indexPrefix = (await ParsePdb(filename, ms)).ToLowerInvariant();
+                    indexPrefix = (await ParsePdb(filename, stream)).ToLowerInvariant();
                     signature = indexPrefix.Split('/')[1].ToUpper();
                     _logger.LogInformation("File {File} (PDB) has signature {Signature}", filename, signature);
                     break;
