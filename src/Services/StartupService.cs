@@ -13,6 +13,8 @@ namespace WinDbgSymbolsCachingProxy.Services;
 
 public sealed class StartupService : BackgroundService
 {
+    private const string RunParser = "RunParser";
+    private const string RunRecheck = "RunRecheck";
     private readonly IConfiguration _config;
     private readonly ILogger<StartupService> _logger;
     private readonly RecheckNotFoundService _recheckNotFoundService;
@@ -28,14 +30,22 @@ public sealed class StartupService : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         // run PDBSharp parsing for all DB entries, if enabled
-        if (bool.TryParse(_config.GetSection("RunParser").Value, out bool runParser) && runParser)
+        if (bool.TryParse(_config.GetSection(nameof(RunParser)).Value, out bool runParser) && runParser)
         {
+            _logger.LogWarning(
+                "{Setting} is enabled, this can severely impact startup performance on huge databases",
+                nameof(RunParser));
+
             await ParseAllEntries(stoppingToken);
         }
 
         // run 404 re-check, if enabled
-        if (bool.TryParse(_config.GetSection("RunRecheck").Value, out bool runRecheck) && runRecheck)
+        if (bool.TryParse(_config.GetSection(nameof(RunRecheck)).Value, out bool runRecheck) && runRecheck)
         {
+            _logger.LogWarning(
+                "{Setting} is enabled, this can severely impact startup performance on huge databases",
+                nameof(RunRecheck));
+
             Stopwatch sw = Stopwatch.StartNew();
 
             _logger.LogInformation("Running 404 re-check");
