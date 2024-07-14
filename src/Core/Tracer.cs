@@ -7,8 +7,8 @@ namespace WinDbgSymbolsCachingProxy.Core;
 /// </summary>
 internal sealed class Tracer : ITracer
 {
-    public bool Enabled;
-    public bool EnabledVerbose;
+    public bool Enabled { get; set; }
+    public bool EnabledVerbose { get; set; }
 
     public void WriteLine(string message)
     {

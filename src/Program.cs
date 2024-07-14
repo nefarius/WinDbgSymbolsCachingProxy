@@ -64,6 +64,7 @@ builder.Services.AddTransient<RecheckNotFoundJob>();
 builder.Services.AddSingleton<RecheckNotFoundService>();
 builder.Services.AddTransient<SymStoreService>();
 builder.Services.AddTransient<ITracer, Tracer>();
+builder.Services.AddSingleton<SymbolParsingService>();
 
 builder.Services.AddHostedService<StartupService>();
 

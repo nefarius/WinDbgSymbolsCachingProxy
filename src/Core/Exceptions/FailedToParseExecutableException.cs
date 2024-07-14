@@ -1,6 +1,3 @@
 ﻿namespace WinDbgSymbolsCachingProxy.Core.Exceptions;
 
-public class FailedToParseExecutableException : Exception
-{
-    public FailedToParseExecutableException(string message) : base(message) { }
-}
+public class FailedToParseExecutableException(string message) : Exception(message);
