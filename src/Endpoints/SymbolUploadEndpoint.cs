@@ -40,7 +40,7 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
 
             string filename = section.FileName.ToLowerInvariant();
             using MemoryStream ms = new();
-            // keep copy in memory, so we can send it to parser and deliver copy to client
+            // keep copy in memory, so we can send it to parser and deliver copy to DB
             await section.Section.Body.CopyToAsync(ms, 1024 * 64, ct);
             ms.Position = 0;
 
