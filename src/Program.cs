@@ -11,6 +11,7 @@ using idunno.Authentication.Basic;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
+using Microsoft.SymbolStore;
 
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
@@ -30,7 +31,12 @@ using WinDbgSymbolsCachingProxy.Jobs;
 using WinDbgSymbolsCachingProxy.Models;
 using WinDbgSymbolsCachingProxy.Services;
 
-WebApplicationOptions opts = new() { Args = args, ContentRootPath = AppContext.BaseDirectory };
+
+WebApplicationOptions opts = new()
+{
+    Args = args,
+    ContentRootPath = AppContext.BaseDirectory
+};
 
 Directory.SetCurrentDirectory(AppContext.BaseDirectory);
 
@@ -39,7 +45,7 @@ WebApplicationBuilder? builder = WebApplication.CreateBuilder(opts).Setup();
 if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
 {
     Log.Logger.Information("Configuring Windows Service");
-
+    
     builder.Host.UseWindowsService(options =>
     {
         options.ServiceName = "WinDbgSymbolsCachingProxy";
@@ -57,6 +63,7 @@ builder.Services.AddSingleton<ISvgService, SvgService>();
 builder.Services.AddTransient<RecheckNotFoundJob>();
 builder.Services.AddSingleton<RecheckNotFoundService>();
 builder.Services.AddTransient<SymStoreService>();
+builder.Services.AddTransient<ITracer, Tracer>();
 
 builder.Services.AddHostedService<StartupService>();
 
