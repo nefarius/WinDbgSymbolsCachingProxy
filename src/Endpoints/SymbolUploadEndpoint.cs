@@ -239,7 +239,7 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
 
                     keys = _symStore.GetKeys(flags, fileName, stream).ToList();
 
-                    if (!keys.Any())
+                    if (keys.Count == 0)
                     {
                         throw new FailedToParsePdbException("Failed to get symstore keys.");
                     }

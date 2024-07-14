@@ -52,7 +52,7 @@ public sealed class StartupService : BackgroundService
     {
         _logger.LogInformation("Parsing all symbols ind database");
 
-        List<SymbolsEntity>? symbols = await DB.Find<SymbolsEntity>()
+        List<SymbolsEntity> symbols = await DB.Find<SymbolsEntity>()
             .ManyAsync(sym => sym.NotFoundAt == null, stoppingToken);
 
         // https://stackoverflow.com/a/9290531
