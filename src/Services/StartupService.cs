@@ -48,6 +48,9 @@ public sealed class StartupService : BackgroundService
         }
     }
 
+    /// <summary>
+    ///     Fetches all found symbols from the database and enriches them with all missing PDB properties.
+    /// </summary>
     private async Task ParseAllEntries(CancellationToken stoppingToken)
     {
         _logger.LogInformation("Parsing all symbols ind database");
@@ -62,6 +65,7 @@ public sealed class StartupService : BackgroundService
             MaxDegreeOfParallelism = Convert.ToInt32(Math.Ceiling(Environment.ProcessorCount * 0.75 * 1.0))
         };
 
+        // boost performance by issuing requests in parallel
         await Parallel.ForEachAsync(symbols, opts, async (symbol, token) =>
         {
             _logger.LogInformation("Processing {IndexPrefix}", symbol.IndexPrefix);
