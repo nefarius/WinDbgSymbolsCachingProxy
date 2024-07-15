@@ -12,7 +12,6 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="C5" Version="3.0.0"/>
         <PackageReference Include="Coravel" Version="5.0.4"/>
         <PackageReference Include="FastEndpoints" Version="5.27.0"/>
         <PackageReference Include="Fody" Version="6.8.1">
