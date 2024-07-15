@@ -1,12 +1,7 @@
 ﻿using System.Diagnostics;
 
-using Microsoft.SymbolStore.KeyGenerators;
-
 using MongoDB.Entities;
 
-using Smx.PDBSharp;
-
-using WinDbgSymbolsCachingProxy.Core;
 using WinDbgSymbolsCachingProxy.Models;
 
 namespace WinDbgSymbolsCachingProxy.Services;
@@ -17,14 +12,16 @@ public sealed class StartupService : BackgroundService
     private const string RunRecheck = "RunRecheck";
     private readonly IConfiguration _config;
     private readonly ILogger<StartupService> _logger;
+    private readonly SymbolParsingService _parsingService;
     private readonly RecheckNotFoundService _recheckNotFoundService;
 
     public StartupService(RecheckNotFoundService recheckNotFoundService, ILogger<StartupService> logger,
-        IConfiguration config)
+        IConfiguration config, SymbolParsingService parsingService)
     {
         _recheckNotFoundService = recheckNotFoundService;
         _logger = logger;
         _config = config;
+        _parsingService = parsingService;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -95,82 +92,20 @@ public sealed class StartupService : BackgroundService
 
             try
             {
-                using PDBFile pdb = PDBFile.Open(ms);
+                SymbolParsingResult result = await _parsingService.ParseSymbol(symbol.FileName, ms, stoppingToken);
 
-                switch (pdb.Type)
-                {
-                    case PDBType.Old:
-                        _logger.LogWarning("The PDB {IndexPrefix} version is not supported", symbol.IndexPrefix);
-                        return;
-                    case PDBType.Small:
-                        {
-                            await using DBIReader dbi = pdb.Services.GetService<DBIReader>();
+                symbol.Signature = result.Signature;
+                symbol.NewSignature = result.NewSignature;
+                symbol.Age = result.Age;
 
-                            if (dbi.Header is not DBIHeaderNew hdr)
-                            {
-                                _logger.LogError("Failed to parse PDB header of {IndexPrefix}", symbol.IndexPrefix);
-                                return;
-                            }
+                _logger.LogInformation("Got {NewSignature} and {Age} for {IndexPrefix}",
+                    symbol.NewSignature, symbol.Age, symbol.IndexPrefix);
 
-                            PdbStreamReader pdbStream = pdb.Services.GetService<PdbStreamReader>();
-
-                            symbol.Signature = pdbStream.Signature;
-                            symbol.Age = hdr.Age;
-
-                            _logger.LogInformation("Got {Signature} and {Age} for {IndexPrefix}",
-                                symbol.Signature, symbol.Age, symbol.IndexPrefix);
-
-                            await symbol.SaveAsync(cancellation: token);
-                            return;
-                        }
-                    case PDBType.Big:
-                        {
-                            List<SymbolStoreKeyWrapper> keys;
-                            const KeyTypeFlags flags = KeyTypeFlags.IdentityKey | KeyTypeFlags.SymbolKey |
-                                                       KeyTypeFlags.ClrKeys;
-
-                            await using DBIReader dbi = pdb.Services.GetService<DBIReader>();
-
-                            if (dbi.Header is not DBIHeaderNew hdr)
-                            {
-                                _logger.LogWarning("Couldn't get DBIHeaderNew for {IndexPrefix}", symbol.IndexPrefix);
-                                return;
-                            }
-
-                            await using PdbStreamReader? pdbStream = pdb.Services.GetService<PdbStreamReader>();
-
-                            if (pdbStream.NewSignature is null)
-                            {
-                                _logger.LogWarning("Couldn't get NewSignature for {IndexPrefix}", symbol.IndexPrefix);
-                                return;
-                            }
-
-                            symbol.Signature = pdbStream.Signature;
-                            symbol.NewSignature = pdbStream.NewSignature;
-                            symbol.Age = hdr.Age;
-
-                            _logger.LogInformation("Got {NewSignature} and {Age} for {IndexPrefix}",
-                                symbol.NewSignature, symbol.Age, symbol.IndexPrefix);
-
-                            await symbol.SaveAsync(cancellation: token);
-                            return;
-                        }
-                    default:
-                        _logger.LogWarning("Couldn't find the signature of PDB {IndexPrefix}", symbol.IndexPrefix);
-                        return;
-                }
+                await symbol.SaveAsync(cancellation: token);
             }
-            catch (InvalidDataException ex)
+            catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to open {IndexPrefix}", symbol.IndexPrefix);
-            }
-            catch (ArgumentOutOfRangeException ex)
-            {
-                _logger.LogWarning(ex, "Failed to open {IndexPrefix}", symbol.IndexPrefix);
-            }
-            catch (NullReferenceException ex)
-            {
-                _logger.LogWarning(ex, "Failed to open {IndexPrefix}", symbol.IndexPrefix);
+                _logger.LogError(ex, "Failed to parse {File}", symbol.FileName);
             }
         });
 

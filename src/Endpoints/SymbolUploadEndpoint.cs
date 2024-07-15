@@ -44,7 +44,18 @@ public sealed class SymbolUploadEndpoint : EndpointWithoutRequest
             await section.Section.Body.CopyToAsync(ms, 1024 * 64, ct);
             ms.Position = 0;
 
-            SymbolParsingResult result = await _parsingService.ParseSymbol(filename, ms, ct);
+            SymbolParsingResult result;
+
+            try
+            {
+                result = await _parsingService.ParseSymbol(filename, ms, ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to parse {File}", filename);
+                AddError($"Failed to parse file {filename}, error: {ex}");
+                continue;
+            }
 
             SymbolsEntity? existingSymbol = null;
 

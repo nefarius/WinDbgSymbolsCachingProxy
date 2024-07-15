@@ -9,7 +9,12 @@ using WinDbgSymbolsCachingProxy.Core.Exceptions;
 
 namespace WinDbgSymbolsCachingProxy.Services;
 
-public sealed record SymbolParsingResult(string FileName, string IndexPrefix, string Signature);
+public sealed record SymbolParsingResult(
+    string FileName,
+    string IndexPrefix,
+    uint? Age = default,
+    ulong? Signature = default,
+    Guid? NewSignature = default);
 
 [SuppressMessage("ReSharper", "UnusedMember.Global")]
 public sealed class SymbolParsingService
@@ -23,6 +28,16 @@ public sealed class SymbolParsingService
         _symStore = symStore;
     }
 
+    /// <summary>
+    ///     Extracts a <see cref="SymbolParsingResult" /> from a given symbol file.
+    /// </summary>
+    /// <param name="filename">The file name of the symbol.</param>
+    /// <param name="stream">A <see cref="Stream" /> containing the binary content.</param>
+    /// <param name="ct">Optional <see cref="CancellationToken" />.</param>
+    /// <returns>A <see cref="SymbolParsingResult" />.</returns>
+    /// <exception cref="UnsupportedFileTypeException">An unsupported file type/extension was provided.</exception>
+    /// <exception cref="FailedToParseExecutableException">Failed to parse the provided executable (.exe, .dll, ...).</exception>
+    /// <exception cref="FailedToParsePdbException">Failed to parse the provided debug symbols file (.pdb).</exception>
     public async Task<SymbolParsingResult> ParseSymbol(string filename, Stream stream, CancellationToken ct = default)
     {
         using MemoryStream ms = new();
@@ -32,6 +47,16 @@ public sealed class SymbolParsingService
         return await ParseSymbol(filename, ms, ct);
     }
 
+    /// <summary>
+    ///     Extracts a <see cref="SymbolParsingResult" /> from a given symbol file.
+    /// </summary>
+    /// <param name="filename">The file name of the symbol.</param>
+    /// <param name="stream">A <see cref="MemoryStream" /> containing the binary content.</param>
+    /// <param name="ct">Optional <see cref="CancellationToken" />.</param>
+    /// <returns>A <see cref="SymbolParsingResult" />.</returns>
+    /// <exception cref="UnsupportedFileTypeException">An unsupported file type/extension was provided.</exception>
+    /// <exception cref="FailedToParseExecutableException">Failed to parse the provided executable (.exe, .dll, ...).</exception>
+    /// <exception cref="FailedToParsePdbException">Failed to parse the provided debug symbols file (.pdb).</exception>
     public async Task<SymbolParsingResult> ParseSymbol(string filename, MemoryStream stream,
         CancellationToken ct = default)
     {
@@ -47,26 +72,24 @@ public sealed class SymbolParsingService
             case ".dll":
             case ".sys":
                 {
-                    indexPrefix = (await ParseExecutable(filename, stream)).ToLowerInvariant();
+                    indexPrefix = await ParseExecutable(filename, stream);
                     signature = indexPrefix.Split('/')[1].ToUpper();
                     _logger.LogInformation("File {File} (EXE/DLL/SYS) has signature {Signature}", filename,
                         signature);
-                    break;
+                    return new SymbolParsingResult(filename, indexPrefix);
                 }
             case ".pdb":
                 {
-                    indexPrefix = (await ParsePdb(filename, stream)).ToLowerInvariant();
+                    PdbParsingResult result = await ParsePdb(filename, stream);
+                    indexPrefix = result.IndexPrefix;
                     signature = indexPrefix.Split('/')[1].ToUpper();
                     _logger.LogInformation("File {File} (PDB) has signature {Signature}", filename, signature);
-                    break;
+                    return new SymbolParsingResult(filename, indexPrefix, result.Age, result.Signature,
+                        result.NewSignature);
                 }
             default:
                 throw new UnsupportedFileTypeException($"File {filename} has unsupported extension.");
         }
-
-        _logger.LogInformation("Got key {IndexPrefix} with signature {Signature}", indexPrefix, signature);
-
-        return new SymbolParsingResult(filename, indexPrefix, signature);
     }
 
     /// <summary>
@@ -88,7 +111,7 @@ public sealed class SymbolParsingService
 
         SymbolStoreKeyWrapper key = keys.First();
 
-        return Task.FromResult(key.Key.IndexPrefix);
+        return Task.FromResult(key.Key.IndexPrefix.ToLowerInvariant());
     }
 
     /// <summary>
@@ -98,7 +121,7 @@ public sealed class SymbolParsingService
     /// <param name="stream">The stream containing the file content.</param>
     /// <returns>The index prefix of the PDB.</returns>
     /// <exception cref="FailedToParsePdbException">Thrown on error.</exception>
-    private async Task<string> ParsePdb(string fileName, MemoryStream stream)
+    private async Task<PdbParsingResult> ParsePdb(string fileName, MemoryStream stream)
     {
         using PDBFile? pdb = PDBFile.Open(stream);
 
@@ -131,7 +154,9 @@ public sealed class SymbolParsingService
                     uint signature = pdbStream.Signature;
 
                     string key = $"{signature:X}{age:X}".ToUpperInvariant();
-                    return $"{fileName}/{key}/";
+                    string indexPrefix = $"{fileName}/{key}/".ToLowerInvariant();
+
+                    return new PdbParsingResult(indexPrefix, age, signature);
                 }
             case PDBType.Big:
                 {
@@ -146,7 +171,7 @@ public sealed class SymbolParsingService
 
                         keys = _symStore.GetKeys(flags, fileName, stream).ToList();
 
-                        return keys.First().Key.IndexPrefix;
+                        return new PdbParsingResult(keys.First().Key.IndexPrefix.ToLowerInvariant());
                     }
 
                     if (dbi.Header is not DBIHeaderNew hdr)
@@ -155,7 +180,7 @@ public sealed class SymbolParsingService
 
                         keys = _symStore.GetKeys(flags, fileName, stream).ToList();
 
-                        return keys.First().Key.IndexPrefix;
+                        return new PdbParsingResult(keys.First().Key.IndexPrefix.ToLowerInvariant());
                     }
 
                     uint age = hdr.Age;
@@ -168,13 +193,13 @@ public sealed class SymbolParsingService
 
                         keys = _symStore.GetKeys(flags, fileName, stream).ToList();
 
-                        return keys.First().Key.IndexPrefix;
+                        return new PdbParsingResult(keys.First().Key.IndexPrefix.ToLowerInvariant());
                     }
 
                     Guid guid = pdbStream.NewSignature.Value;
 
                     string key = $"{guid:N}{age:X}".ToUpperInvariant();
-                    string indexPrefix = $"{fileName}/{key}/";
+                    string indexPrefix = $"{fileName}/{key}/".ToLowerInvariant();
 
                     // ReSharper disable once DisposeOnUsingVariable
                     pdb.Dispose();
@@ -194,10 +219,16 @@ public sealed class SymbolParsingService
                         throw new FailedToParsePdbException("PDB parsing signature+age mismatches symstore keys.");
                     }
 
-                    return indexPrefix;
+                    return new PdbParsingResult(indexPrefix, age, NewSignature: guid);
                 }
             default:
                 throw new FailedToParsePdbException($"Couldn't find the signature of PDB {fileName}.");
         }
     }
+
+    private record PdbParsingResult(
+        string IndexPrefix,
+        uint? Age = default,
+        uint? Signature = default,
+        Guid? NewSignature = default);
 }

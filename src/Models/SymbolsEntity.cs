@@ -41,7 +41,7 @@ public class SymbolsEntity : FileEntity
     /// <summary>
     ///     The pre-v7 PDB UInt32 Signature.
     /// </summary>
-    public ulong Signature { get; set; }
+    public ulong? Signature { get; set; }
 
     /// <summary>
     ///     The "new", current Signature in GUID format.
@@ -51,7 +51,7 @@ public class SymbolsEntity : FileEntity
     /// <summary>
     ///     The UInt32 Age value.
     /// </summary>
-    public ulong Age { get; set; }
+    public ulong? Age { get; set; }
 
     /// <summary>
     ///     Last timestamp that its existence was checked upstream, yet not found.
