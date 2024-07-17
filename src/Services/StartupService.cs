@@ -6,7 +6,7 @@ using WinDbgSymbolsCachingProxy.Models;
 
 namespace WinDbgSymbolsCachingProxy.Services;
 
-public sealed class StartupService : BackgroundService
+internal sealed class StartupService : BackgroundService
 {
     private const string RunParser = "RunParser";
     private const string RunRecheck = "RunRecheck";

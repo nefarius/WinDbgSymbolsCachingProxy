@@ -25,18 +25,18 @@ public class SymbolsEntity : FileEntity
     /// <summary>
     ///     The unique identifier of a specific symbol.
     /// </summary>
-    public string IndexPrefix { get; set; } = null!;
+    public required string IndexPrefix { get; set; }
 
     /// <summary>
     ///     A hex-encoded concatenated string of the Signature and Age where the Signature in "modern" PDB v7 symbols is
     ///     represented in a GUID format and the Age is an unsigned 32-bit integer without leading zeroes.
     /// </summary>
-    public string SymbolKey { get; set; } = null!;
+    public required string SymbolKey { get; set; }
 
     /// <summary>
     ///     The symbol blob file name.
     /// </summary>
-    public string FileName { get; set; } = null!;
+    public required string FileName { get; set; }
 
     /// <summary>
     ///     The pre-v7 PDB UInt32 Signature.
@@ -49,7 +49,7 @@ public class SymbolsEntity : FileEntity
     public Guid? NewSignature { get; set; }
 
     /// <summary>
-    ///     The UInt32 Age value.
+    ///     The UInt32 Age value. Increments to distinguish multiple revisions of the same symbol. 
     /// </summary>
     public ulong? Age { get; set; }
 

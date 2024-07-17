@@ -6,18 +6,12 @@ using Smx.PDBSharp;
 
 using WinDbgSymbolsCachingProxy.Core;
 using WinDbgSymbolsCachingProxy.Core.Exceptions;
+using WinDbgSymbolsCachingProxy.Models;
 
 namespace WinDbgSymbolsCachingProxy.Services;
 
-public sealed record SymbolParsingResult(
-    string FileName,
-    string IndexPrefix,
-    uint? Age = default,
-    ulong? Signature = default,
-    Guid? NewSignature = default);
-
 [SuppressMessage("ReSharper", "UnusedMember.Global")]
-public sealed class SymbolParsingService
+internal sealed class SymbolParsingService
 {
     private readonly ILogger<SymbolParsingService> _logger;
     private readonly SymStoreService _symStore;
