@@ -13,7 +13,7 @@
 
     <ItemGroup>
         <PackageReference Include="Coravel" Version="5.0.4"/>
-        <PackageReference Include="FastEndpoints" Version="5.27.0"/>
+        <PackageReference Include="FastEndpoints" Version="5.28.0"/>
         <PackageReference Include="Fody" Version="6.8.1">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
