@@ -21,8 +21,8 @@
         <PackageReference Include="idunno.Authentication.Basic" Version="2.4.0"/>
         <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="8.0.0"/>
         <PackageReference Include="Microsoft.Extensions.Http.Polly" Version="8.0.8"/>
-        <PackageReference Include="Microsoft.FileFormats" Version="1.0.541601"/>
-        <PackageReference Include="Microsoft.SymbolStore" Version="1.0.540801"/>
+        <PackageReference Include="Microsoft.FileFormats" Version="1.0.542301"/>
+        <PackageReference Include="Microsoft.SymbolStore" Version="1.0.542301"/>
         <PackageReference Include="MinVer" Version="5.0.0">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
