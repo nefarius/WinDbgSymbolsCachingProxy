@@ -12,7 +12,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Coravel" Version="5.0.4"/>
+        <PackageReference Include="Coravel" Version="6.0.0"/>
         <PackageReference Include="FastEndpoints" Version="5.29.0"/>
         <PackageReference Include="Fody" Version="6.8.2">
             <PrivateAssets>all</PrivateAssets>
