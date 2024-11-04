@@ -28,7 +28,7 @@
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
         <PackageReference Include="MongoDB.Entities" Version="23.2.0"/>
-        <PackageReference Include="Nefarius.Utilities.AspNetCore" Version="2.3.0"/>
+        <PackageReference Include="Nefarius.Utilities.AspNetCore" Version="2.3.1"/>
         <PackageReference Include="PeNet" Version="4.1.0"/>
         <PackageReference Include="Polly.Contrib.WaitAndRetry" Version="1.1.1"/>
         <PackageReference Include="Resourcer.Fody" Version="1.8.1">
