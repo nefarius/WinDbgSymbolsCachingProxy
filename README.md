@@ -2,15 +2,25 @@
 
 ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/nefarius/WinDbgSymbolsCachingProxy/docker-image.yml)
 
-Microsoft debugging symbols caching proxy using [FastEndpoints](https://fast-endpoints.com/) and [MongoDB](https://mongodb-entities.com/).
+Microsoft debugging symbols caching proxy using [FastEndpoints](https://fast-endpoints.com/)
+and [MongoDB](https://mongodb-entities.com/).
 
 ## About
 
-When working frequently with [WinDbg](https://learn.microsoft.com/en-us/windows-hardware/drivers/debugger/debugging-using-windbg-preview) to analyze kernel memory dumps, symbol (down)loading is a very common occurrence. What's also quite common is the abysmal performance of the official Microsoft Symbol Servers, taking easily between **two to three seconds** for every request! Being fed up with wasting precious lifetime I made this little caching proxy you can put in between your WinDbg instances and use it in conjunction with an offline caching directory. The proxy server will store a copy of the requested symbol in a MongoDB database, including information if the symbol even exists upstream. This information gets cached for a week, so you won't waste any more time twiddling thumbs while the Microsoft servers take their sweet time to return a 404.
+When working frequently
+with [WinDbg](https://learn.microsoft.com/en-us/windows-hardware/drivers/debugger/debugging-using-windbg-preview) to
+analyze kernel memory dumps, symbol (down)loading is a widespread occurrence. What's also quite common is the abysmal
+performance of the official Microsoft Symbol Servers, taking easily **between two to three seconds** for every request!
+Being fed up with wasting precious lifetime I made this little caching proxy you can put in between your WinDbg
+instances and use it in conjunction with an offline caching directory. The proxy server will store a copy of the
+requested symbol in a MongoDB database, including information if the symbol even exists upstream.
+This information gets cached for a week, so you won't waste any more time twiddling thumbs while the Microsoft servers
+take their sweet time to return a 404.
 
 ## Real-world example
 
-Let's see if my efforts paid off, shall we! I've opened a kernel memory dump which requested **1090 files at a total size of 186 Megabytes** with three different strategies outlined below. Let's go!
+Let's see if my efforts paid off, shall we! I've opened a kernel memory dump which requested **1090 files at a total
+size of 186 Megabytes** with three different strategies outlined below. Let's go!
 
 ### No proxy, no local cache
 
@@ -28,7 +38,8 @@ Let's see if my efforts paid off, shall we! I've opened a kernel memory dump whi
 
 ![Cached Symbols Count](https://symbols.nefarius.at/api/badges/cachedSymbolsTotal) ![Cached Symbols 404](https://symbols.nefarius.at/api/badges/cachedSymbolsNotFound) ![Cached Symbols Found](https://symbols.nefarius.at/api/badges/cachedSymbolsFound)
 
-I'm hosting an instance of this project at [`https://symbols.nefarius.at/`](https://symbols.nefarius.at/) which you can consume and help growing by adjusting your symbol source settings like so:
+I'm hosting an instance of this project at [`https://symbols.nefarius.at/`](https://symbols.nefarius.at/) which you can
+consume and help growing by adjusting your symbol source settings like so:
 
 ```text
 .sympath cache*D:\symbols;srv*https://symbols.nefarius.at/download/symbols
@@ -36,34 +47,39 @@ I'm hosting an instance of this project at [`https://symbols.nefarius.at/`](http
 
 This means my local symbol cache resides at `D:\symbols`, adjust to your own preferences.
 
-Like any other of my public web services it only logs an absolute minimal amount required for debugging purposes and I'll never sell your data out to the big bois 😉
+Like any other of my public web services it only logs an absolute minimal amount required for debugging purposes and
+I'll never sell your data out to the big bois 😉
 
-If you like this idea and want to keep my public instance happy, up and running [consider making a donation](https://docs.nefarius.at/Community-Support/) 💸
+If you like this idea and want to keep my public instance happy, up and
+running [consider making a donation](https://docs.nefarius.at/Community-Support/) 💸
 
 ## Features
 
 - Caching! Pretty much the main purpose 😁
-  - `/download/symbols/{Symbol}/{SignaturePlusAge}/{File}`
-    - Serves the typical download request the debugger invokes. 
+    - `/download/symbols/{Symbol}/{SignaturePlusAge}/{File}`
+        - Serves the typical download request the debugger invokes.
 - Badges! Embed server statistics anywhere via generated SVGs 🖼️
-  - `/api/badges/cachedSymbolsTotal`
-    - Gets total amount of cached records.
-  - `/api/badges/cachedSymbolsFound`
-    - Gets the amount of records found upstream (these actually contain the data).
-  - `/api/badges/cachedSymbolsNotFound`
-    - Gets the amount of records flagged as "not found" upstream.  
+    - `/api/badges/cachedSymbolsTotal`
+        - Gets total amount of cached records.
+    - `/api/badges/cachedSymbolsFound`
+        - Gets the amount of records found upstream (these actually contain the data).
+    - `/api/badges/cachedSymbolsNotFound`
+        - Gets the amount of records flagged as "not found" upstream.
 
 ## TODOs and ideas
 
 A non-exhaustive list of notes about features that I may implement some day:
 
-- [ ] Add support to provide a custom directory where the server can pick up custom/private symbols from and cache them with the same methods.
-  - [X] Add support for PDB files
-  - [X] Add support for binaries (`.sys`, `.dll`, `.exe`)
+- [ ] Add support to provide a custom directory where the server can pick up custom/private symbols from and cache them
+  with the same methods.
+    - [X] Add support for PDB files
+    - [X] Add support for binaries (`.sys`, `.dll`, `.exe`)
 - [X] Make retry and cache invalidation parameters configurable e.g. via `appsettings.json`
-- [ ] Maybe add custom "admin" endpoints to upload custom symbols, delete existing entries and invalidate cache on command?
+- [ ] Maybe add custom "admin" endpoints to upload custom symbols, delete existing entries and invalidate cache on
+  command?
 - [X] Add timer to periodically check if 404ed symbols are now available
-- [ ] Add timer to automate some tasks, maybe log last symbol access and scrub some that never got requested after a few months or so
+- [ ] Add timer to automate some tasks, maybe log last symbol access and scrub some that never got requested after a few
+  months or so
 
 ## How to publish
 
