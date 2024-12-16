@@ -10,7 +10,7 @@ using WinDbgSymbolsCachingProxy.Models;
 namespace WinDbgSymbolsCachingProxy.Endpoints;
 
 /// <summary>
-///     Serves symbol downloads, mirroring the behaviour of the Microsoft Symbol Server.
+///     Serves symbol downloads, mirroring the behavior of the Microsoft Symbol Server.
 /// </summary>
 public sealed class SymbolsEndpoint : Endpoint<SymbolsRequest>
 {

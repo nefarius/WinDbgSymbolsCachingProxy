@@ -9,4 +9,6 @@ public class BadgeModel
     public int Height { get; set; }
     public SKColor ResultBackgroundColor { get; set; }
     public SKColor LabelBackgroundColor { get; set; }
+
+    public int TopBottomMargin => Height / 5;
 }

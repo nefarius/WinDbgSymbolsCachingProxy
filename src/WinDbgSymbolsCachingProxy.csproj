@@ -21,14 +21,14 @@
         <PackageReference Include="idunno.Authentication.Basic" Version="2.4.0" />
         <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="9.0.0" />
         <PackageReference Include="Microsoft.Extensions.Http.Polly" Version="9.0.0" />
-        <PackageReference Include="Microsoft.FileFormats" Version="1.0.560801" />
-        <PackageReference Include="Microsoft.SymbolStore" Version="1.0.560801" />
+        <PackageReference Include="Microsoft.FileFormats" Version="1.0.561501" />
+        <PackageReference Include="Microsoft.SymbolStore" Version="1.0.561501" />
         <PackageReference Include="MinVer" Version="6.0.0">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="MongoDB.Entities" Version="23.2.0" />
-        <PackageReference Include="Nefarius.Utilities.AspNetCore" Version="2.5.0" />
+        <PackageReference Include="MongoDB.Entities" Version="24.0.0" />
+        <PackageReference Include="Nefarius.Utilities.AspNetCore" Version="2.5.1" />
         <PackageReference Include="PeNet" Version="4.1.1" />
         <PackageReference Include="Polly.Contrib.WaitAndRetry" Version="1.1.1" />
         <PackageReference Include="Resourcer.Fody" Version="1.8.1">
