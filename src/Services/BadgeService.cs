@@ -6,41 +6,39 @@ namespace WinDbgSymbolsCachingProxy.Services;
 
 public interface IBadgeService
 {
-    void DrawBadge(SKCanvas canvas, BadgeModel badge);
+    void DrawBadge(SKCanvas canvas, BadgeModel badge, SKFont font);
 
-    float GetWidth(BadgeModel badge);
+    public float GetWidth(BadgeModel badge, SKFont font);
 }
 
 public class BadgeService : IBadgeService
 {
-    public float GetWidth(BadgeModel badge)
+    public float GetWidth(BadgeModel badge, SKFont font)
     {
-        SKPaint paint = GetTextPaint(badge);
-
         int outerMargin = GetOuterMargin(badge),
             innerMargin = GetInnerMargin(badge);
 
         float width = outerMargin
-                      + paint.MeasureText(badge.Label)
+                      + font.MeasureText(badge.Label)
                       + innerMargin
                       + innerMargin
-                      + paint.MeasureText(badge.Result)
+                      + font.MeasureText(badge.Result)
                       + outerMargin;
 
         return width;
     }
 
-    public void DrawBadge(SKCanvas canvas, BadgeModel badge)
+    public void DrawBadge(SKCanvas canvas, BadgeModel badge, SKFont font)
     {
         canvas.Clear();
-
+        
         SKPaint textPaint = GetTextPaint(badge);
         float outerMargin = GetOuterMargin(badge),
             innerMargin = GetInnerMargin(badge);
-        float leftTextWidth = textPaint.MeasureText(badge.Label);
+        float leftTextWidth = font.MeasureText(badge.Label);
         float leftSideWidth = outerMargin + leftTextWidth + innerMargin;
         float topBottomMargin = GetTopBottomMargin(badge);
-        float textY = (badge.Height / 2) + textPaint.FontMetrics.Bottom + 2;
+        float textY = (badge.Height / 2.0f) + font.Metrics.Bottom + 2;
         float cornerRadius = GetCornerRadius(badge);
 
         /* draw left background */
@@ -50,32 +48,25 @@ public class BadgeService : IBadgeService
 
         /* draw right background */
         SKPaint resultBackgroundPaint = GetResultBackgroundPaint(badge);
-        canvas.DrawRoundRect(leftSideWidth, 0, innerMargin + textPaint.MeasureText(badge.Result) + outerMargin,
+        canvas.DrawRoundRect(leftSideWidth, 0, innerMargin + font.MeasureText(badge.Result) + outerMargin,
             badge.Height, cornerRadius, cornerRadius, resultBackgroundPaint);
         canvas.DrawRect(leftSideWidth, 0, cornerRadius, badge.Height, resultBackgroundPaint);
 
         /* write left text */
         SKPaint textShadowPaint = GetTextShadowPaint(badge);
         float shadowFactor = 1.05f;
-        canvas.DrawText(badge.Label, outerMargin, textY * shadowFactor, textShadowPaint);
-        canvas.DrawText(badge.Label, outerMargin, textY, textPaint);
+        canvas.DrawText(badge.Label, outerMargin, textY * shadowFactor, font, textShadowPaint);
+        canvas.DrawText(badge.Label, outerMargin, textY, font, textPaint);
 
         /* write right text */
         float rightTextX = leftSideWidth + innerMargin;
-        canvas.DrawText(badge.Result, rightTextX, textY * shadowFactor, textShadowPaint);
-        canvas.DrawText(badge.Result, rightTextX, textY, textPaint);
+        canvas.DrawText(badge.Result, rightTextX, textY * shadowFactor, font, textShadowPaint);
+        canvas.DrawText(badge.Result, rightTextX, textY, font, textPaint);
     }
 
     private static SKPaint GetTextPaint(BadgeModel badge)
     {
-        return new SKPaint
-        {
-            IsAntialias = true,
-            IsStroke = false,
-            Color = SKColors.White,
-            TextSize = badge.Height - (GetTopBottomMargin(badge) * 2),
-            Typeface = SKTypeface.FromFamilyName("Verdana")
-        };
+        return new SKPaint { IsAntialias = true, IsStroke = false, Color = SKColors.White };
     }
 
     private SKPaint GetTextShadowPaint(BadgeModel badge)
