@@ -3,12 +3,14 @@ using HarvestingAgent;
 using Microsoft.Extensions.Logging.Configuration;
 using Microsoft.Extensions.Logging.EventLog;
 
-var builder = Host.CreateApplicationBuilder(args);
+HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
 
 builder.Services.AddWindowsService(options =>
 {
     options.ServiceName = "Debug Symbols Harvesting Agent";
 });
+
+builder.Services.Configure<ServiceConfig>(builder.Configuration.GetSection("ServiceConfig"));
 
 LoggerProviderOptions.RegisterProviderOptions<
     EventLogSettings, EventLogLoggerProvider>(builder.Services);
@@ -16,6 +18,5 @@ LoggerProviderOptions.RegisterProviderOptions<
 builder.Services.AddHostedService<WindowsBackgroundService>();
 
 
-
-var host = builder.Build();
+IHost host = builder.Build();
 host.Run();
