@@ -12,4 +12,6 @@ public sealed class ServiceConfig
     public required AuthenticationConfig Authentication { get; set; }
 
     public required Uri ServerUrl { get; set; }
+
+    public required string WatcherPath { get; set; }
 }

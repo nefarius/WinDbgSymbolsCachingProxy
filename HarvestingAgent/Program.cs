@@ -19,6 +19,18 @@ builder.Services.Configure<ServiceConfig>(configSection);
 LoggerProviderOptions.RegisterProviderOptions<
     EventLogSettings, EventLogLoggerProvider>(builder.Services);
 
+builder.Services.AddSingleton<FileSystemWatcher>(provider =>
+{
+    ServiceConfig? config = configSection.Get<ServiceConfig>();
+
+    if (config is null)
+    {
+        throw new InvalidOperationException("Configuration incomplete!");
+    }
+
+    return new FileSystemWatcher(config.WatcherPath);
+});
+
 builder.Services.AddHostedService<WindowsBackgroundService>();
 builder.Services.AddHttpClient("Server", client =>
 {
