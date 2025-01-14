@@ -45,7 +45,7 @@ public class WindowsBackgroundService : BackgroundService
         _watcher.Created += WatcherOnCreated;
 
         _watcher.EnableRaisingEvents = true;
-        
+
         _logger.LogInformation("Watcher started");
 
         while (!stoppingToken.IsCancellationRequested)
@@ -54,9 +54,9 @@ public class WindowsBackgroundService : BackgroundService
         }
 
         _watcher.EnableRaisingEvents = false;
-        
+
         _logger.LogInformation("Watcher stopped");
-        
+
         return;
 
         void WatcherOnCreated(object sender, FileSystemEventArgs e)
@@ -85,6 +85,18 @@ public class WindowsBackgroundService : BackgroundService
                     _logger.LogInformation(response.IsSuccessStatusCode
                         ? "Symbol upload successful"
                         : "Symbol upload failed");
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        _logger.LogInformation("Symbol upload successful");
+                        File.Delete(path);
+                    }
+                    else
+                    {
+                        _logger.LogInformation("Symbol upload failed");
+                        await File.WriteAllTextAsync($"{path}.upload-error.txt",
+                            await response.Content.ReadAsStringAsync(cts.Token), cts.Token);
+                    }
                 }
                 catch (Exception ex)
                 {
