@@ -19,8 +19,9 @@ builder.Services.Configure<ServiceConfig>(configSection);
 LoggerProviderOptions.RegisterProviderOptions<
     EventLogSettings, EventLogLoggerProvider>(builder.Services);
 
-builder.Services.AddSingleton<FileSystemWatcher>(_ =>
+builder.Services.AddSingleton<FileSystemWatcher>(provider =>
 {
+    ILogger<FileSystemWatcher> logger = provider.GetRequiredService<ILogger<FileSystemWatcher>>();
     ServiceConfig? config = configSection.Get<ServiceConfig>();
 
     if (config is null)
@@ -34,7 +35,6 @@ builder.Services.AddSingleton<FileSystemWatcher>(_ =>
                        | NotifyFilters.CreationTime
                        | NotifyFilters.DirectoryName
                        | NotifyFilters.FileName
-                       | NotifyFilters.LastAccess
                        | NotifyFilters.LastWrite
                        | NotifyFilters.Size
     };
@@ -43,6 +43,8 @@ builder.Services.AddSingleton<FileSystemWatcher>(_ =>
     watcher.Filters.Add("*.exe");
     watcher.Filters.Add("*.dll");
     watcher.Filters.Add("*.pdb");
+
+    logger.LogInformation("Watching over path {Path} ({@Filters})", config.WatcherPath, watcher.Filters);
 
     return watcher;
 });
