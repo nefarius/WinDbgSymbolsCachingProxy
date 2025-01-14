@@ -6,6 +6,8 @@ using HarvestingAgent;
 using Microsoft.Extensions.Logging.Configuration;
 using Microsoft.Extensions.Logging.EventLog;
 
+using Serilog;
+
 HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
 
 builder.Services.AddWindowsService(options =>
@@ -16,8 +18,7 @@ builder.Services.AddWindowsService(options =>
 IConfigurationSection configSection = builder.Configuration.GetSection("ServiceConfig");
 builder.Services.Configure<ServiceConfig>(configSection);
 
-LoggerProviderOptions.RegisterProviderOptions<
-    EventLogSettings, EventLogLoggerProvider>(builder.Services);
+builder.Services.AddSerilog(lc => lc.ReadFrom.Configuration(builder.Configuration));
 
 builder.Services.AddSingleton<FileSystemWatcher>(provider =>
 {
