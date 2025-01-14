@@ -1,4 +1,8 @@
+using System.Net.Http.Headers;
+
 using Microsoft.Extensions.Options;
+
+using MimeTypes;
 
 namespace HarvestingAgent;
 
@@ -18,16 +22,27 @@ public class WindowsBackgroundService : BackgroundService
         _httpClientFactory = httpClientFactory;
     }
 
+    private void WaitForFile(string fullPath)
+    {
+        while (true)
+        {
+            try
+            {
+                using StreamReader stream = new(fullPath);
+                break;
+            }
+            catch
+            {
+                Thread.Sleep(1000);
+            }
+        }
+    }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        HttpClient client = _httpClientFactory.CreateClient("Server");
+        CancellationTokenSource cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
 
         _watcher.Created += WatcherOnCreated;
-
-        void WatcherOnCreated(object sender, FileSystemEventArgs e)
-        {
-            throw new NotImplementedException();
-        }
 
         _watcher.EnableRaisingEvents = true;
 
@@ -37,5 +52,40 @@ public class WindowsBackgroundService : BackgroundService
         }
 
         _watcher.EnableRaisingEvents = false;
+        return;
+
+        void WatcherOnCreated(object sender, FileSystemEventArgs e)
+        {
+            Task.Run(async () =>
+            {
+                try
+                {
+                    HttpClient client = _httpClientFactory.CreateClient("Server");
+                    using MultipartFormDataContent form = new();
+                    string path = e.FullPath;
+
+                    // this event may fire while the content is still written to and locked
+                    WaitForFile(path);
+
+                    ByteArrayContent fileContent = new(await File.ReadAllBytesAsync(path, cts.Token));
+                    string? mimeType = MimeTypeMap.GetMimeType(Path.GetExtension(path));
+
+                    ArgumentException.ThrowIfNullOrEmpty(mimeType);
+
+                    fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse(mimeType);
+                    form.Add(fileContent, "symbol", Path.GetFileName(path));
+
+                    HttpResponseMessage response = await client.PostAsync("/api/uploads/symbol", form, cts.Token);
+
+                    _logger.LogInformation(response.IsSuccessStatusCode
+                        ? "Symbol upload successful"
+                        : "Symbol upload failed");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to upload symbol {FullPath}", e.FullPath);
+                }
+            }, cts.Token);
+        }
     }
 }

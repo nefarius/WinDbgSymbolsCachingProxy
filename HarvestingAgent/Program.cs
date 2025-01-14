@@ -19,7 +19,7 @@ builder.Services.Configure<ServiceConfig>(configSection);
 LoggerProviderOptions.RegisterProviderOptions<
     EventLogSettings, EventLogLoggerProvider>(builder.Services);
 
-builder.Services.AddSingleton<FileSystemWatcher>(provider =>
+builder.Services.AddSingleton<FileSystemWatcher>(_ =>
 {
     ServiceConfig? config = configSection.Get<ServiceConfig>();
 
@@ -28,7 +28,23 @@ builder.Services.AddSingleton<FileSystemWatcher>(provider =>
         throw new InvalidOperationException("Configuration incomplete!");
     }
 
-    return new FileSystemWatcher(config.WatcherPath);
+    FileSystemWatcher watcher = new(config.WatcherPath)
+    {
+        NotifyFilter = NotifyFilters.Attributes
+                       | NotifyFilters.CreationTime
+                       | NotifyFilters.DirectoryName
+                       | NotifyFilters.FileName
+                       | NotifyFilters.LastAccess
+                       | NotifyFilters.LastWrite
+                       | NotifyFilters.Size
+    };
+
+    // only watch those supported by the upload endpoint
+    watcher.Filters.Add("*.exe");
+    watcher.Filters.Add("*.dll");
+    watcher.Filters.Add("*.pdb");
+
+    return watcher;
 });
 
 builder.Services.AddHostedService<WindowsBackgroundService>();
