@@ -50,7 +50,7 @@ builder.Services.AddSingleton<FileSystemWatcher>(provider =>
 });
 
 builder.Services.AddHostedService<WindowsBackgroundService>();
-builder.Services.AddHttpClient("Server", client =>
+builder.Services.AddHttpClient("Server", (provider, client) =>
 {
     ServiceConfig? config = configSection.Get<ServiceConfig>();
 
@@ -59,8 +59,11 @@ builder.Services.AddHttpClient("Server", client =>
         throw new InvalidOperationException("Configuration incomplete!");
     }
 
-    client.BaseAddress = config.ServerUrl;
+    ILogger<WindowsBackgroundService> logger = provider.GetRequiredService<ILogger<WindowsBackgroundService>>();
 
+    logger.LogInformation("Upload server: {Url}", config.ServerUrl);
+
+    client.BaseAddress = config.ServerUrl;
     client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
         "Basic",
         Convert.ToBase64String(

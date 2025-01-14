@@ -10,6 +10,7 @@
         <PublishSingleFile Condition="'$(Configuration)' == 'Release'">true</PublishSingleFile>
         <RuntimeIdentifier>win-x64</RuntimeIdentifier>
         <PlatformTarget>x64</PlatformTarget>
+        <LangVersion>latest</LangVersion>
     </PropertyGroup>
 
     <ItemGroup>

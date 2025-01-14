@@ -45,6 +45,8 @@ public class WindowsBackgroundService : BackgroundService
         _watcher.Created += WatcherOnCreated;
 
         _watcher.EnableRaisingEvents = true;
+        
+        _logger.LogInformation("Watcher started");
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -52,6 +54,9 @@ public class WindowsBackgroundService : BackgroundService
         }
 
         _watcher.EnableRaisingEvents = false;
+        
+        _logger.LogInformation("Watcher stopped");
+        
         return;
 
         void WatcherOnCreated(object sender, FileSystemEventArgs e)
