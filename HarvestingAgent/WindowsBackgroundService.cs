@@ -81,11 +81,7 @@ public class WindowsBackgroundService : BackgroundService
                     form.Add(fileContent, "symbol", Path.GetFileName(path));
 
                     HttpResponseMessage response = await client.PostAsync("/api/uploads/symbol", form, cts.Token);
-
-                    _logger.LogInformation(response.IsSuccessStatusCode
-                        ? "Symbol upload successful"
-                        : "Symbol upload failed");
-
+                    
                     if (response.IsSuccessStatusCode)
                     {
                         _logger.LogInformation("Symbol upload successful");

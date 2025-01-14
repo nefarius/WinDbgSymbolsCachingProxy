@@ -43,6 +43,7 @@ builder.Services.AddSingleton<FileSystemWatcher>(provider =>
     // only watch those supported by the upload endpoint
     watcher.Filters.Add("*.exe");
     watcher.Filters.Add("*.dll");
+    watcher.Filters.Add("*.sys");
     watcher.Filters.Add("*.pdb");
 
     logger.LogInformation("Watching over path {Path} ({@Filters})", config.WatcherPath, watcher.Filters);
