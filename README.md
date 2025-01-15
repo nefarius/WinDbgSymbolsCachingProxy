@@ -61,26 +61,11 @@ running [consider making a donation](https://docs.nefarius.at/Community-Support/
         - Serves the typical download request the debugger invokes.
 - Badges! Embed server statistics anywhere via generated SVGs 🖼️
     - `/api/badges/cachedSymbolsTotal`
-        - Gets total amount of cached records.
+        - Gets total number of cached records.
     - `/api/badges/cachedSymbolsFound`
-        - Gets the amount of records found upstream (these actually contain the data).
+        - Gets the number of records found upstream (these actually contain the data).
     - `/api/badges/cachedSymbolsNotFound`
-        - Gets the amount of records flagged as "not found" upstream.
-
-## TODOs and ideas
-
-A non-exhaustive list of notes about features that I may implement some day:
-
-- [ ] Add support to provide a custom directory where the server can pick up custom/private symbols from and cache them
-  with the same methods.
-    - [X] Add support for PDB files
-    - [X] Add support for binaries (`.sys`, `.dll`, `.exe`)
-- [X] Make retry and cache invalidation parameters configurable e.g. via `appsettings.json`
-- [ ] Maybe add custom "admin" endpoints to upload custom symbols, delete existing entries and invalidate cache on
-  command?
-- [X] Add timer to periodically check if 404ed symbols are now available
-- [ ] Add timer to automate some tasks, maybe log last symbol access and scrub some that never got requested after a few
-  months or so
+        - Gets the number of records flagged as "not found" upstream.
 
 ## How to publish
 
