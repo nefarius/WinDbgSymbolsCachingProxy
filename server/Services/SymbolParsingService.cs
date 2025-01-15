@@ -89,7 +89,7 @@ internal sealed class SymbolParsingService
     /// <summary>
     ///     Parses various portable executable formats.
     /// </summary>
-    /// <param name="fileName">The file  name (with extension, without path).</param>
+    /// <param name="fileName">The file name (with extension, without the path).</param>
     /// <param name="stream">The stream containing the file content.</param>
     /// <returns>The index prefix of the symbol.</returns>
     private Task<string> ParseExecutable(string fileName, MemoryStream stream)
@@ -111,7 +111,7 @@ internal sealed class SymbolParsingService
     /// <summary>
     ///     Parses various versions of PDB files.
     /// </summary>
-    /// <param name="fileName">The file  name (with extension, without path).</param>
+    /// <param name="fileName">The file name (with extension, without the path).</param>
     /// <param name="stream">The stream containing the file content.</param>
     /// <returns>The index prefix of the PDB.</returns>
     /// <exception cref="FailedToParsePdbException">Thrown on error.</exception>
