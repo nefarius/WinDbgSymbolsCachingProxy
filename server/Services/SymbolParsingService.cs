@@ -222,15 +222,26 @@ internal sealed class SymbolParsingService
         }
     }
 
+    /// <summary>
+    ///     Grabs the original file name from the PDB stream.
+    /// </summary>
+    /// <param name="stream">The source stream.</param>
+    /// <returns>The PDB name or null if not found.</returns>
     private static string? GetOriginalPdbName(Stream stream)
     {
         MsPdb pdb = new(new KaitaiStream(stream));
-        MsPdb.UModuleInfo pdbModule = pdb.DbiStream.ModulesList.Items
-            .First(info => info.Module.EcInfo.PdbFilenameIndex != 0);
-        uint index = pdbModule.Module.EcInfo.PdbFilenameIndex;
-        string pdbPathName = pdb.DbiStream.EcInfo.Strings.Strings.First(s => s.CharsIndex == index).String;
+        MsPdb.UModuleInfo? pdbModule = pdb.DbiStream.ModulesList.Items
+            .FirstOrDefault(info => info.Module.EcInfo.PdbFilenameIndex != 0);
 
-        return Path.GetFileName(pdbPathName);
+        if (pdbModule is null)
+        {
+            return null;
+        }
+
+        uint index = pdbModule.Module.EcInfo.PdbFilenameIndex;
+        string? pdbPathName = pdb.DbiStream.EcInfo.Strings.Strings.FirstOrDefault(s => s.CharsIndex == index)?.String;
+
+        return string.IsNullOrEmpty(pdbPathName) ? null : Path.GetFileName(pdbPathName);
     }
 
     private record PdbParsingResult(
