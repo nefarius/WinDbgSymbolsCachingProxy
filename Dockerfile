@@ -6,10 +6,10 @@ EXPOSE 443
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 COPY ./nuget.config .
-COPY ["src/WinDbgSymbolsCachingProxy.csproj", "src/"]
+COPY ["server/WinDbgSymbolsCachingProxy.csproj", "server/"]
 RUN dotnet restore "src/WinDbgSymbolsCachingProxy.csproj"
 COPY . .
-WORKDIR "/src/src"
+WORKDIR "/src/server"
 RUN dotnet build "WinDbgSymbolsCachingProxy.csproj" -c Release -o /app/build
 
 FROM build AS publish
