@@ -1,5 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
+using Kaitai;
+
 using Microsoft.SymbolStore.KeyGenerators;
 
 using Smx.PDBSharp;
@@ -218,6 +220,17 @@ internal sealed class SymbolParsingService
             default:
                 throw new FailedToParsePdbException($"Couldn't find the signature of PDB {fileName}.");
         }
+    }
+
+    private static string? GetOriginalPdbName(Stream stream)
+    {
+        MsPdb pdb = new(new KaitaiStream(stream));
+        MsPdb.UModuleInfo pdbModule = pdb.DbiStream.ModulesList.Items
+            .First(info => info.Module.EcInfo.PdbFilenameIndex != 0);
+        uint index = pdbModule.Module.EcInfo.PdbFilenameIndex;
+        string pdbPathName = pdb.DbiStream.EcInfo.Strings.Strings.First(s => s.CharsIndex == index).String;
+
+        return Path.GetFileName(pdbPathName);
     }
 
     private record PdbParsingResult(
