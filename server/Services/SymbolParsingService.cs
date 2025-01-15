@@ -222,7 +222,7 @@ internal sealed class SymbolParsingService
 
     private record PdbParsingResult(
         string IndexPrefix,
-        uint? Age = default,
-        uint? Signature = default,
-        Guid? NewSignature = default);
+        uint? Age = null,
+        uint? Signature = null,
+        Guid? NewSignature = null);
 }
