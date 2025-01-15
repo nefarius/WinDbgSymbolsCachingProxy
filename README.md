@@ -1,6 +1,7 @@
 # <img src="assets/NSS-128x128.png" align="left" />WinDbgSymbolsCachingProxy
 
-![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/nefarius/WinDbgSymbolsCachingProxy/docker-image.yml)
+[![.NET](https://github.com/nefarius/WinDbgSymbolsCachingProxy/actions/workflows/build.yml/badge.svg)](https://github.com/nefarius/WinDbgSymbolsCachingProxy/actions/workflows/build.yml)
+[![Docker Image CI](https://github.com/nefarius/WinDbgSymbolsCachingProxy/actions/workflows/docker-image.yml/badge.svg)](https://github.com/nefarius/WinDbgSymbolsCachingProxy/actions/workflows/docker-image.yml)
 
 Microsoft debugging symbols caching proxy using [FastEndpoints](https://fast-endpoints.com/)
 and [MongoDB](https://mongodb-entities.com/).
