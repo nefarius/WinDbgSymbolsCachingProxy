@@ -7,7 +7,7 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 COPY ./nuget.config .
 COPY ["server/WinDbgSymbolsCachingProxy.csproj", "server/"]
-RUN dotnet restore "src/WinDbgSymbolsCachingProxy.csproj"
+RUN dotnet restore "server/WinDbgSymbolsCachingProxy.csproj"
 COPY . .
 WORKDIR "/src/server"
 RUN dotnet build "WinDbgSymbolsCachingProxy.csproj" -c Release -o /app/build
