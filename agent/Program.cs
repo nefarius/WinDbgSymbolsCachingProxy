@@ -1,19 +1,24 @@
 using System.Net.Http.Headers;
+using System.Runtime.InteropServices;
 using System.Text;
 
 using HarvestingAgent;
 
-using Microsoft.Extensions.Logging.Configuration;
-using Microsoft.Extensions.Logging.EventLog;
-
 using Serilog;
+
+Directory.SetCurrentDirectory(AppContext.BaseDirectory);
 
 HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
 
-builder.Services.AddWindowsService(options =>
+if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
 {
-    options.ServiceName = "Debug Symbols Harvesting Agent";
-});
+    Log.Logger.Information("Configuring Windows Service");
+
+    builder.Services.AddWindowsService(options =>
+    {
+        options.ServiceName = "Debug Symbols Harvesting Agent";
+    });
+}
 
 IConfigurationSection configSection = builder.Configuration.GetSection("ServiceConfig");
 builder.Services.Configure<ServiceConfig>(configSection);
