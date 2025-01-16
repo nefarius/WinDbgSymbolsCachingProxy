@@ -77,6 +77,8 @@ internal sealed class SymbolUploadEndpoint : EndpointWithoutRequest
                 }
                 else
                 {
+                    _logger.LogError("Symbol with name {Filename} and index prefix {IndexPrefix} already exists",
+                        filename, result.IndexPrefix);
                     await SendAsync(
                         $"Symbol with name {filename} and index prefix {result.IndexPrefix} already exists.", 409,
                         ct);
@@ -87,9 +89,7 @@ internal sealed class SymbolUploadEndpoint : EndpointWithoutRequest
             // new or existing entry
             SymbolsEntity symbol = existingSymbol ?? new SymbolsEntity
             {
-                IndexPrefix = result.IndexPrefix,
-                SymbolKey = result.SymbolKey,
-                FileName = filename
+                IndexPrefix = result.IndexPrefix, SymbolKey = result.SymbolKey, FileName = result.FileName
             };
 
             symbol.IsCustom = true;

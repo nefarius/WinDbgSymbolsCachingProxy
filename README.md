@@ -1,6 +1,7 @@
 # <img src="assets/NSS-128x128.png" align="left" />WinDbgSymbolsCachingProxy
 
-![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/nefarius/WinDbgSymbolsCachingProxy/docker-image.yml)
+[![.NET](https://github.com/nefarius/WinDbgSymbolsCachingProxy/actions/workflows/build.yml/badge.svg)](https://github.com/nefarius/WinDbgSymbolsCachingProxy/actions/workflows/build.yml)
+[![Docker Image CI](https://github.com/nefarius/WinDbgSymbolsCachingProxy/actions/workflows/docker-image.yml/badge.svg)](https://github.com/nefarius/WinDbgSymbolsCachingProxy/actions/workflows/docker-image.yml)
 
 Microsoft debugging symbols caching proxy using [FastEndpoints](https://fast-endpoints.com/)
 and [MongoDB](https://mongodb-entities.com/).
@@ -47,7 +48,7 @@ consume and help growing by adjusting your symbol source settings like so:
 
 This means my local symbol cache resides at `D:\symbols`, adjust to your own preferences.
 
-Like any other of my public web services it only logs an absolute minimal amount required for debugging purposes and
+Like any other of my public web services, it only logs an absolute minimal amount required for debugging purposes, and
 I'll never sell your data out to the big bois 😉
 
 If you like this idea and want to keep my public instance happy, up and
@@ -60,26 +61,11 @@ running [consider making a donation](https://docs.nefarius.at/Community-Support/
         - Serves the typical download request the debugger invokes.
 - Badges! Embed server statistics anywhere via generated SVGs 🖼️
     - `/api/badges/cachedSymbolsTotal`
-        - Gets total amount of cached records.
+        - Gets total number of cached records.
     - `/api/badges/cachedSymbolsFound`
-        - Gets the amount of records found upstream (these actually contain the data).
+        - Gets the number of records found upstream (these actually contain the data).
     - `/api/badges/cachedSymbolsNotFound`
-        - Gets the amount of records flagged as "not found" upstream.
-
-## TODOs and ideas
-
-A non-exhaustive list of notes about features that I may implement some day:
-
-- [ ] Add support to provide a custom directory where the server can pick up custom/private symbols from and cache them
-  with the same methods.
-    - [X] Add support for PDB files
-    - [X] Add support for binaries (`.sys`, `.dll`, `.exe`)
-- [X] Make retry and cache invalidation parameters configurable e.g. via `appsettings.json`
-- [ ] Maybe add custom "admin" endpoints to upload custom symbols, delete existing entries and invalidate cache on
-  command?
-- [X] Add timer to periodically check if 404ed symbols are now available
-- [ ] Add timer to automate some tasks, maybe log last symbol access and scrub some that never got requested after a few
-  months or so
+        - Gets the number of records flagged as "not found" upstream.
 
 ## How to publish
 

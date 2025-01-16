@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.33516.290
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WinDbgSymbolsCachingProxy", "src\WinDbgSymbolsCachingProxy.csproj", "{75CC3A05-AB27-4A9A-8DD9-F0CE1543F5CA}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WinDbgSymbolsCachingProxy", "server\WinDbgSymbolsCachingProxy.csproj", "{75CC3A05-AB27-4A9A-8DD9-F0CE1543F5CA}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{5AAE92AD-342A-49BC-8186-E057E61F53A9}"
 	ProjectSection(SolutionItems) = preProject
@@ -15,7 +15,11 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		LICENSE = LICENSE
 		README.md = README.md
 		nuget.config = nuget.config
+		.github\workflows\build.yml = .github\workflows\build.yml
+		.github\workflows\docker-image.yml = .github\workflows\docker-image.yml
 	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HarvestingAgent", "agent\HarvestingAgent.csproj", "{A2DEBFBB-C402-45A1-8721-BD76D02DA339}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -27,6 +31,10 @@ Global
 		{75CC3A05-AB27-4A9A-8DD9-F0CE1543F5CA}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{75CC3A05-AB27-4A9A-8DD9-F0CE1543F5CA}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{75CC3A05-AB27-4A9A-8DD9-F0CE1543F5CA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A2DEBFBB-C402-45A1-8721-BD76D02DA339}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A2DEBFBB-C402-45A1-8721-BD76D02DA339}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A2DEBFBB-C402-45A1-8721-BD76D02DA339}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A2DEBFBB-C402-45A1-8721-BD76D02DA339}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

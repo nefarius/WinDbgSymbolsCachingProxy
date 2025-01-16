@@ -1,10 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
     <PropertyGroup>
-        <TargetFramework>net8.0</TargetFramework>
+        <TargetFramework>net9.0</TargetFramework>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+        <LangVersion>latest</LangVersion>
     </PropertyGroup>
 
     <PropertyGroup>
@@ -19,6 +20,7 @@
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
         <PackageReference Include="idunno.Authentication.Basic" Version="2.4.0" />
+        <PackageReference Include="KaitaiStruct.Runtime.CSharp" Version="0.10.0" />
         <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="9.0.0" />
         <PackageReference Include="Microsoft.Extensions.Http.Polly" Version="9.0.0" />
         <PackageReference Include="Microsoft.FileFormats" Version="1.0.606201" />

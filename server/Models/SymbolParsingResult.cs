@@ -3,9 +3,9 @@ namespace WinDbgSymbolsCachingProxy.Models;
 internal sealed record SymbolParsingResult(
     string FileName,
     string IndexPrefix,
-    uint? Age = default,
-    ulong? Signature = default,
-    Guid? NewSignature = default)
+    uint? Age = null,
+    ulong? Signature = null,
+    Guid? NewSignature = null)
 {
     /// <summary>
     ///     A hex-encoded concatenated string of the Signature and Age where the Signature in "modern" PDB v7 symbols is
