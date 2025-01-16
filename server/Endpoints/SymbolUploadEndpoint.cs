@@ -105,6 +105,13 @@ internal sealed class SymbolUploadEndpoint : EndpointWithoutRequest
             _logger.LogInformation("Added new symbol {Symbol}", symbol);
         }
 
-        await SendOkAsync("Upload complete.", ct);
+        if (ValidationFailures.Count > 0)
+        {
+            await SendErrorsAsync(cancellation: ct);
+        }
+        else
+        {
+            await SendOkAsync("Upload complete.", ct);
+        }
     }
 }
