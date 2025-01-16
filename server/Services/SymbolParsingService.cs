@@ -4,6 +4,9 @@ using Kaitai;
 
 using Microsoft.SymbolStore.KeyGenerators;
 
+using PeNet;
+using PeNet.Header.Resource;
+
 using Smx.PDBSharp;
 
 using WinDbgSymbolsCachingProxy.Core;
@@ -68,6 +71,8 @@ internal sealed class SymbolParsingService
             case ".dll":
             case ".sys":
                 {
+                    filename = GetOriginalExecutableName(stream)?.ToLowerInvariant() ?? filename;
+                    stream.Position = 0;
                     indexPrefix = await ParseExecutable(filename, stream);
                     signature = indexPrefix.Split('/')[1].ToUpper();
                     _logger.LogInformation("File {File} (EXE/DLL/SYS) has signature {Signature}", filename,
@@ -76,6 +81,8 @@ internal sealed class SymbolParsingService
                 }
             case ".pdb":
                 {
+                    filename = GetOriginalPdbName(stream)?.ToLowerInvariant() ?? filename;
+                    stream.Position = 0;
                     PdbParsingResult result = await ParsePdb(filename, stream);
                     indexPrefix = result.IndexPrefix;
                     signature = indexPrefix.Split('/')[1].ToUpper();
@@ -212,7 +219,8 @@ internal sealed class SymbolParsingService
 
                     if (!indexPrefix.Equals(symStoreKey.Key.IndexPrefix, StringComparison.OrdinalIgnoreCase))
                     {
-                        throw new FailedToParsePdbException("PDB parsing signature+age mismatches symstore keys.");
+                        throw new FailedToParsePdbException("PDB parsing signature+age mismatches symstore keys.",
+                            (int)age, indexPrefix);
                     }
 
                     return new PdbParsingResult(indexPrefix, age, NewSignature: guid);
@@ -220,6 +228,30 @@ internal sealed class SymbolParsingService
             default:
                 throw new FailedToParsePdbException($"Couldn't find the signature of PDB {fileName}.");
         }
+    }
+
+    /// <summary>
+    ///     Grabs the original file name from the <c>.EXE</c>, <c>.DLL</c> or <c>.SYS</c> stream.
+    /// </summary>
+    /// <param name="stream">The source stream.</param>
+    /// <returns>The original executable name or null if not found.</returns>
+    private static string? GetOriginalExecutableName(Stream stream)
+    {
+        PeFile peFile = new(stream);
+
+        if (peFile.Resources?.VsVersionInfo is null)
+        {
+            return null;
+        }
+
+        if (peFile.Resources.VsVersionInfo.StringFileInfo.StringTable.Length == 0)
+        {
+            return null;
+        }
+
+        StringTable stringTable = peFile.Resources.VsVersionInfo.StringFileInfo.StringTable.First();
+
+        return stringTable.OriginalFilename;
     }
 
     /// <summary>
@@ -241,7 +273,10 @@ internal sealed class SymbolParsingService
         uint index = pdbModule.Module.EcInfo.PdbFilenameIndex;
         string? pdbPathName = pdb.DbiStream.EcInfo.Strings.Strings.FirstOrDefault(s => s.CharsIndex == index)?.String;
 
-        return string.IsNullOrEmpty(pdbPathName) ? null : Path.GetFileName(pdbPathName);
+        // required to work on Linux
+        string? normalizedPath = pdbPathName?.Replace('\\', Path.DirectorySeparatorChar);
+
+        return string.IsNullOrEmpty(normalizedPath) ? null : Path.GetFileName(normalizedPath);
     }
 
     private record PdbParsingResult(
