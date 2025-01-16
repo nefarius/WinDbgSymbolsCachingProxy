@@ -95,6 +95,7 @@ This application benefits from these awesome projects ❤ (appearance in no spec
 - [PDBSharp](https://github.com/smx-smx/PDBSharp)
 - [PeNet](https://github.com/secana/PeNet)
 - [Microsoft.SymbolStore](https://github.com/dotnet/symstore)
+- [kaitai-pdb](https://github.com/smx-smx/kaitai-pdb)
 
 ### Badge generation
 
