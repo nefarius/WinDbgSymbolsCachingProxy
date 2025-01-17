@@ -131,7 +131,11 @@ public class HarvestingBackgroundService : BackgroundService
                     if (response.IsSuccessStatusCode)
                     {
                         _logger.LogInformation("Symbol upload successful");
-                        File.Delete(path);
+
+                        if (serverConfig.DeleteAfterUpload)
+                        {
+                            File.Delete(path);
+                        }
                     }
                     else
                     {

@@ -14,6 +14,8 @@ public sealed class ServerConfig
     public required Uri ServerUrl { get; set; }
 
     public required List<string> WatcherPaths { get; set; }
+
+    public bool DeleteAfterUpload { get; set; } = true;
 }
 
 public sealed class ServiceConfig
