@@ -12,13 +12,13 @@ namespace WinDbgSymbolsCachingProxy.Endpoints;
 /// <summary>
 ///     Serves symbol downloads, mirroring the behavior of the Microsoft Symbol Server.
 /// </summary>
-public sealed class SymbolsEndpoint : Endpoint<SymbolsRequest>
+public sealed class SymbolsDownloadEndpoint : Endpoint<SymbolsRequest>
 {
     private readonly IHttpClientFactory _clientFactory;
-    private readonly ILogger<SymbolsEndpoint> _logger;
+    private readonly ILogger<SymbolsDownloadEndpoint> _logger;
     private readonly IOptions<ServiceConfig> _options;
 
-    public SymbolsEndpoint(ILogger<SymbolsEndpoint> logger, IHttpClientFactory clientFactory,
+    public SymbolsDownloadEndpoint(ILogger<SymbolsDownloadEndpoint> logger, IHttpClientFactory clientFactory,
         IOptions<ServiceConfig> options)
     {
         _logger = logger;
