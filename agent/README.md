@@ -10,3 +10,9 @@ This project is meant to be run as a (Windows) service and watch over a given fi
 can put copies of supported symbol files (currently `.exe`, `.dll`, `.sys` and `.pdb`) in, which then get uploaded to
 the caching server.
 Multiple upload servers watching over multiple upload directories are supported.
+
+## Sources & 3rd party credits
+
+- [MinVer](https://github.com/adamralph/minver)
+- [MimeTypeMap](https://github.com/samuelneff/MimeTypeMap)
+- [Serilog](https://github.com/serilog/serilog)
