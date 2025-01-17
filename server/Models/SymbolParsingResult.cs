@@ -9,7 +9,7 @@ internal sealed record SymbolParsingResult(
 {
     /// <summary>
     ///     A hex-encoded concatenated string of the Signature and Age where the Signature in "modern" PDB v7 symbols is
-    ///     represented in a GUID format and the Age is an unsigned 32-bit integer without leading zeroes.
+    ///     represented in a GUID format, and the Age is an unsigned 32-bit integer without leading zeroes.
     /// </summary>
     public string SymbolKey
     {
