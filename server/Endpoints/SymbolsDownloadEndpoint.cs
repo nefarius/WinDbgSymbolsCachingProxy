@@ -112,6 +112,7 @@ public sealed class SymbolsDownloadEndpoint : Endpoint<SymbolsRequest>
         if (response.RequestMessage is null)
         {
             _logger.LogError("Missing request message");
+            AddError("Missing request message");
             await SendErrorsAsync(cancellation: ct);
             return;
         }
@@ -119,6 +120,7 @@ public sealed class SymbolsDownloadEndpoint : Endpoint<SymbolsRequest>
         if (response.RequestMessage.RequestUri is null)
         {
             _logger.LogError("Missing request URI");
+            AddError("Missing request URI");
             await SendErrorsAsync(cancellation: ct);
             return;
         }
