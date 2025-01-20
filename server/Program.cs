@@ -32,12 +32,7 @@ using WinDbgSymbolsCachingProxy.Jobs;
 using WinDbgSymbolsCachingProxy.Models;
 using WinDbgSymbolsCachingProxy.Services;
 
-
-WebApplicationOptions opts = new()
-{
-    Args = args,
-    ContentRootPath = AppContext.BaseDirectory
-};
+WebApplicationOptions opts = new() { Args = args, ContentRootPath = AppContext.BaseDirectory };
 
 Directory.SetCurrentDirectory(AppContext.BaseDirectory);
 
@@ -46,7 +41,7 @@ WebApplicationBuilder? builder = WebApplication.CreateBuilder(opts).Setup();
 if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
 {
     Log.Logger.Information("Configuring Windows Service");
-    
+
     builder.Host.UseWindowsService(options =>
     {
         options.ServiceName = "WinDbgSymbolsCachingProxy";
@@ -71,7 +66,21 @@ builder.Services.AddHostedService<StartupService>();
 
 builder.Services.AddScheduler();
 
-builder.Services.AddFastEndpoints().SwaggerDocument();
+builder.Services.AddFastEndpoints().SwaggerDocument(o =>
+{
+    o.RemoveEmptyRequestSchema = true;
+    o.DocumentSettings = s =>
+    {
+        s.Title = "Symbols Caching Server API";
+        s.Version = "v1";
+        o.AutoTagPathSegmentIndex = 0;
+        o.TagDescriptions = t =>
+        {
+            t["Symbols"] = "Symbols up- and download endpoints";
+            t["Badges"] = "Badge creation endpoints";
+        };
+    };
+});
 
 IConfigurationSection section = builder.Configuration.GetSection(nameof(ServiceConfig));
 

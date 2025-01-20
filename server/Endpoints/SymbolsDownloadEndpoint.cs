@@ -30,6 +30,7 @@ public sealed class SymbolsDownloadEndpoint : Endpoint<SymbolsRequest>
     {
         Get("/download/symbols/{Symbol}/{SymbolKey}/{FileName}");
         AllowAnonymous();
+        Options(x => x.WithTags("Symbols"));
     }
 
     public override async Task HandleAsync(SymbolsRequest req, CancellationToken ct)

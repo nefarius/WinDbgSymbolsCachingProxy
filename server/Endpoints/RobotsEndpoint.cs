@@ -2,12 +2,13 @@
 
 namespace WinDbgSymbolsCachingProxy.Endpoints;
 
-public sealed class RobotsEndpoint : EndpointWithoutRequest
+internal sealed class RobotsEndpoint : EndpointWithoutRequest
 {
     public override void Configure()
     {
         Get("/robots.txt");
         AllowAnonymous();
+        Options(builder => builder.ExcludeFromDescription());
     }
 
     public override async Task HandleAsync(CancellationToken ct)

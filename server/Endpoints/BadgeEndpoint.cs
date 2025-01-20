@@ -35,6 +35,7 @@ public sealed class BadgeEndpoint : EndpointWithoutRequest
     {
         Get("/api/badges/{Name}");
         AllowAnonymous();
+        Options(x => x.WithTags("Badges"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

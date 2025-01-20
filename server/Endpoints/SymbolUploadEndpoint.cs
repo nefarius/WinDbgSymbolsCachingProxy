@@ -24,6 +24,7 @@ internal sealed class SymbolUploadEndpoint : EndpointWithoutRequest
     {
         Post("/api/uploads/symbol");
         AllowFileUploads(true);
+        Options(x => x.WithTags("Symbols"));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

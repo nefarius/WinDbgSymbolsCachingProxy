@@ -4,12 +4,13 @@ using Resourcer;
 
 namespace WinDbgSymbolsCachingProxy.Endpoints;
 
-public sealed class FaviconEndpoint : EndpointWithoutRequest
+internal sealed class FaviconEndpoint : EndpointWithoutRequest
 {
     public override void Configure()
     {
         Get("/favicon.ico");
         AllowAnonymous();
+        Options(builder => builder.ExcludeFromDescription());
     }
 
     public override async Task HandleAsync(CancellationToken ct)
