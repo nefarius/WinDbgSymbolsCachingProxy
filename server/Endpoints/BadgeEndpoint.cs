@@ -11,18 +11,35 @@ using WinDbgSymbolsCachingProxy.Services;
 
 namespace WinDbgSymbolsCachingProxy.Endpoints;
 
+/// <summary>
+///     Available badge types.
+/// </summary>
 public enum Badge
 {
+    /// <summary>
+    ///     The total number of cached symbols.
+    /// </summary>
     CachedSymbolsTotal,
+
+    /// <summary>
+    ///     The total number of symbols marked as not-found.
+    /// </summary>
     CachedSymbolsNotFound,
+
+    /// <summary>
+    ///     The total number of cached symbols with downloadable content.
+    /// </summary>
     CachedSymbolsFound
 }
 
+/// <summary>
+///     Serves certain database metrics as embeddable SVG badges.
+/// </summary>
 public sealed class BadgeEndpoint : EndpointWithoutRequest
 {
     private readonly ILogger<BadgeEndpoint> _logger;
-    private readonly ISvgService _svgService;
     private readonly IOptions<ServiceConfig> _options;
+    private readonly ISvgService _svgService;
 
     public BadgeEndpoint(ISvgService svgService, ILogger<BadgeEndpoint> logger, IOptions<ServiceConfig> options)
     {

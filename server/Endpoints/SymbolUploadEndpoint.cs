@@ -9,6 +9,9 @@ using WinDbgSymbolsCachingProxy.Services;
 
 namespace WinDbgSymbolsCachingProxy.Endpoints;
 
+/// <summary>
+///     Allows uploading custom symbol files to the database.
+/// </summary>
 internal sealed class SymbolUploadEndpoint : EndpointWithoutRequest
 {
     private readonly ILogger<SymbolUploadEndpoint> _logger;
