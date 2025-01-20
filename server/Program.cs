@@ -62,6 +62,8 @@ builder.Services.AddTransient<SymStoreService>();
 builder.Services.AddTransient<ITracer, Tracer>();
 builder.Services.AddSingleton<SymbolParsingService>();
 
+builder.Services.AddMemoryCache();
+
 builder.Services.AddHostedService<StartupService>();
 
 builder.Services.AddScheduler();
