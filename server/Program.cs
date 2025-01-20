@@ -6,6 +6,7 @@ using System.Security.Claims;
 using Coravel;
 
 using FastEndpoints;
+using FastEndpoints.Swagger;
 
 using idunno.Authentication.Basic;
 
@@ -70,7 +71,7 @@ builder.Services.AddHostedService<StartupService>();
 
 builder.Services.AddScheduler();
 
-builder.Services.AddFastEndpoints();
+builder.Services.AddFastEndpoints().SwaggerDocument();
 
 IConfigurationSection section = builder.Configuration.GetSection(nameof(ServiceConfig));
 
@@ -164,6 +165,7 @@ app.Services.UseScheduler(scheduler =>
         .DailyAtHour(3);
 });
 
+app.UseSwaggerGen();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseFastEndpoints();

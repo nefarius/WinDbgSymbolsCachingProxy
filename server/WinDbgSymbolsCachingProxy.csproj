@@ -15,6 +15,7 @@
     <ItemGroup>
         <PackageReference Include="Coravel" Version="6.0.2" />
         <PackageReference Include="FastEndpoints" Version="5.33.0" />
+        <PackageReference Include="FastEndpoints.Swagger" Version="5.33.0" />
         <PackageReference Include="Fody" Version="6.9.1">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

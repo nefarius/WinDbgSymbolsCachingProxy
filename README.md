@@ -58,14 +58,18 @@ running [consider making a donation](https://docs.nefarius.at/Community-Support/
 
 - Caching! Pretty much the main purpose 😁
     - `/download/symbols/{Symbol}/{SignaturePlusAge}/{File}`
-        - Serves the typical download request the debugger invokes.
+        - Serves the typical download request which the debugger issues.
 - Badges! Embed server statistics anywhere via generated SVGs 🖼️
     - `/api/badges/cachedSymbolsTotal`
-        - Gets total number of cached records.
+        - Returns the total number of cached records.
     - `/api/badges/cachedSymbolsFound`
-        - Gets the number of records found upstream (these actually contain the data).
+        - Returns the number of records found upstream (these actually contain the data).
     - `/api/badges/cachedSymbolsNotFound`
-        - Gets the number of records flagged as "not found" upstream.
+        - Returns the number of records flagged as "not found" upstream.
+    - Add your own symbols!
+        - `/api/uploads/symbol`
+            - `POST` one or more supported symbol (currently `.exe`, `.dll`, `.sys` and `.pdb`) files using your own
+              REST client or the provided [harvesting agent](./agent).
 
 ## How to publish
 
