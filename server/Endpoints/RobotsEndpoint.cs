@@ -12,7 +12,9 @@ public sealed class RobotsEndpoint : EndpointWithoutRequest
 
     public override async Task HandleAsync(CancellationToken ct)
     {
-        await SendStringAsync(@"User-agent: *
-Disallow: /", cancellation: ct);
+        await SendStringAsync("""
+                              User-agent: *
+                              Disallow: /
+                              """, cancellation: ct);
     }
 }
