@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Net.Http.Headers;
 using System.Text;
 
@@ -11,7 +12,7 @@ public class HarvestingBackgroundService : BackgroundService
 {
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<HarvestingBackgroundService> _logger;
-    private readonly IReadOnlyDictionary<FileSystemWatcher, ServerConfig> _maps;
+    private readonly ReadOnlyDictionary<FileSystemWatcher, ServerConfig> _maps;
 
     public HarvestingBackgroundService(ILogger<HarvestingBackgroundService> logger, IOptions<ServiceConfig> config,
         IHttpClientFactory httpClientFactory)
@@ -45,7 +46,7 @@ public class HarvestingBackgroundService : BackgroundService
             }
         }
 
-        _maps = maps;
+        _maps = maps.AsReadOnly();
     }
 
     private static void WaitForFile(string fullPath)
