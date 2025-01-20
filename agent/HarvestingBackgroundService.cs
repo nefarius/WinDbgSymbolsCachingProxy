@@ -125,8 +125,11 @@ public class HarvestingBackgroundService : BackgroundService
                     fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse(mimeType);
                     form.Add(fileContent, "symbol", Path.GetFileName(path));
 
-                    HttpResponseMessage response =
-                        await client.PostAsync("/api/uploads/symbol?force=true", form, cts.Token);
+                    HttpResponseMessage response = await client.PostAsync(
+                        "/api/uploads/symbol?force=true", // force flag overwrites any preexisting 404s
+                        form,
+                        cts.Token
+                    );
 
                     if (response.IsSuccessStatusCode)
                     {
