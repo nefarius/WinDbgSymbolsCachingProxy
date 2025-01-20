@@ -48,7 +48,7 @@ public class HarvestingBackgroundService : BackgroundService
         _maps = maps;
     }
 
-    private void WaitForFile(string fullPath)
+    private static void WaitForFile(string fullPath)
     {
         while (true)
         {
