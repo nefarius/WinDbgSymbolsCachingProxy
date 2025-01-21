@@ -53,6 +53,12 @@ public sealed class BadgeEndpoint : EndpointWithoutRequest
         Get("/api/badges/{Name}");
         AllowAnonymous();
         Options(x => x.WithTags("Badges"));
+        Summary(s =>
+        {
+            s.Summary = "Serves SVG badges";
+            s.Description = "Serves certain database metrics as embeddable SVG badges";
+            s.Params["Name"] = "Name of the badge to generate";
+        });
     }
 
     public override async Task HandleAsync(CancellationToken ct)
