@@ -24,23 +24,31 @@ public class HarvestingBackgroundService : BackgroundService
 
         foreach (ServerConfig serverConfig in config.Value.Servers)
         {
-            foreach (FileSystemWatcher watcher in serverConfig.WatcherPaths.Select(path => new FileSystemWatcher(path)
+            foreach (FileSystemWatcher? watcher in from path in serverConfig.WatcherPaths
+                     let useRecursive = path.EndsWith('*')
+                     select new FileSystemWatcher(useRecursive ? path.TrimEnd('*') : path)
                      {
                          NotifyFilter = NotifyFilters.Attributes
                                         | NotifyFilters.CreationTime
                                         | NotifyFilters.DirectoryName
                                         | NotifyFilters.FileName
                                         | NotifyFilters.LastWrite
-                                        | NotifyFilters.Size
-                     }))
+                                        | NotifyFilters.Size,
+                         IncludeSubdirectories = useRecursive
+                     })
             {
+                ArgumentNullException.ThrowIfNull(watcher);
+
                 // only watch those supported by the upload endpoint
                 watcher.Filters.Add("*.exe");
                 watcher.Filters.Add("*.dll");
                 watcher.Filters.Add("*.sys");
                 watcher.Filters.Add("*.pdb");
 
-                logger.LogInformation("Watching over path {Path} ({@Filters})", watcher.Path, watcher.Filters);
+                logger.LogInformation(
+                    watcher.IncludeSubdirectories
+                        ? "Watching over path {Path} ({@Filters}) and its subdirectories"
+                        : "Watching over path {Path} ({@Filters})", watcher.Path, watcher.Filters);
 
                 maps.Add(watcher, serverConfig);
             }
