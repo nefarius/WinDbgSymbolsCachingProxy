@@ -66,10 +66,10 @@ running [consider making a donation](https://docs.nefarius.at/Community-Support/
         - Returns the number of records found upstream (these actually contain the data).
     - `/api/badges/cachedSymbolsNotFound`
         - Returns the number of records flagged as "not found" upstream.
-    - Add your own symbols!
-        - `/api/uploads/symbol`
-            - `POST` one or more supported symbol (currently `.exe`, `.dll`, `.sys` and `.pdb`) files using your own
-              REST client or the provided [harvesting agent](./agent).
+- Add your own symbols!
+    - `/api/uploads/symbol`
+        - `POST` one or more supported symbol (currently `.exe`, `.dll`, `.sys` and `.pdb`) files using your own
+          REST client or the provided [harvesting agent](./agent).
 
 ## How to publish
 
