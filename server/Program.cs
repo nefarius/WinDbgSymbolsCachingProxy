@@ -51,10 +51,30 @@ if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
     });
 }
 
+#region Configuration
+
 builder.WebHost.ConfigureKestrel(o =>
 {
     o.Limits.MaxRequestBodySize = 200_000_000; // 200 MB
 });
+
+builder.Services.AddHostedService<StartupService>();
+
+IConfigurationSection section = builder.Configuration.GetSection(nameof(ServiceConfig));
+
+ServiceConfig? serviceConfig = section.Get<ServiceConfig>();
+
+if (serviceConfig is null)
+{
+    Console.WriteLine("Missing service configuration, can't continue!");
+    return;
+}
+
+builder.Services.Configure<ServiceConfig>(builder.Configuration.GetSection(nameof(ServiceConfig)));
+
+#endregion
+
+#region Core Services
 
 builder.Services.AddSingleton<IBadgeFactory, BadgeFactory>();
 builder.Services.AddSingleton<IBadgeService, BadgeService>();
@@ -65,15 +85,24 @@ builder.Services.AddTransient<SymStoreService>();
 builder.Services.AddTransient<ITracer, Tracer>();
 builder.Services.AddSingleton<SymbolParsingService>();
 
+#endregion
+
+#region Misc. Services
+
 builder.Services.AddMemoryCache();
+builder.Services.AddScheduler();
+
+#endregion
+
+#region MudBlazor
 
 builder.Services.AddMudServices();
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-builder.Services.AddHostedService<StartupService>();
+#endregion
 
-builder.Services.AddScheduler();
+#region REST
 
 builder.Services.AddFastEndpoints().SwaggerDocument(o =>
 {
@@ -91,17 +120,7 @@ builder.Services.AddFastEndpoints().SwaggerDocument(o =>
     };
 });
 
-IConfigurationSection section = builder.Configuration.GetSection(nameof(ServiceConfig));
-
-ServiceConfig? serviceConfig = section.Get<ServiceConfig>();
-
-if (serviceConfig is null)
-{
-    Console.WriteLine("Missing service configuration, can't continue!");
-    return;
-}
-
-builder.Services.Configure<ServiceConfig>(builder.Configuration.GetSection(nameof(ServiceConfig)));
+#endregion
 
 builder.Services.AddHttpClient("MicrosoftSymbolServer",
         client =>
@@ -156,6 +175,8 @@ builder.Services.AddAuthentication(BasicAuthenticationDefaults.AuthenticationSch
 builder.Services.AddAuthorizationBuilder()
     .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
 
+#region Database
+
 Log.Logger.Information("Initializing database connection");
 
 BsonSerializer.RegisterSerializer(new GuidSerializer(GuidRepresentation.Standard));
@@ -173,6 +194,8 @@ await DB.Index<SymbolsEntity>()
     .Key(a => a.IndexPrefix, KeyType.Text)
     .Key(a => a.FileName, KeyType.Text)
     .CreateAsync();
+
+#endregion
 
 WebApplication? app = builder.Build().Setup();
 
