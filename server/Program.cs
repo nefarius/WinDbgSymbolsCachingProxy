@@ -199,6 +199,11 @@ await DB.Index<SymbolsEntity>()
 
 WebApplication? app = builder.Build().Setup();
 
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Error", createScopeForErrors: true);
+}
+
 app.Services.UseScheduler(scheduler =>
 {
     scheduler
@@ -207,10 +212,13 @@ app.Services.UseScheduler(scheduler =>
 });
 
 app.UseSwaggerGen();
+
 app.UseAuthentication();
 app.UseAuthorization();
-app.UseFastEndpoints();
 
+app.UseFastEndpoints();
+app.UseAntiforgery();
+app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
