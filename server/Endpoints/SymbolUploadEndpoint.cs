@@ -93,7 +93,10 @@ internal sealed class SymbolUploadEndpoint : EndpointWithoutRequest
             // new or existing entry
             SymbolsEntity symbol = existingSymbol ?? new SymbolsEntity
             {
-                IndexPrefix = result.IndexPrefix, SymbolKey = result.SymbolKey, FileName = result.FileName
+                CreatedAt = DateTime.UtcNow,
+                IndexPrefix = result.IndexPrefix,
+                SymbolKey = result.SymbolKey,
+                FileName = result.FileName
             };
 
             symbol.IsCustom = true;

@@ -94,6 +94,7 @@ public sealed class SymbolsDownloadEndpoint : Endpoint<SymbolsRequest>
 
         SymbolsEntity newSymbol = existingSymbol ?? new SymbolsEntity
         {
+            CreatedAt = DateTime.UtcNow,
             SymbolKey = req.SymbolKey.ToLowerInvariant(),
             FileName = req.FileName.ToLowerInvariant(),
             IndexPrefix = req.IndexPrefix.ToLowerInvariant()
@@ -103,7 +104,7 @@ public sealed class SymbolsDownloadEndpoint : Endpoint<SymbolsRequest>
         {
             _logger.LogInformation("Requested symbol {@Symbol} not found upstream", req);
 
-            // set last 404 timestamp
+            // set last 404-timestamp
             newSymbol.NotFoundAt = DateTime.UtcNow;
             await newSymbol.SaveAsync(cancellation: ct);
             await SendNotFoundAsync(ct);
