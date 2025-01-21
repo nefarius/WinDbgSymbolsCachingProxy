@@ -20,6 +20,8 @@ using MongoDB.Bson.Serialization.Serializers;
 using MongoDB.Driver;
 using MongoDB.Entities;
 
+using MudBlazor.Services;
+
 using Nefarius.Utilities.AspNetCore;
 
 using Polly;
@@ -27,6 +29,7 @@ using Polly.Contrib.WaitAndRetry;
 
 using Serilog;
 
+using WinDbgSymbolsCachingProxy.Components;
 using WinDbgSymbolsCachingProxy.Core;
 using WinDbgSymbolsCachingProxy.Jobs;
 using WinDbgSymbolsCachingProxy.Models;
@@ -63,6 +66,10 @@ builder.Services.AddTransient<ITracer, Tracer>();
 builder.Services.AddSingleton<SymbolParsingService>();
 
 builder.Services.AddMemoryCache();
+
+builder.Services.AddMudServices();
+builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents();
 
 builder.Services.AddHostedService<StartupService>();
 
@@ -180,5 +187,8 @@ app.UseSwaggerGen();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseFastEndpoints();
+
+app.MapRazorComponents<App>()
+    .AddInteractiveServerRenderMode();
 
 await app.RunAsync();
