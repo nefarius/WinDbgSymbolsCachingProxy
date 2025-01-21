@@ -57,6 +57,10 @@ public class HarvestingBackgroundService : BackgroundService
         _maps = maps.AsReadOnly();
     }
 
+    /// <summary>
+    ///     Probes the file for read access indefinitely.
+    /// </summary>
+    /// <param name="fullPath">The path to the file to check.</param>
     private static void WaitForFile(string fullPath)
     {
         while (true)
