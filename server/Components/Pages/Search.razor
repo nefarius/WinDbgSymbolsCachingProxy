@@ -3,7 +3,7 @@
 
 <PageTitle>Search</PageTitle>
 
-<MudDataGrid T="SymbolsEntity" Items="@_elements" SortMode="SortMode.Multiple" Filterable="true">
+<MudDataGrid T="SymbolsEntity" Items="@_elements" Dense="true" SortMode="SortMode.Multiple" Filterable="true">
     <ToolBarContent>
         <MudText Typo="Typo.h6">Stored Symbols</MudText>
         <MudSpacer />
@@ -17,6 +17,19 @@
         <PropertyColumn Property="x => x.IndexPrefix" Title="Index prefix" />
         <PropertyColumn Property="x => x.UpstreamFileName" Title="Upstream filename" />
         <PropertyColumn Property="x => x.CreatedAt" Title="Creation timestamp" />
+        <PropertyColumn Property="x => x.UploadedAt" Title="Upload timestamp" />
+        <PropertyColumn Property="x => x.IsCustom" Title="Is custom">
+            <CellTemplate>
+                @if (context.Item.IsCustom)
+                {
+                    <MudChip Color="Color.Success" Size="Size.Small">Yes</MudChip>
+                }
+                else
+                {
+                    <MudChip Color="Color.Dark" Size="Size.Small">No</MudChip>
+                }
+            </CellTemplate>
+        </PropertyColumn>
     </Columns>
     <PagerContent>
         <MudDataGridPager T="SymbolsEntity" />

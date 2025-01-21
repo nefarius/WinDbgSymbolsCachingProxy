@@ -90,7 +90,7 @@ public class SymbolsEntity : FileEntity
     /// <summary>
     ///     Gets the creating timestamp.
     /// </summary>
-    public required DateTime CreatedAt { get; init; }
+    public required DateTime? CreatedAt { get; init; }
 
     /// <summary>
     ///     Gets the relative URI (built from <see cref="IndexPrefix" /> and <see cref="FileName" />).
