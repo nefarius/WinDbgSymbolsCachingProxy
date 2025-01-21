@@ -13,6 +13,12 @@ Multiple upload servers watching over multiple upload directories are supported.
 By default, the symbol files in the watched folder get deleted after a successful upload, if this is undesired, adjust
 it in the configuration file.
 
+### Watching subdirectories recursively
+
+By ending your `WatcherPaths` entries with an asterisk `*` (e.g. `"D:\\temp\\pdb_uploads\\*"`) the entire subtree under
+that path will get monitored for new symbols.
+Recommended to use with `"DeleteAfterUpload": false` to not disturb your build process.
+
 ## Sources & 3rd party credits
 
 - [MinVer](https://github.com/adamralph/minver)
