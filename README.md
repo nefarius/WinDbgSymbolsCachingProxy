@@ -2,6 +2,8 @@
 
 [![.NET](https://github.com/nefarius/WinDbgSymbolsCachingProxy/actions/workflows/build.yml/badge.svg)](https://github.com/nefarius/WinDbgSymbolsCachingProxy/actions/workflows/build.yml)
 [![Docker Image CI](https://github.com/nefarius/WinDbgSymbolsCachingProxy/actions/workflows/docker-image.yml/badge.svg)](https://github.com/nefarius/WinDbgSymbolsCachingProxy/actions/workflows/docker-image.yml)
+[![Nuget](https://img.shields.io/nuget/v/Nefarius.Utilities.ExceptionEnricher)](https://www.nuget.org/packages/Nefarius.Utilities.ExceptionEnricher/)
+[![Nuget](https://img.shields.io/nuget/dt/Nefarius.Utilities.ExceptionEnricher)](https://www.nuget.org/packages/Nefarius.Utilities.ExceptionEnricher/)
 
 Microsoft debugging symbols caching proxy using [FastEndpoints](https://fast-endpoints.com/)
 and [MongoDB](https://mongodb-entities.com/).
