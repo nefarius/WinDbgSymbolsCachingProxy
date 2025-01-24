@@ -19,10 +19,10 @@ jobs:
           dotnet-version: 9.x
 
       - name: Build
-        run: dotnet build -c Release
+        run: dotnet build -c Release ./Nefarius.Utilities.ExceptionEnricher/Nefarius.Utilities.ExceptionEnricher.csproj
 
       - name: Make Nuget Packages
-        run: dotnet pack -c Release
+        run: dotnet pack -c Release ./Nefarius.Utilities.ExceptionEnricher/Nefarius.Utilities.ExceptionEnricher.csproj
 
       - name: Publish To Nuget
         run: dotnet nuget push bin/*.nupkg -k $NUGET_AUTH_TOKEN -s https://api.nuget.org/v3/index.json
