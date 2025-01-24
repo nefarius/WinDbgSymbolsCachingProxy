@@ -1,0 +1,3 @@
+﻿# Nefarius.Utilities.ExceptionEnricher
+
+WIP
