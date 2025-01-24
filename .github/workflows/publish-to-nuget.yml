@@ -25,6 +25,6 @@ jobs:
         run: dotnet pack -c Release ./Nefarius.Utilities.ExceptionEnricher/Nefarius.Utilities.ExceptionEnricher.csproj
 
       - name: Publish To Nuget
-        run: dotnet nuget push bin/*.nupkg -k $NUGET_AUTH_TOKEN -s https://api.nuget.org/v3/index.json
+        run: dotnet nuget push ./Nefarius.Utilities.ExceptionEnricher/bin/*.nupkg -k $NUGET_AUTH_TOKEN -s https://api.nuget.org/v3/index.json
         env:
           NUGET_AUTH_TOKEN: ${{ secrets.NUGET_API_KEY }}
