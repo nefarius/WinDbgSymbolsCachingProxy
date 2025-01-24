@@ -54,7 +54,7 @@ public static class ExceptionExtensions
             TypeDefinition? type = assembly.MainModule.GetType(method.DeclaringType.FullName);
             MethodDefinition? methodDef = type?.Methods.FirstOrDefault(m => m.Name == method.Name);
 
-            if (methodDef != null)
+            if (methodDef is not null)
             {
                 // Resolve line number information from the PDB
                 Collection<SequencePoint>? sequencePoints = methodDef.DebugInformation.SequencePoints;
