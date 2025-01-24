@@ -73,6 +73,6 @@ public static class ExceptionExtensions
             }
         }
 
-        return new EnrichedException(enrichedStack.ToString());
+        return new EnrichedException(exception, enrichedStack.ToString());
     }
 }
