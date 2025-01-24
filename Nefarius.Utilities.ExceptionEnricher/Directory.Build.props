@@ -27,6 +27,6 @@
             <Pack>True</Pack>
             <PackagePath></PackagePath>
         </None>
-        <None Include="$(SolutionDir)README.md" Pack="true" PackagePath="\"/>
+        <None Include="$(ProjectDir)README.md" Pack="true" PackagePath="\"/>
     </ItemGroup>
 </Project>

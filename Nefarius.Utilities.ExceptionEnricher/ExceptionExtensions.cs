@@ -12,16 +12,16 @@ using Mono.Collections.Generic;
 namespace Nefarius.Utilities.ExceptionEnricher;
 
 /// <summary>
-///     Extension methods for <see cref="Exception"/> objects.
+///     Extension methods for <see cref="Exception" /> objects.
 /// </summary>
 public static class ExceptionExtensions
 {
     /// <summary>
-    ///     Rebuilds the provided exception with debug information fetched from an online symbol server. 
+    ///     Rebuilds the provided exception with debug information fetched from an online symbol server.
     /// </summary>
-    /// <param name="exception">The <see cref="Exception"/> object to enrich/rebuild.</param>
-    /// <param name="httpClient">A <see cref="HttpClient"/> that specified the remote symbol server to contact.</param>
-    /// <returns>A new <see cref="EnrichedException"/> object with debug information added.</returns>
+    /// <param name="exception">The <see cref="Exception" /> object to enrich/rebuild.</param>
+    /// <param name="httpClient">A <see cref="HttpClient" /> that specified the remote symbol server to contact.</param>
+    /// <returns>A new <see cref="EnrichedException" /> object with debug information added.</returns>
     public static EnrichedException ToRemotelyEnrichedException(this Exception exception, HttpClient httpClient)
     {
         StackTrace stackTrace = new(exception, true);
@@ -31,9 +31,10 @@ public static class ExceptionExtensions
         foreach (StackFrame frame in stackTrace.GetFrames())
         {
             MethodBase? method = frame.GetMethod();
-            
+
             if (method is null)
             {
+                enrichedStack.Append("   at <Method not found.>");
                 continue;
             }
 
