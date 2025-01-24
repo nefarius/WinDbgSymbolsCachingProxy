@@ -1,13 +1,17 @@
-﻿using System.Diagnostics;
+﻿using System;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Net.Http;
 
 using Microsoft.Diagnostics.Runtime;
 
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 
-namespace FieldReleasedDemoApp;
+namespace Nefarius.Utilities.ExceptionEnricher;
 
-public class OnlineServerSymbolsResolver : ISymbolReaderProvider
+internal class OnlineServerSymbolsResolver : ISymbolReaderProvider
 {
     private readonly HttpClient _httpClient;
     private readonly bool _throwIfNoSymbol;
@@ -18,8 +22,18 @@ public class OnlineServerSymbolsResolver : ISymbolReaderProvider
         _throwIfNoSymbol = throwIfNoSymbol;
     }
 
-    public ISymbolReader GetSymbolReader(ModuleDefinition module, string fileName)
+    public ISymbolReader? GetSymbolReader(ModuleDefinition module, string fileName)
     {
+        try
+        {
+            // try from disk first, some symbols might already be in the assembly directory
+            return new PortablePdbReaderProvider().GetSymbolReader(module, fileName);
+        }
+        catch
+        {
+            // ignored
+        }
+
         using DataTarget dt = DataTarget.CreateSnapshotAndAttach(Process.GetCurrentProcess().Id);
 
         ClrRuntime runtime = dt.ClrVersions.First().CreateRuntime();
