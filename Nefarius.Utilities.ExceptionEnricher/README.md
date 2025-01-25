@@ -31,7 +31,7 @@ System.InvalidOperationException: Test exception
 - Add or adjust the debug type for your release build in your `.csproj` like so:
     ```xml
         <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
-          <DebugType>portable</DebugType>
+          <DebugType>full</DebugType>
         </PropertyGroup>
     ```
 - Use the [harvesting agent](../agent) (or whatever method you prefer) to collect the resulting `.pdb` files and upload

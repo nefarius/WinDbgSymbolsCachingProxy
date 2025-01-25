@@ -9,7 +9,7 @@
     </PropertyGroup>
 
     <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
-      <DebugType>portable</DebugType>
+      <DebugType>full</DebugType>
     </PropertyGroup>
     
     <ItemGroup>
