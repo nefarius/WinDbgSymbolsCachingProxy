@@ -25,8 +25,8 @@ public static class ExceptionExtensions
     public static EnrichedException ToRemotelyEnrichedException(this Exception exception, HttpClient httpClient)
     {
         StackTrace stackTrace = new(exception, true);
-
         StringBuilder enrichedStack = new();
+        using OnlineServerSymbolsResolver provider = new(httpClient);
 
         foreach (StackFrame frame in stackTrace.GetFrames())
         {
@@ -43,7 +43,6 @@ public static class ExceptionExtensions
             // Try to resolve file and line numbers
             Module module = method.Module;
             string moduleName = module.FullyQualifiedName;
-            using OnlineServerSymbolsResolver provider = new(httpClient);
 
             AssemblyDefinition? assembly = AssemblyDefinition.ReadAssembly(
                 moduleName,
