@@ -152,11 +152,11 @@ public class HarvestingBackgroundService : BackgroundService
                         if (serverConfig.DeleteAfterUpload)
                         {
                             Matcher matcher = new();
-                            matcher.AddExcludePatterns(serverConfig.DeletionExclusionFilter);
+                            matcher.AddIncludePatterns(serverConfig.DeletionInclusionFilter);
 
                             PatternMatchingResult match = matcher.Match(path);
 
-                            if (!match.HasMatches)
+                            if (match.HasMatches)
                             {
                                 File.Delete(path);
                                 _logger.LogInformation("Symbol file {Symbol} deleted", path);

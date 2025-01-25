@@ -17,7 +17,7 @@ public sealed class ServerConfig
 
     public bool DeleteAfterUpload { get; set; } = true;
 
-    public List<string> DeletionExclusionFilter { get; set; } = ["*.sys", "*.exe", "*.dll"];
+    public List<string> DeletionInclusionFilter { get; set; } = ["**/*.pdb"];
 }
 
 public sealed class ServiceConfig
