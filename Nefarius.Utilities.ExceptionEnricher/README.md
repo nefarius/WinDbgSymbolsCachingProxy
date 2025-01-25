@@ -4,7 +4,7 @@ WIP 🔥
 
 ## Example
 
-Here we have a classic `ToString()` on an exception in a production release with no symbols:
+Here we have a classic `ToString()` on an exception object in a production release with no symbols:
 
 ```text
 System.Exception: Test exception
