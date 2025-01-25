@@ -69,6 +69,11 @@ public static class ExceptionExtensions
                     enrichedStack.AppendLine(
                         $" in {firstSequencePoint.Document.Url} (line {firstSequencePoint.StartLine + 1})");
                 }
+                else
+                {
+                    enrichedStack.AppendLine(
+                        " in <No sequence point found.>");
+                }
             }
             else
             {
