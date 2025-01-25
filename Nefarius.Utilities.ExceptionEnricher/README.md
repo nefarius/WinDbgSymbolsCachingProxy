@@ -24,7 +24,7 @@ Nefarius.Utilities.ExceptionEnricher.EnrichedException: Test exception
    at Program.<Main>$ in D:\Development\GitHub\WinDbgSymbolsCachingProxy\testapp\Program.cs (line 9)
 ```
 
-## Usage
+## Setup
 
 - Wherever you catch and process your apps' fatal exceptions use `ex.ToRemotelyEnrichedException(client)` instead of
   `ex` directly
