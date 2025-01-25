@@ -24,10 +24,22 @@ internal class OnlineServerSymbolsResolver : ISymbolReaderProvider
 
     public ISymbolReader? GetSymbolReader(ModuleDefinition module, string fileName)
     {
+        /*
+         * Try from disk first, some symbols might already be in the assembly directory
+         */
+        
         try
         {
-            // try from disk first, some symbols might already be in the assembly directory
             return new PortablePdbReaderProvider().GetSymbolReader(module, fileName);
+        }
+        catch
+        {
+            // ignored
+        }
+        
+        try
+        {
+            return new EmbeddedPortablePdbReaderProvider().GetSymbolReader(module, fileName);
         }
         catch
         {
