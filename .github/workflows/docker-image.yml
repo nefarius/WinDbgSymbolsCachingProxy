@@ -5,6 +5,7 @@ on:
     branches: [ "master" ]
     paths-ignore:
       - 'Nefarius.Utilities.ExceptionEnricher/**'
+      - 'agent/**'
   pull_request:
     branches: [ "master" ]
 
