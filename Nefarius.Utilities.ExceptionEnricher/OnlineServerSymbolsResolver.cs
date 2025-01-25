@@ -27,7 +27,7 @@ internal class OnlineServerSymbolsResolver : ISymbolReaderProvider
         /*
          * Try from disk first, some symbols might already be in the assembly directory
          */
-        
+
         try
         {
             return new PortablePdbReaderProvider().GetSymbolReader(module, fileName);
@@ -36,7 +36,7 @@ internal class OnlineServerSymbolsResolver : ISymbolReaderProvider
         {
             // ignored
         }
-        
+
         try
         {
             return new EmbeddedPortablePdbReaderProvider().GetSymbolReader(module, fileName);
@@ -51,7 +51,9 @@ internal class OnlineServerSymbolsResolver : ISymbolReaderProvider
         ClrRuntime runtime = dt.ClrVersions.First().CreateRuntime();
         ClrModule? clrModule =
             runtime.EnumerateModules()
-                .SingleOrDefault(m => m.Name!.Equals(module.FileName, StringComparison.OrdinalIgnoreCase));
+                .SingleOrDefault(m =>
+                    !string.IsNullOrEmpty(m.Name) &&
+                    m.Name.Equals(module.FileName, StringComparison.OrdinalIgnoreCase));
 
         if (clrModule is null)
         {
