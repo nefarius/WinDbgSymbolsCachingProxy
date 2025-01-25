@@ -176,6 +176,9 @@ app.Services.UseScheduler(scheduler =>
         .DailyAtHour(3);
 });
 
+// https://github.com/dotnet/aspnetcore/issues/23949#issuecomment-950471048
+app.UseMiddleware<CustomExceptionHandlerMiddleware>();
+
 app.UseSwaggerGen();
 app.UseAuthentication();
 app.UseAuthorization();
