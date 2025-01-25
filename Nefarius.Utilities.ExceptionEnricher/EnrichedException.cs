@@ -13,6 +13,8 @@ public class EnrichedException : Exception
 {
     internal EnrichedException(Exception originalException, string stackTrace)
     {
+        OriginalType = originalException.GetType();
+
         // this way we conveniently keep all the other interesting exception details
         originalException.CloneTo(this);
 
@@ -20,9 +22,20 @@ public class EnrichedException : Exception
         StackTrace = stackTrace;
     }
 
+    /// <summary>
+    ///     Gets the <see cref="Type" /> this <see cref="EnrichedException" /> is based on.
+    /// </summary>
+    public Type OriginalType { get; }
+
     /// <inheritdoc />
     public override string Message { get; }
 
     /// <inheritdoc />
     public override string StackTrace { get; }
+
+    /// <inheritdoc />
+    public override string ToString()
+    {
+        return base.ToString().Replace(GetType().ToString(), OriginalType.ToString());
+    }
 }

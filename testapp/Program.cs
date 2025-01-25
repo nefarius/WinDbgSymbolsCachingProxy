@@ -34,5 +34,5 @@ void Bar()
 
 void Baz()
 {
-    throw new Exception("Test exception");
+    throw new InvalidOperationException("Test exception");
 }
