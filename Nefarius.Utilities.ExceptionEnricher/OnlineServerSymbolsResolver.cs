@@ -18,7 +18,7 @@ internal class OnlineServerSymbolsResolver : ISymbolReaderProvider, IDisposable
     private readonly HttpClient _httpClient;
     private readonly bool _throwIfNoSymbol;
 
-    private Stream _webStream;
+    private Stream? _webStream;
 
     public OnlineServerSymbolsResolver(HttpClient httpClient, bool throwIfNoSymbol = true)
     {
@@ -28,7 +28,7 @@ internal class OnlineServerSymbolsResolver : ISymbolReaderProvider, IDisposable
 
     public void Dispose()
     {
-        _webStream.Dispose();
+        _webStream?.Dispose();
     }
 
     public ISymbolReader? GetSymbolReader(ModuleDefinition module, string fileName)
