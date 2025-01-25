@@ -59,7 +59,7 @@ public static class ExceptionExtensions
                 Collection<SequencePoint>? sequencePoints = methodDef.DebugInformation.SequencePoints;
                 SequencePoint? firstSequencePoint = sequencePoints.FirstOrDefault();
 
-                if (firstSequencePoint != null)
+                if (firstSequencePoint is not null)
                 {
                     enrichedStack.AppendLine(
                         $" in {firstSequencePoint.Document.Url} (line {firstSequencePoint.StartLine + 1})");
