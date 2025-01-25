@@ -71,8 +71,7 @@ public static class ExceptionExtensions
                 }
                 else
                 {
-                    enrichedStack.AppendLine(
-                        " in <No sequence point found.>");
+                    enrichedStack.AppendLine(" in <No sequence point found.>");
                 }
             }
             else
