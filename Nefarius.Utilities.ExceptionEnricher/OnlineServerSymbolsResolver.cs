@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 
 using Microsoft.Diagnostics.Runtime;
@@ -31,25 +32,7 @@ internal class OnlineServerSymbolsResolver : ISymbolReaderProvider
 
         try
         {
-            return new PortablePdbReaderProvider().GetSymbolReader(module, fileName);
-        }
-        catch
-        {
-            // ignored
-        }
-
-        try
-        {
-            return new EmbeddedPortablePdbReaderProvider().GetSymbolReader(module, fileName);
-        }
-        catch
-        {
-            // ignored
-        }
-
-        try
-        {
-            return new NativePdbReaderProvider().GetSymbolReader(module, fileName);
+            return new PdbReaderProvider().GetSymbolReader(module, fileName);
         }
         catch
         {
@@ -96,6 +79,18 @@ internal class OnlineServerSymbolsResolver : ISymbolReaderProvider
 
         if (!response.IsSuccessStatusCode)
         {
+            if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                try
+                {
+                    return new PdbReaderProvider().GetSymbolReader(module, fileName);
+                }
+                catch
+                {
+                    return null;
+                }
+            }
+
             if (_throwIfNoSymbol)
             {
                 throw new HttpRequestException($"Couldn't find remote symbol for file: {fileName}");
@@ -106,7 +101,7 @@ internal class OnlineServerSymbolsResolver : ISymbolReaderProvider
 
         using Stream ss = response.Content.ReadAsStream();
 
-        return new PortablePdbReaderProvider().GetSymbolReader(module, ss);
+        return new PdbReaderProvider().GetSymbolReader(module, ss);
     }
 
     public ISymbolReader GetSymbolReader(ModuleDefinition module, Stream symbolStream)
