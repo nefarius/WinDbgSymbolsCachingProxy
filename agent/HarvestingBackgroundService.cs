@@ -161,6 +161,10 @@ public class HarvestingBackgroundService : BackgroundService
                                 File.Delete(path);
                                 _logger.LogInformation("Symbol file {Symbol} deleted", path);
                             }
+                            else
+                            {
+                                _logger.LogInformation("Symbol file {Symbol} excluded from deletion", path);
+                            }
                         }
                     }
                     else
