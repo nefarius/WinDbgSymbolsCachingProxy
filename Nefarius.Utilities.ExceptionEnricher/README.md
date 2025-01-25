@@ -37,6 +37,8 @@ Nefarius.Utilities.ExceptionEnricher.EnrichedException: Test exception
 - Use the [harvesting agent](../agent) (or whatever method you prefer) to collect the resulting `.pdb` files and upload
   them to your symbol server instance
 - Package your app for your users **without** the `.pdb` files included
+- Now whenever an exception is thrown (and the user has an active Internet connection, and you configure everything
+  right), you will get proper useful stack traces when you send the exception details to your logging framework 💪
 
 ## Documentation
 
