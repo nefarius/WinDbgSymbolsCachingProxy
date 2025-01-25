@@ -154,7 +154,7 @@ public class HarvestingBackgroundService : BackgroundService
                             Matcher matcher = new();
                             matcher.AddIncludePatterns(serverConfig.DeletionInclusionFilter);
 
-                            PatternMatchingResult match = matcher.Match(path);
+                            PatternMatchingResult match = matcher.Match(Path.GetFileName(path));
 
                             if (match.HasMatches)
                             {
