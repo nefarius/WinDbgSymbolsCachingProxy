@@ -159,6 +159,7 @@ public class HarvestingBackgroundService : BackgroundService
                             if (!match.HasMatches)
                             {
                                 File.Delete(path);
+                                _logger.LogInformation("Symbol file {Symbol} deleted", path);
                             }
                         }
                     }
