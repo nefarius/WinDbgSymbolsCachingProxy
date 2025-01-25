@@ -8,6 +8,7 @@ using Microsoft.Diagnostics.Runtime;
 
 using Mono.Cecil;
 using Mono.Cecil.Cil;
+using Mono.Cecil.Pdb;
 
 namespace Nefarius.Utilities.ExceptionEnricher;
 
@@ -40,6 +41,15 @@ internal class OnlineServerSymbolsResolver : ISymbolReaderProvider
         try
         {
             return new EmbeddedPortablePdbReaderProvider().GetSymbolReader(module, fileName);
+        }
+        catch
+        {
+            // ignored
+        }
+
+        try
+        {
+            return new NativePdbReaderProvider().GetSymbolReader(module, fileName);
         }
         catch
         {
