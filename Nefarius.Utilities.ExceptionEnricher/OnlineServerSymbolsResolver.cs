@@ -63,7 +63,6 @@ internal class OnlineServerSymbolsResolver : ISymbolReaderProvider
             return null;
         }
 
-        //Console.WriteLine($"Module: {clrModule.Name}");
         PdbInfo? pdb = clrModule.Pdb;
 
         if (pdb is null)
