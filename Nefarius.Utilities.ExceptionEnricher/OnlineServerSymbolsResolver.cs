@@ -13,15 +13,22 @@ using Mono.Cecil.Pdb;
 
 namespace Nefarius.Utilities.ExceptionEnricher;
 
-internal class OnlineServerSymbolsResolver : ISymbolReaderProvider
+internal class OnlineServerSymbolsResolver : ISymbolReaderProvider, IDisposable
 {
     private readonly HttpClient _httpClient;
     private readonly bool _throwIfNoSymbol;
+
+    private Stream _webStream;
 
     public OnlineServerSymbolsResolver(HttpClient httpClient, bool throwIfNoSymbol = true)
     {
         _httpClient = httpClient;
         _throwIfNoSymbol = throwIfNoSymbol;
+    }
+
+    public void Dispose()
+    {
+        _webStream.Dispose();
     }
 
     public ISymbolReader? GetSymbolReader(ModuleDefinition module, string fileName)
@@ -99,9 +106,9 @@ internal class OnlineServerSymbolsResolver : ISymbolReaderProvider
             return null;
         }
 
-        using Stream ss = response.Content.ReadAsStream();
+        _webStream = response.Content.ReadAsStream();
 
-        return new PdbReaderProvider().GetSymbolReader(module, ss);
+        return new PdbReaderProvider().GetSymbolReader(module, _webStream);
     }
 
     public ISymbolReader GetSymbolReader(ModuleDefinition module, Stream symbolStream)
