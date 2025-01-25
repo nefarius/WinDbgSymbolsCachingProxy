@@ -59,7 +59,7 @@ internal sealed class SymbolUploadEndpoint : EndpointWithoutRequest
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Failed to parse {File}", filename);
-                    AddError($"Failed to parse file {filename}, error: {ex}");
+                    AddError($"Failed to parse file {filename}, error: {ex}", "500");
                     continue;
                 }
 
