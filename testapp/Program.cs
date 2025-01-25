@@ -9,6 +9,7 @@ try
 }
 catch (Exception ex)
 {
+    // just a demo, do not do IRL ofc. ;)
     using HttpClient client = new();
     client.BaseAddress = new Uri("http://192.168.2.12:5000");
 
