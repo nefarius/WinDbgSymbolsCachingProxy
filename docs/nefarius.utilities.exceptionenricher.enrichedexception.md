@@ -63,6 +63,18 @@ public string Message { get; }
 
 [String](https://docs.microsoft.com/en-us/dotnet/api/system.string)<br>
 
+### <a id="properties-originaltype"/>**OriginalType**
+
+Gets the [Type](https://docs.microsoft.com/en-us/dotnet/api/system.type) this [EnrichedException](./nefarius.utilities.exceptionenricher.enrichedexception.md) is based on.
+
+```csharp
+public Type OriginalType { get; }
+```
+
+#### Property Value
+
+[Type](https://docs.microsoft.com/en-us/dotnet/api/system.type)<br>
+
 ### <a id="properties-source"/>**Source**
 
 ```csharp
@@ -92,3 +104,15 @@ public MethodBase TargetSite { get; }
 #### Property Value
 
 [MethodBase](https://docs.microsoft.com/en-us/dotnet/api/system.reflection.methodbase)<br>
+
+## Methods
+
+### <a id="methods-tostring"/>**ToString()**
+
+```csharp
+public string ToString()
+```
+
+#### Returns
+
+[String](https://docs.microsoft.com/en-us/dotnet/api/system.string)
