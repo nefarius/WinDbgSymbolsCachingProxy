@@ -16,6 +16,8 @@ public sealed class ServerConfig
     public required List<string> WatcherPaths { get; set; }
 
     public bool DeleteAfterUpload { get; set; } = true;
+
+    public List<string> DeletionExclusionFilter { get; set; } = ["*.sys", "*.exe", "*.dll"];
 }
 
 public sealed class ServiceConfig

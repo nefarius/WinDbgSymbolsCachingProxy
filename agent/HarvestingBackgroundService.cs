@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Net.Http.Headers;
 using System.Text;
 
+using Microsoft.Extensions.FileSystemGlobbing;
 using Microsoft.Extensions.Options;
 
 using MimeTypes;
@@ -150,7 +151,15 @@ public class HarvestingBackgroundService : BackgroundService
 
                         if (serverConfig.DeleteAfterUpload)
                         {
-                            File.Delete(path);
+                            Matcher matcher = new();
+                            matcher.AddExcludePatterns(serverConfig.DeletionExclusionFilter);
+
+                            PatternMatchingResult match = matcher.Match(path);
+
+                            if (!match.HasMatches)
+                            {
+                                File.Delete(path);
+                            }
                         }
                     }
                     else
