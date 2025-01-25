@@ -43,13 +43,11 @@ public static class ExceptionExtensions
             // Try to resolve file and line numbers
             Module module = method.Module;
             string moduleName = module.FullyQualifiedName;
+            using OnlineServerSymbolsResolver provider = new(httpClient);
 
             AssemblyDefinition? assembly = AssemblyDefinition.ReadAssembly(
                 moduleName,
-                new ReaderParameters
-                {
-                    ReadSymbols = true, SymbolReaderProvider = new OnlineServerSymbolsResolver(httpClient)
-                });
+                new ReaderParameters { ReadSymbols = true, SymbolReaderProvider = provider });
 
             // Find the method in the assembly
             TypeDefinition? type = assembly.MainModule.GetType(method.DeclaringType.FullName);

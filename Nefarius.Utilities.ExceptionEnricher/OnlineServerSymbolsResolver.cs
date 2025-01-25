@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -16,9 +17,8 @@ namespace Nefarius.Utilities.ExceptionEnricher;
 internal class OnlineServerSymbolsResolver : ISymbolReaderProvider, IDisposable
 {
     private readonly HttpClient _httpClient;
+    private readonly Dictionary<string, Stream> _streamsCache = new();
     private readonly bool _throwIfNoSymbol;
-
-    private Stream? _webStream;
 
     public OnlineServerSymbolsResolver(HttpClient httpClient, bool throwIfNoSymbol = true)
     {
@@ -28,11 +28,20 @@ internal class OnlineServerSymbolsResolver : ISymbolReaderProvider, IDisposable
 
     public void Dispose()
     {
-        _webStream?.Dispose();
+        foreach (KeyValuePair<string, Stream> stream in _streamsCache)
+        {
+            stream.Value.Dispose();
+        }
     }
 
     public ISymbolReader? GetSymbolReader(ModuleDefinition module, string fileName)
     {
+        if (_streamsCache.TryGetValue(fileName, out Stream? stream))
+        {
+            stream.Position = 0;
+            return new PdbReaderProvider().GetSymbolReader(module, stream);
+        }
+
         /*
          * Try from disk first, some symbols might already be in the assembly directory
          */
@@ -106,9 +115,11 @@ internal class OnlineServerSymbolsResolver : ISymbolReaderProvider, IDisposable
             return null;
         }
 
-        _webStream = response.Content.ReadAsStream();
+        Stream webStream = response.Content.ReadAsStream();
 
-        return new PdbReaderProvider().GetSymbolReader(module, _webStream);
+        _streamsCache[fileName] = webStream;
+
+        return new PdbReaderProvider().GetSymbolReader(module, webStream);
     }
 
     public ISymbolReader GetSymbolReader(ModuleDefinition module, Stream symbolStream)
