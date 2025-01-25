@@ -13,18 +13,6 @@ Implements [ISerializable](https://docs.microsoft.com/en-us/dotnet/api/system.ru
 
 ## Properties
 
-### <a id="properties-baseexception"/>**BaseException**
-
-The [Exception](https://docs.microsoft.com/en-us/dotnet/api/system.exception) object this [EnrichedException](./nefarius.utilities.exceptionenricher.enrichedexception.md) is based on.
-
-```csharp
-public Exception BaseException { get; }
-```
-
-#### Property Value
-
-[Exception](https://docs.microsoft.com/en-us/dotnet/api/system.exception)<br>
-
 ### <a id="properties-data"/>**Data**
 
 ```csharp
@@ -104,25 +92,3 @@ public MethodBase TargetSite { get; }
 #### Property Value
 
 [MethodBase](https://docs.microsoft.com/en-us/dotnet/api/system.reflection.methodbase)<br>
-
-## Methods
-
-### <a id="methods-getbaseexception"/>**GetBaseException()**
-
-```csharp
-public Exception GetBaseException()
-```
-
-#### Returns
-
-[Exception](https://docs.microsoft.com/en-us/dotnet/api/system.exception)
-
-### <a id="methods-tostring"/>**ToString()**
-
-```csharp
-public string ToString()
-```
-
-#### Returns
-
-[String](https://docs.microsoft.com/en-us/dotnet/api/system.string)
