@@ -48,6 +48,12 @@ public static class ExceptionExtensions
                 moduleName,
                 new ReaderParameters { ReadSymbols = true, SymbolReaderProvider = provider });
 
+            if (assembly is null)
+            {
+                enrichedStack.AppendLine(" in <Failed to resolve assembly definition.>");
+                continue;
+            }
+            
             // Find the method in the assembly
             TypeDefinition? type = assembly.MainModule.GetType(method.DeclaringType.FullName);
             MethodDefinition? methodDef = type?.Methods.FirstOrDefault(m => m.Name == method.Name);
