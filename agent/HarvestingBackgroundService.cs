@@ -115,7 +115,7 @@ public class HarvestingBackgroundService : BackgroundService
                 try
                 {
                     ServerConfig serverConfig = _maps[watcher];
-                    HttpClient client = _httpClientFactory.CreateClient();
+                    using HttpClient client = _httpClientFactory.CreateClient("Server");
 
                     client.BaseAddress = serverConfig.ServerUrl;
                     client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
