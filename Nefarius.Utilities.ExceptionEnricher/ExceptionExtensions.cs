@@ -64,7 +64,7 @@ public static class ExceptionExtensions
                 if (firstSequencePoint != null)
                 {
                     enrichedStack.AppendLine(
-                        $" in {firstSequencePoint.Document.Url} (line {firstSequencePoint.StartLine})");
+                        $" in {firstSequencePoint.Document.Url} (line {firstSequencePoint.StartLine + 1})");
                 }
             }
             else

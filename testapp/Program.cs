@@ -14,7 +14,7 @@ catch (Exception ex)
 
     // original
     Console.WriteLine("=== ORIGINAL ===");
-    Console.WriteLine(ex.StackTrace);
+    Console.WriteLine(ex);
     // enriched
     Console.WriteLine("=== ENRICHED ===");
     Console.WriteLine(ex.ToRemotelyEnrichedException(client));
