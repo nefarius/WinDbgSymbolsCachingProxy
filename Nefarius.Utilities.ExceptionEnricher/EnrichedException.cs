@@ -13,6 +13,7 @@ public class EnrichedException : Exception
 {
     internal EnrichedException(Exception originalException, string stackTrace)
     {
+        // this way we conveniently keep all the other interesting exception details
         originalException.CloneTo(this);
 
         Message = originalException.Message;
