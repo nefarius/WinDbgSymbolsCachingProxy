@@ -73,6 +73,11 @@ running [consider making a donation](https://docs.nefarius.at/Community-Support/
         - `POST` one or more supported symbol (currently `.exe`, `.dll`, `.sys` and `.pdb`) files using your own
           REST client or the provided [harvesting agent](./agent).
 
+## Limitations
+
+- Regarding non-native PDBs like those produced by .NET applications, currently only `full` (a.k.a. Windows-native)
+  debug symbols are supported, since the `portable` can not be parsed server-side.
+
 ## How to publish
 
 ```PowerShell
