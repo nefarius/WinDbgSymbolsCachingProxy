@@ -135,7 +135,7 @@ public sealed class OnlineServerSymbolsResolver : ISymbolReaderProvider, IDispos
 
         ArgumentNullException.ThrowIfNull(client);
 
-        HttpResponseMessage response = _httpClient!.Send(new HttpRequestMessage(HttpMethod.Get, request));
+        HttpResponseMessage response = client.Send(new HttpRequestMessage(HttpMethod.Get, request));
 
         if (!response.IsSuccessStatusCode)
         {
