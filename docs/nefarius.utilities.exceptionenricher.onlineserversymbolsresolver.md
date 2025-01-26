@@ -31,6 +31,26 @@ The  to use to contact the symbol server.
 If set, throws an exception if symbol resolving failed. If false, each missing symbol
  will be resolved as null.
 
+### <a id="constructors-.ctor"/>**OnlineServerSymbolsResolver(IHttpClientFactory, String, Boolean)**
+
+A new instance of [OnlineServerSymbolsResolver](./nefarius.utilities.exceptionenricher.onlineserversymbolsresolver.md).
+
+```csharp
+public OnlineServerSymbolsResolver(IHttpClientFactory httpClientFactory, string clientName, bool throwIfNoSymbol)
+```
+
+#### Parameters
+
+`httpClientFactory` IHttpClientFactory<br>
+An  instance, when used with DI.
+
+`clientName` [String](https://docs.microsoft.com/en-us/dotnet/api/system.string)<br>
+The name of the http client to request via the `httpClientFactory`.
+
+`throwIfNoSymbol` [Boolean](https://docs.microsoft.com/en-us/dotnet/api/system.boolean)<br>
+If set, throws an exception if symbol resolving failed. If false, each missing symbol
+ will be resolved as null.
+
 ## Methods
 
 ### <a id="methods-dispose"/>**Dispose()**
