@@ -1,5 +1,9 @@
 ﻿# Nefarius.Utilities.ExceptionEnricher
 
+![Requirements](https://img.shields.io/badge/Requires-.NET%20%3E%3D8.0-blue.svg)
+[![Nuget](https://img.shields.io/nuget/v/Nefarius.Utilities.ExceptionEnricher)](https://www.nuget.org/packages/Nefarius.Utilities.ExceptionEnricher/)
+[![Nuget](https://img.shields.io/nuget/dt/Nefarius.Utilities.ExceptionEnricher)](https://www.nuget.org/packages/Nefarius.Utilities.ExceptionEnricher/)
+
 WIP 🔥
 
 ## Example
