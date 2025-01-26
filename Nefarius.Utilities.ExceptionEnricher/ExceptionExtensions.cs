@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
@@ -38,7 +39,7 @@ public static class ExceptionExtensions
                 continue;
             }
 
-            enrichedStack.Append($"   at {method.DeclaringType!.FullName}.{method.Name}");
+            enrichedStack.Append($"   at {GetParameterString(method)}");
 
             // Try to resolve file and line numbers
             Module module = method.Module;
@@ -53,7 +54,13 @@ public static class ExceptionExtensions
                 enrichedStack.AppendLine(" in <Failed to resolve assembly definition.>");
                 continue;
             }
-            
+
+            if (method.DeclaringType is null)
+            {
+                enrichedStack.AppendLine(" in <Declaring type not found.>");
+                continue;
+            }
+
             // Find the method in the assembly
             TypeDefinition? type = assembly.MainModule.GetType(method.DeclaringType.FullName);
             MethodDefinition? methodDef = type?.Methods.FirstOrDefault(m => m.Name == method.Name);
@@ -81,5 +88,46 @@ public static class ExceptionExtensions
         }
 
         return new EnrichedException(exception, enrichedStack.ToString());
+    }
+
+    private static string GetParameterString(MethodBase method)
+    {
+        ArgumentNullException.ThrowIfNull(method);
+
+        ParameterInfo[] parameters = method.GetParameters();
+        List<string> parameterStrings = new();
+
+        foreach (ParameterInfo param in parameters)
+        {
+            string typeName = GetTypeDisplayName(param.ParameterType);
+            if (param.GetCustomAttribute(typeof(ParamArrayAttribute)) != null)
+            {
+                typeName = "params " + typeName;
+            }
+            else if (param.IsOut)
+            {
+                typeName = "out " + typeName;
+            }
+            else if (param.ParameterType.IsByRef)
+            {
+                typeName = "ref " + typeName;
+            }
+
+            parameterStrings.Add($"{typeName} {param.Name}");
+        }
+
+        return $"{method.DeclaringType}.{method.Name}({string.Join(", ", parameterStrings)})";
+    }
+
+    private static string GetTypeDisplayName(Type type)
+    {
+        if (!type.IsGenericType)
+        {
+            return type.Name;
+        }
+
+        Type genericTypeDefinition = type.GetGenericTypeDefinition();
+        string genericArguments = string.Join(", ", type.GetGenericArguments().Select(GetTypeDisplayName));
+        return $"{genericTypeDefinition.Name.Split('`')[0]}<{genericArguments}>";
     }
 }

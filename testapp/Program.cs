@@ -23,17 +23,17 @@ catch (Exception ex)
 
 return;
 
-void Foo()
+void Foo(int firstArg = 1, int secondArg = 2)
 {
     Bar();
 }
 
-void Bar()
+void Bar(params List<int> someArgs)
 {
     Baz();
 }
 
-void Baz()
+void Baz(/* no args */)
 {
     throw new InvalidOperationException("Test exception");
 }
