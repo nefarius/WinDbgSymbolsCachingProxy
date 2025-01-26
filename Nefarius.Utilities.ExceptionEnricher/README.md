@@ -13,8 +13,8 @@ Here we have a classic `ToString()` on an exception object in a production relea
 ```text
 System.InvalidOperationException: Test exception
    at Program.<<Main>$>g__Baz|0_2()
-   at Program.<<Main>$>g__Bar|0_1()
-   at Program.<<Main>$>g__Foo|0_0()
+   at Program.<<Main>$>g__Bar|0_1(List`1 someArgs)
+   at Program.<<Main>$>g__Foo|0_0(Int32 firstArg, Int32 secondArg)
    at Program.<Main>$(String[] args)
 ```
 
@@ -22,10 +22,10 @@ If we enrich the same exception by on-demand downloading remote symbols, we get 
 
 ```text
 System.InvalidOperationException: Test exception
-   at Program.<<Main>$>g__Baz|0_2 in D:\Development\GitHub\WinDbgSymbolsCachingProxy\testapp\Program.cs (line 37)
-   at Program.<<Main>$>g__Bar|0_1 in D:\Development\GitHub\WinDbgSymbolsCachingProxy\testapp\Program.cs (line 32)
-   at Program.<<Main>$>g__Foo|0_0 in D:\Development\GitHub\WinDbgSymbolsCachingProxy\testapp\Program.cs (line 27)
-   at Program.<Main>$ in D:\Development\GitHub\WinDbgSymbolsCachingProxy\testapp\Program.cs (line 8)
+   at Program.<<Main>$>g__Baz|0_2() in D:\Development\GitHub\WinDbgSymbolsCachingProxy\testapp\Program.cs (line 47)
+   at Program.<<Main>$>g__Bar|0_1(List<Int32> someArgs) in D:\Development\GitHub\WinDbgSymbolsCachingProxy\testapp\Program.cs (line 42)
+   at Program.<<Main>$>g__Foo|0_0(Int32 firstArg, Int32 secondArg) in D:\Development\GitHub\WinDbgSymbolsCachingProxy\testapp\Program.cs (line 36)
+   at Program.<Main>$(String[] args) in D:\Development\GitHub\WinDbgSymbolsCachingProxy\testapp\Program.cs (line 10)
 ```
 
 ## Setup
