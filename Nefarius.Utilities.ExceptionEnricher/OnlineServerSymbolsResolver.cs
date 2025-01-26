@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -20,7 +21,9 @@ namespace Nefarius.Utilities.ExceptionEnricher;
 /// </summary>
 public sealed class OnlineServerSymbolsResolver : ISymbolReaderProvider, IDisposable
 {
-    private readonly HttpClient _httpClient;
+    private readonly string? _clientName;
+    private readonly HttpClient? _httpClient;
+    private readonly IHttpClientFactory? _httpClientFactory;
     private readonly Dictionary<string, Stream> _streamsCache = new();
     private readonly bool _throwIfNoSymbol;
 
@@ -35,6 +38,24 @@ public sealed class OnlineServerSymbolsResolver : ISymbolReaderProvider, IDispos
     public OnlineServerSymbolsResolver(HttpClient httpClient, bool throwIfNoSymbol = true)
     {
         _httpClient = httpClient;
+        _throwIfNoSymbol = throwIfNoSymbol;
+    }
+
+    /// <summary>
+    ///     A new instance of <see cref="OnlineServerSymbolsResolver" />.
+    /// </summary>
+    /// <param name="clientName">The name of the http client to request via the <paramref name="httpClientFactory" />.</param>
+    /// <param name="throwIfNoSymbol">
+    ///     If set, throws an exception if symbol resolving failed. If false, each missing symbol
+    ///     will be resolved as null.
+    /// </param>
+    /// <param name="httpClientFactory">An <see cref="IHttpClientFactory" /> instance, when used with DI.</param>
+    [SuppressMessage("ReSharper", "UnusedMember.Global")]
+    public OnlineServerSymbolsResolver(IHttpClientFactory httpClientFactory, string clientName,
+        bool throwIfNoSymbol = true)
+    {
+        _httpClientFactory = httpClientFactory;
+        _clientName = clientName;
         _throwIfNoSymbol = throwIfNoSymbol;
     }
 
@@ -105,7 +126,16 @@ public sealed class OnlineServerSymbolsResolver : ISymbolReaderProvider, IDispos
 
         string request = $"/download/symbols/{requestPath}";
 
-        HttpResponseMessage response = _httpClient.Send(new HttpRequestMessage(HttpMethod.Get, request));
+        if (_httpClientFactory is null && _httpClient is null)
+        {
+            throw new InvalidOperationException("Neither http client factory nor http client instance was provided");
+        }
+
+        HttpClient? client = _httpClient ?? _httpClientFactory?.CreateClient(_clientName!);
+
+        ArgumentNullException.ThrowIfNull(client);
+
+        HttpResponseMessage response = _httpClient!.Send(new HttpRequestMessage(HttpMethod.Get, request));
 
         if (!response.IsSuccessStatusCode)
         {
