@@ -14,18 +14,31 @@ using Mono.Cecil.Pdb;
 
 namespace Nefarius.Utilities.ExceptionEnricher;
 
-internal class OnlineServerSymbolsResolver : ISymbolReaderProvider, IDisposable
+/// <summary>
+///     An implementation of <see cref="ISymbolReaderProvider" /> that contacts an online symbol server to resolve debug
+///     symbols.
+/// </summary>
+public sealed class OnlineServerSymbolsResolver : ISymbolReaderProvider, IDisposable
 {
     private readonly HttpClient _httpClient;
     private readonly Dictionary<string, Stream> _streamsCache = new();
     private readonly bool _throwIfNoSymbol;
 
+    /// <summary>
+    ///     A new instance of <see cref="OnlineServerSymbolsResolver" />.
+    /// </summary>
+    /// <param name="httpClient">The <see cref="HttpClient" /> to use to contact the symbol server.</param>
+    /// <param name="throwIfNoSymbol">
+    ///     If set, throws an exception if symbol resolving failed. If false, each missing symbol
+    ///     will be resolved as null.
+    /// </param>
     public OnlineServerSymbolsResolver(HttpClient httpClient, bool throwIfNoSymbol = true)
     {
         _httpClient = httpClient;
         _throwIfNoSymbol = throwIfNoSymbol;
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         foreach (KeyValuePair<string, Stream> stream in _streamsCache)
@@ -34,6 +47,7 @@ internal class OnlineServerSymbolsResolver : ISymbolReaderProvider, IDisposable
         }
     }
 
+    /// <inheritdoc />
     public ISymbolReader? GetSymbolReader(ModuleDefinition module, string fileName)
     {
         if (_streamsCache.TryGetValue(fileName, out Stream? stream))
@@ -122,6 +136,7 @@ internal class OnlineServerSymbolsResolver : ISymbolReaderProvider, IDisposable
         return new PdbReaderProvider().GetSymbolReader(module, webStream);
     }
 
+    /// <inheritdoc />
     public ISymbolReader GetSymbolReader(ModuleDefinition module, Stream symbolStream)
     {
         throw new NotImplementedException();

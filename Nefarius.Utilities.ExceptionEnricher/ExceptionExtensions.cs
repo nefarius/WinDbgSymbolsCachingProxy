@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Net.Http;
 using System.Reflection;
@@ -15,19 +16,20 @@ namespace Nefarius.Utilities.ExceptionEnricher;
 /// <summary>
 ///     Extension methods for <see cref="Exception" /> objects.
 /// </summary>
+[SuppressMessage("ReSharper", "MemberCanBePrivate.Global")]
 public static class ExceptionExtensions
 {
     /// <summary>
     ///     Rebuilds the provided exception with debug information fetched from an online symbol server.
     /// </summary>
     /// <param name="exception">The <see cref="Exception" /> object to enrich/rebuild.</param>
-    /// <param name="httpClient">A <see cref="HttpClient" /> that specified the remote symbol server to contact.</param>
+    /// <param name="provider">The <see cref="OnlineServerSymbolsResolver" /> to be used for symbol lookup.</param>
     /// <returns>A new <see cref="EnrichedException" /> object with debug information added.</returns>
-    public static EnrichedException ToRemotelyEnrichedException(this Exception exception, HttpClient httpClient)
+    public static EnrichedException ToRemotelyEnrichedException(this Exception exception,
+        OnlineServerSymbolsResolver provider)
     {
         StackTrace stackTrace = new(exception, true);
         StringBuilder enrichedStack = new();
-        using OnlineServerSymbolsResolver provider = new(httpClient);
 
         foreach (StackFrame frame in stackTrace.GetFrames())
         {
@@ -88,6 +90,19 @@ public static class ExceptionExtensions
         }
 
         return new EnrichedException(exception, enrichedStack.ToString());
+    }
+
+    /// <summary>
+    ///     Rebuilds the provided exception with debug information fetched from an online symbol server.
+    /// </summary>
+    /// <param name="exception">The <see cref="Exception" /> object to enrich/rebuild.</param>
+    /// <param name="httpClient">A <see cref="HttpClient" /> that specified the remote symbol server to contact.</param>
+    /// <returns>A new <see cref="EnrichedException" /> object with debug information added.</returns>
+    public static EnrichedException ToRemotelyEnrichedException(this Exception exception, HttpClient httpClient)
+    {
+        using OnlineServerSymbolsResolver provider = new(httpClient);
+
+        return ToRemotelyEnrichedException(exception, provider);
     }
 
     private static string GetParameterString(MethodBase method)
