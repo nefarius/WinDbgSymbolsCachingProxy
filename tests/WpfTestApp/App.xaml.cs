@@ -33,6 +33,8 @@ public partial class App : Application
             // enriched
             Console.WriteLine("=== ENRICHED ===");
             Console.WriteLine(ex.ToRemotelyEnrichedException(client));
+            
+            this.Shutdown();
         }
 
         /*

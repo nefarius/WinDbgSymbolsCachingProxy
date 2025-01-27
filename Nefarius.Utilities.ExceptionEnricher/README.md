@@ -4,7 +4,20 @@
 [![Nuget](https://img.shields.io/nuget/v/Nefarius.Utilities.ExceptionEnricher)](https://www.nuget.org/packages/Nefarius.Utilities.ExceptionEnricher/)
 [![Nuget](https://img.shields.io/nuget/dt/Nefarius.Utilities.ExceptionEnricher)](https://www.nuget.org/packages/Nefarius.Utilities.ExceptionEnricher/)
 
-WIP 🔥
+## Motivation
+
+Having stack traces on exceptions including line numbers and the source file name of the offending code is a luxury
+we're accustomed to in local debug builds, not so much in the field though.
+
+Getting readable exceptions requires debug symbols being present at the time the exception/stack trace is
+thrown/generated, so you'd typically need to include your `.pdb` files with your published app, at the cost of increased
+size of the deliverables.
+
+This library tries to tackle this conundrum by on-demand downloading the required symbols from a symbol server you can
+host yourself whenever an "enriched" exception is thrown.
+You can then send this enriched exception to your logging or tracing subsystem and enjoy the comfort of readable stack
+traces!
+Symbols are held in memory until application termination to reduce the required http calls to a minimum.
 
 ## Limitations
 
