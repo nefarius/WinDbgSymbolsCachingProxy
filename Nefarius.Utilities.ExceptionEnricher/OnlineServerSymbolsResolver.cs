@@ -147,6 +147,11 @@ public sealed class OnlineServerSymbolsResolver : ISymbolReaderProvider, IDispos
                 }
                 catch
                 {
+                    if (_throwIfNoSymbol)
+                    {
+                        throw new HttpRequestException($"Couldn't find remote nor local symbol for file: {fileName}");
+                    }
+
                     return null;
                 }
             }
