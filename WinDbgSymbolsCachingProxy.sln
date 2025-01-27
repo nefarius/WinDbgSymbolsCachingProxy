@@ -27,6 +27,14 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FieldReleasedDemoApp", "tes
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nefarius.Utilities.ExceptionEnricher", "Nefarius.Utilities.ExceptionEnricher\Nefarius.Utilities.ExceptionEnricher.csproj", "{95B2C961-372A-4F72-8319-051991F869D5}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{31214E1B-4CF4-44C7-9DCB-901A06D4AE3D}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Lib", "Lib", "{88AF9BE8-9E86-4A3F-AD7C-BFE704D9AB7A}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Server", "Server", "{EF3299CA-47D3-4461-A0C5-B442CEB56295}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Agent", "Agent", "{3B4D7EB4-0AAF-4E80-BB1E-1D168983BA3A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -52,5 +60,11 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{A5643B1A-8B79-4572-B4DD-AFF2CBBDBAB6} = {31214E1B-4CF4-44C7-9DCB-901A06D4AE3D}
+		{95B2C961-372A-4F72-8319-051991F869D5} = {88AF9BE8-9E86-4A3F-AD7C-BFE704D9AB7A}
+		{75CC3A05-AB27-4A9A-8DD9-F0CE1543F5CA} = {EF3299CA-47D3-4461-A0C5-B442CEB56295}
+		{A2DEBFBB-C402-45A1-8721-BD76D02DA339} = {3B4D7EB4-0AAF-4E80-BB1E-1D168983BA3A}
 	EndGlobalSection
 EndGlobal
