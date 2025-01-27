@@ -5,6 +5,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Net.Http;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 using Mono.Cecil;
@@ -33,7 +34,7 @@ public static class ExceptionExtensions
 
         foreach (StackFrame frame in stackTrace.GetFrames())
         {
-            MethodBase? method = frame.GetMethod();
+            MethodBase? method = GetOriginalMethod(frame.GetMethod());
 
             if (method is null)
             {
@@ -103,6 +104,42 @@ public static class ExceptionExtensions
         using OnlineServerSymbolsResolver provider = new(httpClient);
 
         return ToRemotelyEnrichedException(exception, provider);
+    }
+
+    private static MethodInfo? GetOriginalMethod(MethodBase? method)
+    {
+        // Check if the method belongs to a state machine
+        if (method is not { DeclaringType: not null, Name: "MoveNext" })
+        {
+            return method as MethodInfo;
+        }
+
+        // Look for the original method that points to this state machine
+        Type? stateMachineType = method.DeclaringType;
+
+        // Iterate over all methods in the assembly to find the one pointing to this state machine
+        foreach (Type type in method.DeclaringType.Assembly.GetTypes())
+        {
+            foreach (MethodInfo candidate in type.GetMethods(BindingFlags.Instance | BindingFlags.Static |
+                                                             BindingFlags.Public | BindingFlags.NonPublic))
+            {
+                AsyncStateMachineAttribute? asyncAttribute = candidate.GetCustomAttribute<AsyncStateMachineAttribute>();
+                if (asyncAttribute?.StateMachineType == stateMachineType)
+                {
+                    return candidate;
+                }
+
+                IteratorStateMachineAttribute? iteratorAttribute =
+                    candidate.GetCustomAttribute<IteratorStateMachineAttribute>();
+                if (iteratorAttribute?.StateMachineType == stateMachineType)
+                {
+                    return candidate;
+                }
+            }
+        }
+
+        // Return the method itself if it is not part of a state machine
+        return method as MethodInfo;
     }
 
     private static string GetParameterString(MethodBase method)

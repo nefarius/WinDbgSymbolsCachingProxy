@@ -1,4 +1,5 @@
-﻿using System.Net.Http;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Net.Http;
 using System.Windows;
 
 using Nefarius.Utilities.ExceptionEnricher;
@@ -10,12 +11,19 @@ namespace WpfTestApp;
 /// </summary>
 public partial class App : Application
 {
-    private void App_OnStartup(object sender, StartupEventArgs e)
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
+    [SuppressMessage("ReSharper", "ReturnValueOfPureMethodIsNotUsed")]
+    private async void App_OnStartup(object sender, StartupEventArgs e)
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
     {
         try
         {
+#pragma warning disable CS8600 // Converting null literal or possible null value to non-nullable type.
             object obj = null;
+#pragma warning restore CS8600 // Converting null literal or possible null value to non-nullable type.
+#pragma warning disable CS8602 // Dereference of a possibly null reference.
             obj.ToString();
+#pragma warning restore CS8602 // Dereference of a possibly null reference.
         }
         catch (Exception ex)
         {
