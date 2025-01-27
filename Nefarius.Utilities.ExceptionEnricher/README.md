@@ -6,6 +6,14 @@
 
 WIP 🔥
 
+## Limitations
+
+### `<No sequence point found, async method?>`
+
+Currently, file names and line numbers cannot be looked up correctly
+through [the use of Mono.Cecil](https://github.com/jbevain/cecil/issues/805) alone, so you will get this "error"
+instead.
+
 ## Example
 
 Here we have a classic `ToString()` on an exception object in a production release with no symbols:
