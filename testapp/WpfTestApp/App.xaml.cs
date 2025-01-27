@@ -18,12 +18,7 @@ public partial class App : Application
     {
         try
         {
-#pragma warning disable CS8600 // Converting null literal or possible null value to non-nullable type.
-            object obj = null;
-#pragma warning restore CS8600 // Converting null literal or possible null value to non-nullable type.
-#pragma warning disable CS8602 // Dereference of a possibly null reference.
-            obj.ToString();
-#pragma warning restore CS8602 // Dereference of a possibly null reference.
+            Foo();
         }
         catch (Exception ex)
         {
@@ -38,6 +33,27 @@ public partial class App : Application
             // enriched
             Console.WriteLine("=== ENRICHED ===");
             Console.WriteLine(ex.ToRemotelyEnrichedException(client));
+        }
+
+        /*
+         * Some nested local functions to make a demo call stack
+         */
+
+        [SuppressMessage("ReSharper", "UnusedParameter.Local")]
+        void Foo(int firstArg = 1, int secondArg = 2)
+        {
+            Bar();
+        }
+
+        [SuppressMessage("ReSharper", "UnusedParameter.Local")]
+        void Bar(params List<int> someArgs)
+        {
+            Baz();
+        }
+
+        void Baz( /* no args */)
+        {
+            throw new InvalidOperationException("Test exception");
         }
     }
 }
