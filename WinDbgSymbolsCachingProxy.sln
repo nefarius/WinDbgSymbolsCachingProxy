@@ -35,7 +35,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Server", "Server", "{EF3299
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Agent", "Agent", "{3B4D7EB4-0AAF-4E80-BB1E-1D168983BA3A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WpfTestApp", "testapp\WpfTestApp\WpfTestApp.csproj", "{F576E9F2-AD9C-4CA0-A83F-0A68B31E6680}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WpfTestApp", "tests\WpfTestApp\WpfTestApp.csproj", "{F576E9F2-AD9C-4CA0-A83F-0A68B31E6680}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
