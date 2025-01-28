@@ -18,6 +18,8 @@ public sealed class ServerConfig
     public bool DeleteAfterUpload { get; set; } = true;
 
     public List<string> DeletionInclusionFilter { get; set; } = ["**/*.pdb"];
+    
+    public List<string> DeletionExclusionFilter  { get; set; } = [];
 }
 
 public sealed class ServiceConfig
