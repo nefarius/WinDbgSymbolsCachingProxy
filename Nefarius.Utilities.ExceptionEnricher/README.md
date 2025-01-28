@@ -13,8 +13,8 @@ Getting readable exceptions requires debug symbols being present at the time the
 thrown/generated, so you'd typically need to include your `.pdb` files with your published app, at the cost of increased
 size of the deliverables.
 
-This library tries to tackle this conundrum by on-demand downloading the required symbols from a symbol server you can
-host yourself whenever an "enriched" exception is thrown.
+This library tries to tackle this conundrum by on-demand downloading the required symbols from a symbol server (which
+you can host yourself) whenever an "enriched" exception is thrown.
 You can then send this enriched exception to your logging or tracing subsystem and enjoy the comfort of readable stack
 traces!
 Symbols are held in memory until application termination to reduce the required http calls to a minimum.
