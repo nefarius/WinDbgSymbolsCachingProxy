@@ -23,7 +23,7 @@ Symbols are held in memory until application termination to reduce the required 
 
 ### `<No sequence point found, async method?>`
 
-Currently, file names and line numbers cannot be looked up correctly
+Currently, file names and line numbers cannot be looked up correctly for asynchronous methods
 through [the use of Mono.Cecil](https://github.com/jbevain/cecil/issues/805) alone, so you will get this "error"
 instead.
 
