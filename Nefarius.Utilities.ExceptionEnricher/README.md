@@ -27,6 +27,12 @@ Currently, file names and line numbers cannot be looked up correctly for asynchr
 through [the use of Mono.Cecil](https://github.com/jbevain/cecil/issues/805) alone, so you will get this "error"
 instead.
 
+### Improvement ideas
+
+The "original" CoreCLR-included way of enriching stack traces with line information could be hooked
+using [Harmony](https://github.com/pardeike/Harmony) and alike, intercepting symbol loading from disk and re-route that
+to a temporary directory.
+
 ## Example
 
 Here we have a classic `ToString()` on an exception object in a production release with no symbols:
