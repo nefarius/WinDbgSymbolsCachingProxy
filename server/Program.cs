@@ -22,6 +22,9 @@ using MongoDB.Entities;
 
 using Nefarius.Utilities.AspNetCore;
 
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+
 using Polly;
 using Polly.Contrib.WaitAndRetry;
 
@@ -31,6 +34,8 @@ using WinDbgSymbolsCachingProxy.Core;
 using WinDbgSymbolsCachingProxy.Jobs;
 using WinDbgSymbolsCachingProxy.Models;
 using WinDbgSymbolsCachingProxy.Services;
+
+using Tracer = WinDbgSymbolsCachingProxy.Core.Tracer;
 
 WebApplicationOptions opts = new() { Args = args, ContentRootPath = AppContext.BaseDirectory };
 
@@ -44,7 +49,7 @@ if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
 
     builder.Host.UseWindowsService(options =>
     {
-        options.ServiceName = "WinDbgSymbolsCachingProxy";
+        options.ServiceName = TracingSources.AppActivitySourceName;
     });
 }
 
@@ -52,6 +57,17 @@ builder.WebHost.ConfigureKestrel(o =>
 {
     o.Limits.MaxRequestBodySize = 200_000_000; // 200 MB
 });
+
+builder.Services.AddOpenTelemetry()
+    .WithTracing(tracerProviderBuilder =>
+    {
+        tracerProviderBuilder
+            .ConfigureResource(_ => ResourceBuilder.CreateDefault().AddService(TracingSources.AppActivitySourceName))
+            .AddSource(TracingSources.AppActivitySourceName)
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
+            .AddOtlpExporter();
+    });
 
 builder.Services.AddSingleton<IBadgeFactory, BadgeFactory>();
 builder.Services.AddSingleton<IBadgeService, BadgeService>();
