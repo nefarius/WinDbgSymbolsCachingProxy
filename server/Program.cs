@@ -56,12 +56,7 @@ if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
     });
 }
 
-#region Configuration
-
-builder.WebHost.ConfigureKestrel(o =>
-{
-    o.Limits.MaxRequestBodySize = 200_000_000; // 200 MB
-});
+#region OTEL
 
 builder.Services.AddOpenTelemetry()
     .WithTracing(tracerProviderBuilder =>
@@ -73,6 +68,15 @@ builder.Services.AddOpenTelemetry()
             .AddHttpClientInstrumentation()
             .AddOtlpExporter();
     });
+
+#endregion
+
+#region Configuration
+
+builder.WebHost.ConfigureKestrel(o =>
+{
+    o.Limits.MaxRequestBodySize = 200_000_000; // 200 MB
+});
 
 builder.Services.AddHostedService<StartupService>();
 
