@@ -77,7 +77,11 @@ running [consider making a donation](https://docs.nefarius.at/Community-Support/
 
 - [`WinDbgSymbolsCachingProxy`](./server)  
   The symbols caching/hosting server backend that provides the REST API to the database.
-- [](./agent)
+- [`HarvestingAgent`](./agent)  
+  A worker service that watches over filesystem directories for new symbols and uploads them to your servers.
+- [`Nefarius.Utilities.ExceptionEnricher`](./lib)  
+  A class library that makes use of the symbol server infrastructure to on-demand download debug symbols whenever an
+  exception happens.
 
 ## Limitations
 
