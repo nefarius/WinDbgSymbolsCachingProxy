@@ -3,6 +3,10 @@ name: Docker Image CI
 on:
   push:
     branches: [ "master" ]
+    paths-ignore:
+      - 'Nefarius.Utilities.ExceptionEnricher/**'
+      - 'agent/**'
+      - 'tests/**'
   pull_request:
     branches: [ "master" ]
 

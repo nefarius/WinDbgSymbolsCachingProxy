@@ -13,18 +13,6 @@ Implements [ISerializable](https://docs.microsoft.com/en-us/dotnet/api/system.ru
 
 ## Properties
 
-### <a id="properties-baseexception"/>**BaseException**
-
-The [Exception](https://docs.microsoft.com/en-us/dotnet/api/system.exception) object this [EnrichedException](./nefarius.utilities.exceptionenricher.enrichedexception.md) is based on.
-
-```csharp
-public Exception BaseException { get; }
-```
-
-#### Property Value
-
-[Exception](https://docs.microsoft.com/en-us/dotnet/api/system.exception)<br>
-
 ### <a id="properties-data"/>**Data**
 
 ```csharp
@@ -75,6 +63,18 @@ public string Message { get; }
 
 [String](https://docs.microsoft.com/en-us/dotnet/api/system.string)<br>
 
+### <a id="properties-originaltype"/>**OriginalType**
+
+Gets the [Type](https://docs.microsoft.com/en-us/dotnet/api/system.type) this [EnrichedException](./nefarius.utilities.exceptionenricher.enrichedexception.md) is based on.
+
+```csharp
+public Type OriginalType { get; }
+```
+
+#### Property Value
+
+[Type](https://docs.microsoft.com/en-us/dotnet/api/system.type)<br>
+
 ### <a id="properties-source"/>**Source**
 
 ```csharp
@@ -106,16 +106,6 @@ public MethodBase TargetSite { get; }
 [MethodBase](https://docs.microsoft.com/en-us/dotnet/api/system.reflection.methodbase)<br>
 
 ## Methods
-
-### <a id="methods-getbaseexception"/>**GetBaseException()**
-
-```csharp
-public Exception GetBaseException()
-```
-
-#### Returns
-
-[Exception](https://docs.microsoft.com/en-us/dotnet/api/system.exception)
 
 ### <a id="methods-tostring"/>**ToString()**
 

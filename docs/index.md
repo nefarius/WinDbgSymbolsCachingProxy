@@ -5,3 +5,5 @@
 - [EnrichedException](./nefarius.utilities.exceptionenricher.enrichedexception.md)
 
 - [ExceptionExtensions](./nefarius.utilities.exceptionenricher.exceptionextensions.md)
+
+- [OnlineServerSymbolsResolver](./nefarius.utilities.exceptionenricher.onlineserversymbolsresolver.md)

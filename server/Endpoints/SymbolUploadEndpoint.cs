@@ -42,6 +42,8 @@ internal sealed class SymbolUploadEndpoint : EndpointWithoutRequest
                 continue;
             }
 
+            try
+            {
             string filename = section.FileName.ToLowerInvariant();
             using MemoryStream ms = new();
             // keep copy in memory, so we can send it to parser and deliver copy to DB
@@ -57,7 +59,7 @@ internal sealed class SymbolUploadEndpoint : EndpointWithoutRequest
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to parse {File}", filename);
-                AddError($"Failed to parse file {filename}, error: {ex}");
+                    AddError($"Failed to parse file {filename}, error: {ex}", "500");
                 continue;
             }
 
@@ -110,6 +112,12 @@ internal sealed class SymbolUploadEndpoint : EndpointWithoutRequest
             await symbol.Data.UploadAsync(ms, cancellation: ct);
 
             _logger.LogInformation("Added new symbol {Symbol}", symbol);
+        }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to upload symbol");
+                AddError($"Processing file {section.FileName} failed: {ex}");
+            }
         }
 
         if (ValidationFailures.Count > 0)

@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Diagnostics.CodeAnalysis;
 
+using FastDeepCloner;
+
 namespace Nefarius.Utilities.ExceptionEnricher;
 
 /// <summary>
@@ -11,17 +13,22 @@ public class EnrichedException : Exception
 {
     internal EnrichedException(Exception originalException, string stackTrace)
     {
-        BaseException = originalException;
+        OriginalType = originalException.GetType();
+
+        // this way we conveniently keep all the other interesting exception details
+        originalException.CloneTo(this);
+
+        Message = originalException.Message;
         StackTrace = stackTrace;
     }
 
     /// <summary>
-    ///     The <see cref="Exception" /> object this <see cref="EnrichedException" /> is based on.
+    ///     Gets the <see cref="Type" /> this <see cref="EnrichedException" /> is based on.
     /// </summary>
-    public Exception BaseException { get; }
+    public Type OriginalType { get; }
 
     /// <inheritdoc />
-    public override string Message => BaseException.Message;
+    public override string Message { get; }
 
     /// <inheritdoc />
     public override string StackTrace { get; }
@@ -29,12 +36,6 @@ public class EnrichedException : Exception
     /// <inheritdoc />
     public override string ToString()
     {
-        return BaseException.ToString();
-    }
-
-    /// <inheritdoc />
-    public override Exception GetBaseException()
-    {
-        return BaseException;
+        return base.ToString().Replace(GetType().ToString(), OriginalType.ToString());
     }
 }

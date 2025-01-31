@@ -9,11 +9,11 @@
     </PropertyGroup>
 
     <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
-      <DebugType>portable</DebugType>
+      <DebugType>full</DebugType>
     </PropertyGroup>
     
     <ItemGroup>
-      <ProjectReference Include="..\Nefarius.Utilities.ExceptionEnricher\Nefarius.Utilities.ExceptionEnricher.csproj" />
+      <ProjectReference Include="..\..\Nefarius.Utilities.ExceptionEnricher\Nefarius.Utilities.ExceptionEnricher.csproj" />
     </ItemGroup>
 
 </Project>

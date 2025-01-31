@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Net.Http.Headers;
 using System.Text;
 
+using Microsoft.Extensions.FileSystemGlobbing;
 using Microsoft.Extensions.Options;
 
 using MimeTypes;
@@ -115,7 +116,7 @@ public class HarvestingBackgroundService : BackgroundService
                 try
                 {
                     ServerConfig serverConfig = _maps[watcher];
-                    HttpClient client = _httpClientFactory.CreateClient();
+                    using HttpClient client = _httpClientFactory.CreateClient("Server");
 
                     client.BaseAddress = serverConfig.ServerUrl;
                     client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
@@ -150,7 +151,21 @@ public class HarvestingBackgroundService : BackgroundService
 
                         if (serverConfig.DeleteAfterUpload)
                         {
-                            File.Delete(path);
+                            Matcher matcher = new();
+                            matcher.AddIncludePatterns(serverConfig.DeletionInclusionFilter);
+                            matcher.AddExcludePatterns(serverConfig.DeletionExclusionFilter);
+
+                            PatternMatchingResult match = matcher.Match(Path.GetFileName(path));
+
+                            if (match.HasMatches)
+                            {
+                                File.Delete(path);
+                                _logger.LogInformation("Symbol file {Symbol} deleted", path);
+                            }
+                            else
+                            {
+                                _logger.LogInformation("Symbol file {Symbol} excluded from deletion", path);
+                            }
                         }
                     }
                     else

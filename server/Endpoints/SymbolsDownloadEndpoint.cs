@@ -1,4 +1,6 @@
-﻿using FastEndpoints;
+﻿using System.Diagnostics;
+
+using FastEndpoints;
 
 using Microsoft.Extensions.Options;
 
@@ -14,6 +16,7 @@ namespace WinDbgSymbolsCachingProxy.Endpoints;
 /// </summary>
 public sealed class SymbolsDownloadEndpoint : Endpoint<SymbolsRequest>
 {
+    private readonly ActivitySource _activitySource = new(TracingSources.AppActivitySourceName);
     private readonly IHttpClientFactory _clientFactory;
     private readonly ILogger<SymbolsDownloadEndpoint> _logger;
     private readonly IOptions<ServiceConfig> _options;
@@ -35,6 +38,13 @@ public sealed class SymbolsDownloadEndpoint : Endpoint<SymbolsRequest>
 
     public override async Task HandleAsync(SymbolsRequest req, CancellationToken ct)
     {
+        Activity? parentActivity = Activity.Current;
+        
+        parentActivity?.AddTag("request.IndexPrefix", req.IndexPrefix);
+        parentActivity?.AddTag("request.FileName", req.FileName);
+        
+        Activity? querySymbolInDbActivity = _activitySource.StartActivity(nameof(DB.Find));
+        
         SymbolsEntity? existingSymbol = (await DB.Find<SymbolsEntity>()
                 .ManyAsync(lr =>
                         lr.Eq(r => r.IndexPrefix, req.IndexPrefix.ToLowerInvariant()) &
@@ -42,6 +52,8 @@ public sealed class SymbolsDownloadEndpoint : Endpoint<SymbolsRequest>
                     , ct)
             ).FirstOrDefault();
 
+        querySymbolInDbActivity?.Dispose();
+        
         // cached entry found
         if (existingSymbol is not null)
         {

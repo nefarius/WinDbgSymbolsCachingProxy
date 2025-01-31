@@ -26,6 +26,8 @@ RUN apt update && \
     apt install -y ttf-mscorefonts-installer && \
     apt install -y libfreetype6 && \
     apt install -y libfontconfig1
+RUN apt install curl -y && \
+    curl -sSL "https://github.com/fullstorydev/grpcurl/releases/download/v1.9.2/grpcurl_1.9.2_linux_x86_64.tar.gz" | tar -xz -C /usr/local/bin
 WORKDIR /app
 COPY --from=publish /app/publish .
 

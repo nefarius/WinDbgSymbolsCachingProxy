@@ -2,6 +2,9 @@ using System.Runtime.InteropServices;
 
 using HarvestingAgent;
 
+using Polly;
+using Polly.Contrib.WaitAndRetry;
+
 using Serilog;
 
 Directory.SetCurrentDirectory(AppContext.BaseDirectory);
@@ -25,7 +28,9 @@ builder.Services.AddSerilog(lc => lc.ReadFrom.Configuration(builder.Configuratio
 
 builder.Services.AddHostedService<HarvestingBackgroundService>();
 
-builder.Services.AddHttpClient();
+builder.Services.AddHttpClient("Server")
+    .AddTransientHttpErrorPolicy(pb =>
+        pb.WaitAndRetryAsync(Backoff.DecorrelatedJitterBackoffV2(TimeSpan.FromSeconds(1), 5)));
 
 IHost host = builder.Build();
 host.Run();

@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>WinExe</OutputType>
+        <TargetFramework>net9.0-windows</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <UseWPF>true</UseWPF>
+    </PropertyGroup>
+
+    <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+        <DebugType>full</DebugType>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\..\Nefarius.Utilities.ExceptionEnricher\Nefarius.Utilities.ExceptionEnricher.csproj" />
+    </ItemGroup>
+
+</Project>

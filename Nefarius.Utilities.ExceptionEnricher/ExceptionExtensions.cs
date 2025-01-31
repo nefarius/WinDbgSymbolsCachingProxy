@@ -1,8 +1,11 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Net.Http;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 using Mono.Cecil;
@@ -14,23 +17,24 @@ namespace Nefarius.Utilities.ExceptionEnricher;
 /// <summary>
 ///     Extension methods for <see cref="Exception" /> objects.
 /// </summary>
+[SuppressMessage("ReSharper", "MemberCanBePrivate.Global")]
 public static class ExceptionExtensions
 {
     /// <summary>
     ///     Rebuilds the provided exception with debug information fetched from an online symbol server.
     /// </summary>
     /// <param name="exception">The <see cref="Exception" /> object to enrich/rebuild.</param>
-    /// <param name="httpClient">A <see cref="HttpClient" /> that specified the remote symbol server to contact.</param>
+    /// <param name="provider">The <see cref="OnlineServerSymbolsResolver" /> to be used for symbol lookup.</param>
     /// <returns>A new <see cref="EnrichedException" /> object with debug information added.</returns>
-    public static EnrichedException ToRemotelyEnrichedException(this Exception exception, HttpClient httpClient)
+    public static EnrichedException ToRemotelyEnrichedException(this Exception exception,
+        OnlineServerSymbolsResolver provider)
     {
         StackTrace stackTrace = new(exception, true);
-
         StringBuilder enrichedStack = new();
 
         foreach (StackFrame frame in stackTrace.GetFrames())
         {
-            MethodBase? method = frame.GetMethod();
+            MethodBase? method = GetOriginalMethod(frame.GetMethod());
 
             if (method is null)
             {
@@ -38,7 +42,7 @@ public static class ExceptionExtensions
                 continue;
             }
 
-            enrichedStack.Append($"   at {method.DeclaringType!.FullName}.{method.Name}");
+            enrichedStack.Append($"   at {GetParameterString(method)}");
 
             // Try to resolve file and line numbers
             Module module = method.Module;
@@ -46,10 +50,19 @@ public static class ExceptionExtensions
 
             AssemblyDefinition? assembly = AssemblyDefinition.ReadAssembly(
                 moduleName,
-                new ReaderParameters
-                {
-                    ReadSymbols = true, SymbolReaderProvider = new OnlineServerSymbolsResolver(httpClient)
-                });
+                new ReaderParameters { ReadSymbols = true, SymbolReaderProvider = provider });
+
+            if (assembly is null)
+            {
+                enrichedStack.AppendLine(" in <Failed to resolve assembly definition.>");
+                continue;
+            }
+
+            if (method.DeclaringType is null)
+            {
+                enrichedStack.AppendLine(" in <Declaring type not found.>");
+                continue;
+            }
 
             // Find the method in the assembly
             TypeDefinition? type = assembly.MainModule.GetType(method.DeclaringType.FullName);
@@ -61,10 +74,14 @@ public static class ExceptionExtensions
                 Collection<SequencePoint>? sequencePoints = methodDef.DebugInformation.SequencePoints;
                 SequencePoint? firstSequencePoint = sequencePoints.FirstOrDefault();
 
-                if (firstSequencePoint != null)
+                if (firstSequencePoint is not null)
                 {
                     enrichedStack.AppendLine(
-                        $" in {firstSequencePoint.Document.Url} (line {firstSequencePoint.StartLine})");
+                        $" in {firstSequencePoint.Document.Url} (line {firstSequencePoint.StartLine + 1})");
+                }
+                else
+                {
+                    enrichedStack.AppendLine(" in <No sequence point found, async method?>");
                 }
             }
             else
@@ -74,5 +91,95 @@ public static class ExceptionExtensions
         }
 
         return new EnrichedException(exception, enrichedStack.ToString());
+    }
+
+    /// <summary>
+    ///     Rebuilds the provided exception with debug information fetched from an online symbol server.
+    /// </summary>
+    /// <param name="exception">The <see cref="Exception" /> object to enrich/rebuild.</param>
+    /// <param name="httpClient">A <see cref="HttpClient" /> that specified the remote symbol server to contact.</param>
+    /// <returns>A new <see cref="EnrichedException" /> object with debug information added.</returns>
+    public static EnrichedException ToRemotelyEnrichedException(this Exception exception, HttpClient httpClient)
+    {
+        using OnlineServerSymbolsResolver provider = new(httpClient);
+
+        return ToRemotelyEnrichedException(exception, provider);
+    }
+
+    private static MethodInfo? GetOriginalMethod(MethodBase? method)
+    {
+        // Check if the method belongs to a state machine
+        if (method is not { DeclaringType: not null, Name: "MoveNext" })
+        {
+            return method as MethodInfo;
+        }
+
+        // Look for the original method that points to this state machine
+        Type? stateMachineType = method.DeclaringType;
+
+        // Iterate over all methods in the assembly to find the one pointing to this state machine
+        foreach (Type type in method.DeclaringType.Assembly.GetTypes())
+        {
+            foreach (MethodInfo candidate in type.GetMethods(BindingFlags.Instance | BindingFlags.Static |
+                                                             BindingFlags.Public | BindingFlags.NonPublic))
+            {
+                AsyncStateMachineAttribute? asyncAttribute = candidate.GetCustomAttribute<AsyncStateMachineAttribute>();
+                if (asyncAttribute?.StateMachineType == stateMachineType)
+                {
+                    return candidate;
+                }
+
+                IteratorStateMachineAttribute? iteratorAttribute =
+                    candidate.GetCustomAttribute<IteratorStateMachineAttribute>();
+                if (iteratorAttribute?.StateMachineType == stateMachineType)
+                {
+                    return candidate;
+                }
+            }
+        }
+
+        // Return the method itself if it is not part of a state machine
+        return method as MethodInfo;
+    }
+
+    private static string GetParameterString(MethodBase method)
+    {
+        ArgumentNullException.ThrowIfNull(method);
+
+        ParameterInfo[] parameters = method.GetParameters();
+        List<string> parameterStrings = new();
+
+        foreach (ParameterInfo param in parameters)
+        {
+            string typeName = GetTypeDisplayName(param.ParameterType);
+            if (param.GetCustomAttribute(typeof(ParamArrayAttribute)) != null)
+            {
+                typeName = "params " + typeName;
+            }
+            else if (param.IsOut)
+            {
+                typeName = "out " + typeName;
+            }
+            else if (param.ParameterType.IsByRef)
+            {
+                typeName = "ref " + typeName;
+            }
+
+            parameterStrings.Add($"{typeName} {param.Name}");
+        }
+
+        return $"{method.DeclaringType}.{method.Name}({string.Join(", ", parameterStrings)})";
+    }
+
+    private static string GetTypeDisplayName(Type type)
+    {
+        if (!type.IsGenericType)
+        {
+            return type.Name;
+        }
+
+        Type genericTypeDefinition = type.GetGenericTypeDefinition();
+        string genericArguments = string.Join(", ", type.GetGenericArguments().Select(GetTypeDisplayName));
+        return $"{genericTypeDefinition.Name.Split('`')[0]}<{genericArguments}>";
     }
 }
