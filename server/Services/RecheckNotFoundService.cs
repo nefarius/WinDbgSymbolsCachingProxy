@@ -1,4 +1,6 @@
-﻿using MongoDB.Entities;
+﻿using System.Net;
+
+using MongoDB.Entities;
 
 using WinDbgSymbolsCachingProxy.Models;
 
@@ -39,12 +41,18 @@ public sealed class RecheckNotFoundService
             using HttpResponseMessage response =
                 await client.GetAsync($"download/symbols/{symbol.RelativeUri}", token);
 
-            if (!response.IsSuccessStatusCode)
+            if (response is { IsSuccessStatusCode: false, StatusCode: HttpStatusCode.NotFound })
             {
                 _logger.LogInformation("Requested symbol {Symbol} not found upstream", symbol);
 
                 symbol.NotFoundAt = DateTime.UtcNow;
                 await symbol.SaveAsync(cancellation: ct);
+                return;
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogError("Request failed with unexpected status {StatusCode}", response.StatusCode);
                 return;
             }
 
