@@ -27,7 +27,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HarvestingAgent", "agent\Ha
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FieldReleasedDemoApp", "tests\consoleapp\FieldReleasedDemoApp.csproj", "{A5643B1A-8B79-4572-B4DD-AFF2CBBDBAB6}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nefarius.Utilities.ExceptionEnricher", "Nefarius.Utilities.ExceptionEnricher\Nefarius.Utilities.ExceptionEnricher.csproj", "{95B2C961-372A-4F72-8319-051991F869D5}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nefarius.Utilities.ExceptionEnricher", "lib\Nefarius.Utilities.ExceptionEnricher.csproj", "{95B2C961-372A-4F72-8319-051991F869D5}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{31214E1B-4CF4-44C7-9DCB-901A06D4AE3D}"
 EndProject
