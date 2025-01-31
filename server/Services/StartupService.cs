@@ -63,7 +63,7 @@ internal sealed class StartupService : BackgroundService
         _logger.LogInformation("Parsing all symbols ind database");
 
         List<SymbolsEntity> symbols = await DB.Find<SymbolsEntity>()
-            .ManyAsync(sym => sym.NotFoundAt == null, stoppingToken);
+            .ManyAsync(sym => sym.NotFoundAt == null && !sym.IsCustom, stoppingToken);
 
         // https://stackoverflow.com/a/9290531
         ParallelOptions opts = new()
