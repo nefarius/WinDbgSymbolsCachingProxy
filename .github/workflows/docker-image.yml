@@ -4,7 +4,7 @@ on:
   push:
     branches: [ "master" ]
     paths-ignore:
-      - 'Nefarius.Utilities.ExceptionEnricher/**'
+      - 'lib/**'
       - 'agent/**'
       - 'tests/**'
   pull_request:

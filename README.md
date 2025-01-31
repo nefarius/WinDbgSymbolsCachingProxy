@@ -42,7 +42,7 @@ size of 186 Megabytes** with three different strategies outlined below. Let's go
 ![Cached Symbols Count](https://symbols.nefarius.at/api/badges/cachedSymbolsTotal) ![Cached Symbols 404](https://symbols.nefarius.at/api/badges/cachedSymbolsNotFound) ![Cached Symbols Found](https://symbols.nefarius.at/api/badges/cachedSymbolsFound)
 
 I'm hosting an instance of this project at [`https://symbols.nefarius.at/`](https://symbols.nefarius.at/) which you can
-consume and help growing by adjusting your symbol source settings like so:
+consume and help grow by adjusting your symbol source settings like so:
 
 ```text
 .sympath cache*D:\symbols;srv*https://symbols.nefarius.at/download/symbols
@@ -72,6 +72,16 @@ running [consider making a donation](https://docs.nefarius.at/Community-Support/
     - `/api/uploads/symbol`
         - `POST` one or more supported symbol (currently `.exe`, `.dll`, `.sys` and `.pdb`) files using your own
           REST client or the provided [harvesting agent](./agent).
+
+## Projects
+
+- [`WinDbgSymbolsCachingProxy`](./server)  
+  The symbols caching/hosting server backend that provides the REST API to the database.
+- [`HarvestingAgent`](./agent)  
+  A worker service that watches over filesystem directories for new symbols and uploads them to your servers.
+- [`Nefarius.Utilities.ExceptionEnricher`](./lib)  
+  A class library that makes use of the symbol server infrastructure to on-demand download debug symbols whenever an
+  exception happens.
 
 ## Limitations
 
