@@ -3,21 +3,22 @@
 
 <PageTitle>Search</PageTitle>
 
-<MudDataGrid T="SymbolsEntity" Items="@_elements" Dense="true" SortMode="SortMode.Multiple" Filterable="true">
+<MudDataGrid T="SymbolsEntity" Items="@_elements" Dense="true" SortMode="SortMode.Multiple" Filterable="true"
+             QuickFilter="@QuickFilter">
     <ToolBarContent>
         <MudText Typo="Typo.h6">Stored Symbols</MudText>
-        <MudSpacer />
+        <MudSpacer/>
         <MudTextField @bind-Value="_searchString" Placeholder="Search" Adornment="Adornment.Start" Immediate="true"
                       AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
     </ToolBarContent>
     <Columns>
-        <SelectColumn T="SymbolsEntity" />
-        <PropertyColumn Property="x => x.FileName" Title="Filename" />
-        <PropertyColumn Property="x => x.SymbolKey" Title="Symbol key" />
-        <PropertyColumn Property="x => x.IndexPrefix" Title="Index prefix" />
-        <PropertyColumn Property="x => x.UpstreamFileName" Title="Upstream filename" />
-        <PropertyColumn Property="x => x.CreatedAt" Title="Creation timestamp" />
-        <PropertyColumn Property="x => x.UploadedAt" Title="Upload timestamp" />
+        <SelectColumn T="SymbolsEntity"/>
+        <PropertyColumn Property="x => x.FileName" Title="Filename"/>
+        <PropertyColumn Property="x => x.SymbolKey" Title="Symbol key"/>
+        <PropertyColumn Property="x => x.IndexPrefix" Title="Index prefix"/>
+        <PropertyColumn Property="x => x.UpstreamFileName" Title="Upstream filename"/>
+        <PropertyColumn Property="x => x.CreatedAt" Title="Creation timestamp"/>
+        <PropertyColumn Property="x => x.UploadedAt" Title="Upload timestamp"/>
         <PropertyColumn Property="x => x.IsCustom" Title="Is custom">
             <CellTemplate>
                 @if (context.Item.IsCustom)
@@ -30,9 +31,9 @@
                 }
             </CellTemplate>
         </PropertyColumn>
-        <PropertyColumn Property="x => x.AccessedCount" Title="Download count" />
+        <PropertyColumn Property="x => x.AccessedCount" Title="Download count"/>
     </Columns>
     <PagerContent>
-        <MudDataGridPager T="SymbolsEntity" />
+        <MudDataGridPager T="SymbolsEntity"/>
     </PagerContent>
 </MudDataGrid>
