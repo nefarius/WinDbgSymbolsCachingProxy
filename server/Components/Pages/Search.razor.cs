@@ -1,4 +1,6 @@
-﻿using MongoDB.Entities;
+﻿using Microsoft.AspNetCore.Components.Web;
+
+using MongoDB.Entities;
 
 using MudBlazor;
 
@@ -8,8 +10,26 @@ namespace WinDbgSymbolsCachingProxy.Components.Pages;
 
 public partial class Search
 {
+    private MudMenu _contextMenu = null!;
+    private SymbolsEntity? _contextRow;
     private MudDataGrid<SymbolsEntity> _dataGrid;
     private string _searchString;
+
+    private Task OnDeleteClick(MouseEventArgs obj)
+    {
+        if (_contextRow is not null)
+        {
+            // TODO: delete symbol
+        }
+
+        throw new NotImplementedException();
+    }
+
+    private async Task OpenMenuContent(DataGridRowClickEventArgs<SymbolsEntity> args)
+    {
+        _contextRow = args.Item;
+        await _contextMenu.OpenMenuAsync(args.MouseEventArgs);
+    }
 
     /// <summary>
     ///     Here we simulate getting the paged, filtered and ordered data from the server

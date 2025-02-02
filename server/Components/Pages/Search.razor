@@ -3,7 +3,7 @@
 
 <PageTitle>Search</PageTitle>
 
-<MudDataGrid T="SymbolsEntity" @ref="_dataGrid" Dense="true" Filterable="false" ServerData="ServerReload">
+<MudDataGrid T="SymbolsEntity" @ref="_dataGrid" Dense="true" Filterable="false" ServerData="ServerReload" RowContextMenuClick="OpenMenuContent">
     <ToolBarContent>
         <MudText Typo="Typo.h6">Stored Symbols</MudText>
         <MudSpacer/>
@@ -36,3 +36,11 @@
         <MudDataGridPager T="SymbolsEntity"/>
     </PagerContent>
 </MudDataGrid>
+<MudMenu PositionAtCursor="true" @ref="_contextMenu" id="_contextMenu">
+    <MudMenuItem Icon="@Icons.Material.Filled.DeleteForever" OnClick="OnDeleteClick">
+        Delete @_contextRow?.IndexPrefix
+    </MudMenuItem>
+    @*<MudMenuItem Icon="@Icons.Material.Filled.Info" OnClick="@ShowHiddenInfo">
+        View Details for @_contextRow?.HwId
+    </MudMenuItem>*@
+</MudMenu>
