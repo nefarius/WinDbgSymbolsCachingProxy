@@ -30,10 +30,7 @@ public partial class Search
         _contextRow = args.Item;
         await _contextMenu.OpenMenuAsync(args.MouseEventArgs);
     }
-
-    /// <summary>
-    ///     Here we simulate getting the paged, filtered and ordered data from the server
-    /// </summary>
+    
     private async Task<GridData<SymbolsEntity>> ServerReload(GridState<SymbolsEntity> state)
     {
         (IReadOnlyList<SymbolsEntity> Results, long TotalCount, int PageCount) res = await DB
