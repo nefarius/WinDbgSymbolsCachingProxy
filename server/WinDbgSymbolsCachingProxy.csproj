@@ -26,16 +26,17 @@
         </PackageReference>
         <PackageReference Include="idunno.Authentication.Basic" Version="2.4.0" />
         <PackageReference Include="KaitaiStruct.Runtime.CSharp" Version="0.10.0" />
-        <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="9.0.0" />
+        <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="9.0.1" />
         <PackageReference Include="Microsoft.Extensions.Http.Polly" Version="9.0.1" />
         <PackageReference Include="Microsoft.FileFormats" Version="1.0.607701" />
-        <PackageReference Include="Microsoft.SymbolStore" Version="1.0.607502" />
+        <PackageReference Include="Microsoft.SymbolStore" Version="1.0.607701" />
         <PackageReference Include="MinVer" Version="6.0.0">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
         <PackageReference Include="MongoDB.Entities" Version="24.1.0" />
         <PackageReference Include="Nefarius.Utilities.AspNetCore" Version="2.7.0" />
+        <PackageReference Include="MudBlazor" Version="8.2.0" />
         <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.11.1" />
         <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.11.1" />
         <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.11.0" />

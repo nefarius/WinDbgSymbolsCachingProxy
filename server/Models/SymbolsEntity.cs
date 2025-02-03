@@ -4,6 +4,9 @@ using MongoDB.Entities;
 
 namespace WinDbgSymbolsCachingProxy.Models;
 
+/// <summary>
+///     Represents a cached symbol.
+/// </summary>
 [SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Global")]
 [SuppressMessage("ReSharper", "UnusedMember.Global")]
 [SuppressMessage("ReSharper", "PropertyCanBeMadeInitOnly.Global")]
@@ -29,7 +32,7 @@ public class SymbolsEntity : FileEntity
 
     /// <summary>
     ///     A hex-encoded concatenated string of the Signature and Age where the Signature in "modern" PDB v7 symbols is
-    ///     represented in a GUID format and the Age is an unsigned 32-bit integer without leading zeroes.
+    ///     represented in a GUID format, and the Age is an unsigned 32-bit integer without leading zeroes.
     /// </summary>
     public required string SymbolKey { get; set; }
 
@@ -49,12 +52,12 @@ public class SymbolsEntity : FileEntity
     public Guid? NewSignature { get; set; }
 
     /// <summary>
-    ///     The UInt32 Age value. Increments to distinguish multiple revisions of the same symbol. 
+    ///     The UInt32 Age value. Increments to distinguish multiple revisions of the same symbol.
     /// </summary>
     public ulong? Age { get; set; }
 
     /// <summary>
-    ///     Last timestamp that its existence was checked upstream, yet not found.
+    ///     The last timestamp that its existence was checked upstream, yet not found.
     /// </summary>
     public DateTime? NotFoundAt { get; set; }
 
@@ -85,11 +88,16 @@ public class SymbolsEntity : FileEntity
     public DateTime? UploadedAt { get; set; }
 
     /// <summary>
-    ///     Gets the relative URI (built from <see cref="IndexPrefix"/> and <see cref="FileName"/>).
+    ///     Gets the creating timestamp.
+    /// </summary>
+    public required DateTime? CreatedAt { get; init; }
+
+    /// <summary>
+    ///     Gets the relative URI (built from <see cref="IndexPrefix" /> and <see cref="FileName" />).
     /// </summary>
     [Ignore]
     public string RelativeUri => $"{IndexPrefix}{FileName}";
-    
+
     public override string ToString()
     {
         return $"{IndexPrefix}{FileName}";

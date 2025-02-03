@@ -20,6 +20,8 @@ using MongoDB.Bson.Serialization.Serializers;
 using MongoDB.Driver;
 using MongoDB.Entities;
 
+using MudBlazor.Services;
+
 using Nefarius.Utilities.AspNetCore;
 
 using OpenTelemetry.Resources;
@@ -30,6 +32,7 @@ using Polly.Contrib.WaitAndRetry;
 
 using Serilog;
 
+using WinDbgSymbolsCachingProxy.Components;
 using WinDbgSymbolsCachingProxy.Core;
 using WinDbgSymbolsCachingProxy.Jobs;
 using WinDbgSymbolsCachingProxy.Models;
@@ -53,10 +56,7 @@ if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
     });
 }
 
-builder.WebHost.ConfigureKestrel(o =>
-{
-    o.Limits.MaxRequestBodySize = 200_000_000; // 200 MB
-});
+#region OTEL
 
 builder.Services.AddOpenTelemetry()
     .WithTracing(tracerProviderBuilder =>
@@ -69,6 +69,33 @@ builder.Services.AddOpenTelemetry()
             .AddOtlpExporter();
     });
 
+#endregion
+
+#region Configuration
+
+builder.WebHost.ConfigureKestrel(o =>
+{
+    o.Limits.MaxRequestBodySize = 200_000_000; // 200 MB
+});
+
+builder.Services.AddHostedService<StartupService>();
+
+IConfigurationSection section = builder.Configuration.GetSection(nameof(ServiceConfig));
+
+ServiceConfig? serviceConfig = section.Get<ServiceConfig>();
+
+if (serviceConfig is null)
+{
+    Console.WriteLine("Missing service configuration, can't continue!");
+    return;
+}
+
+builder.Services.Configure<ServiceConfig>(builder.Configuration.GetSection(nameof(ServiceConfig)));
+
+#endregion
+
+#region Core Services
+
 builder.Services.AddSingleton<IBadgeFactory, BadgeFactory>();
 builder.Services.AddSingleton<IBadgeService, BadgeService>();
 builder.Services.AddSingleton<ISvgService, SvgService>();
@@ -78,11 +105,24 @@ builder.Services.AddTransient<SymStoreService>();
 builder.Services.AddTransient<ITracer, Tracer>();
 builder.Services.AddSingleton<SymbolParsingService>();
 
+#endregion
+
+#region Misc. Services
+
 builder.Services.AddMemoryCache();
-
-builder.Services.AddHostedService<StartupService>();
-
 builder.Services.AddScheduler();
+
+#endregion
+
+#region MudBlazor
+
+builder.Services.AddMudServices();
+builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents();
+
+#endregion
+
+#region REST
 
 builder.Services.AddFastEndpoints().SwaggerDocument(o =>
 {
@@ -100,17 +140,7 @@ builder.Services.AddFastEndpoints().SwaggerDocument(o =>
     };
 });
 
-IConfigurationSection section = builder.Configuration.GetSection(nameof(ServiceConfig));
-
-ServiceConfig? serviceConfig = section.Get<ServiceConfig>();
-
-if (serviceConfig is null)
-{
-    Console.WriteLine("Missing service configuration, can't continue!");
-    return;
-}
-
-builder.Services.Configure<ServiceConfig>(builder.Configuration.GetSection(nameof(ServiceConfig)));
+#endregion
 
 builder.Services.AddHttpClient("MicrosoftSymbolServer",
         client =>
@@ -165,6 +195,8 @@ builder.Services.AddAuthentication(BasicAuthenticationDefaults.AuthenticationSch
 builder.Services.AddAuthorizationBuilder()
     .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
 
+#region Database
+
 Log.Logger.Information("Initializing database connection");
 
 BsonSerializer.RegisterSerializer(new GuidSerializer(GuidRepresentation.Standard));
@@ -183,7 +215,14 @@ await DB.Index<SymbolsEntity>()
     .Key(a => a.FileName, KeyType.Text)
     .CreateAsync();
 
+#endregion
+
 WebApplication? app = builder.Build().Setup();
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Error", createScopeForErrors: true);
+}
 
 app.Services.UseScheduler(scheduler =>
 {
@@ -196,8 +235,14 @@ app.Services.UseScheduler(scheduler =>
 app.UseMiddleware<CustomExceptionHandlerMiddleware>();
 
 app.UseSwaggerGen();
+
 app.UseAuthentication();
 app.UseAuthorization();
+
 app.UseFastEndpoints();
+app.UseAntiforgery();
+app.MapStaticAssets();
+app.MapRazorComponents<App>()
+    .AddInteractiveServerRenderMode();
 
 await app.RunAsync();
