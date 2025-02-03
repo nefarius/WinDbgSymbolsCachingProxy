@@ -15,14 +15,16 @@ public partial class Search
     private MudDataGrid<SymbolsEntity> _dataGrid;
     private string _searchString;
 
-    private Task OnDeleteClick(MouseEventArgs obj)
+    private async Task OnDeleteClick(MouseEventArgs obj)
     {
         if (_contextRow is not null)
         {
-            // TODO: delete symbol
+            await DB.DeleteAsync<SymbolsEntity>(_contextRow.ID);
+            
+            Snackbar.Add($"Deleted {_contextRow.IndexPrefix}", Severity.Success);
+            
+            await _dataGrid.ReloadServerData();
         }
-
-        throw new NotImplementedException();
     }
 
     private async Task OpenMenuContent(DataGridRowClickEventArgs<SymbolsEntity> args)

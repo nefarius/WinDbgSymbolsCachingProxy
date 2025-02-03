@@ -1,9 +1,11 @@
 ﻿@page "/"
 @using WinDbgSymbolsCachingProxy.Models
+@inject ISnackbar Snackbar
 
 <PageTitle>Search</PageTitle>
 
-<MudDataGrid T="SymbolsEntity" @ref="_dataGrid" Dense="true" Filterable="false" ServerData="ServerReload" RowContextMenuClick="OpenMenuContent">
+<MudDataGrid T="SymbolsEntity" @ref="_dataGrid" Dense="true" Filterable="false"
+             ServerData="ServerReload" RowContextMenuClick="OpenMenuContent">
     <ToolBarContent>
         <MudText Typo="Typo.h6">Stored Symbols</MudText>
         <MudSpacer/>
@@ -11,7 +13,6 @@
                       AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
     </ToolBarContent>
     <Columns>
-        <SelectColumn T="SymbolsEntity"/>
         <PropertyColumn Property="x => x.FileName" Title="Filename"/>
         <PropertyColumn Property="x => x.SymbolKey" Title="Symbol key"/>
         <PropertyColumn Property="x => x.IndexPrefix" Title="Index prefix"/>
