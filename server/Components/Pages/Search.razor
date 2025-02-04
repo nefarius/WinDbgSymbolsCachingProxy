@@ -4,7 +4,9 @@
 
 <PageTitle>Search</PageTitle>
 
-<MudDataGrid T="SymbolsEntity" @ref="_dataGrid" Dense="true" Filterable="false"
+<MudDataGrid T="SymbolsEntity" @ref="_dataGrid" Dense="true"
+             Filterable="true" FilterMode="DataGridFilterMode.Simple"
+             FilterCaseSensitivity="DataGridFilterCaseSensitivity.CaseInsensitive"
              ServerData="ServerReload" RowContextMenuClick="OpenMenuContent">
     <ToolBarContent>
         <MudText Typo="Typo.h6">Stored Symbols</MudText>
