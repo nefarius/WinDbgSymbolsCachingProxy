@@ -34,7 +34,7 @@
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="MongoDB.Entities" Version="24.1.0" />
+        <PackageReference Include="MongoDB.Entities" Version="24.1.1" />
         <PackageReference Include="Nefarius.Utilities.AspNetCore" Version="2.7.0" />
         <PackageReference Include="MudBlazor" Version="8.3.0" />
         <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.11.1" />
