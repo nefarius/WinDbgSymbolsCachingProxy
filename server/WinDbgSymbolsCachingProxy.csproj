@@ -36,7 +36,7 @@
         </PackageReference>
         <PackageReference Include="MongoDB.Entities" Version="24.1.0" />
         <PackageReference Include="Nefarius.Utilities.AspNetCore" Version="2.7.0" />
-        <PackageReference Include="MudBlazor" Version="8.2.0" />
+        <PackageReference Include="MudBlazor" Version="8.3.0" />
         <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.11.1" />
         <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.11.1" />
         <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.11.0" />
