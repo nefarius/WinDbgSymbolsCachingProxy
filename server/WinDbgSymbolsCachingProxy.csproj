@@ -42,7 +42,7 @@
         <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.11.0" />
         <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.11.0" />
         <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.11.0" />
-        <PackageReference Include="PeNet" Version="4.1.1" />
+        <PackageReference Include="PeNet" Version="4.1.2" />
         <PackageReference Include="Polly.Contrib.WaitAndRetry" Version="1.1.1" />
         <PackageReference Include="Resourcer.Fody" Version="1.8.1">
             <PrivateAssets>all</PrivateAssets>
