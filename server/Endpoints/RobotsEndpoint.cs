@@ -13,7 +13,7 @@ internal sealed class RobotsEndpoint : EndpointWithoutRequest
 
     public override async Task HandleAsync(CancellationToken ct)
     {
-        await SendStringAsync("""
+        await Send.StringAsync("""
                               User-agent: *
                               Disallow: /
                               """, cancellation: ct);

@@ -65,7 +65,7 @@ public sealed class SymbolsDownloadEndpoint : Endpoint<SymbolsRequest>
             {
                 _logger.LogInformation("Cached symbol marked as not found");
 
-                await SendNotFoundAsync(ct);
+                await Send.NotFoundAsync(ct);
                 return;
             }
 
@@ -79,7 +79,7 @@ public sealed class SymbolsDownloadEndpoint : Endpoint<SymbolsRequest>
                 await existingSymbol.Data.DownloadAsync(ms, cancellation: ct);
 
                 ms.Position = 0;
-                await SendStreamAsync(ms, existingSymbol.UpstreamFileName ?? existingSymbol.FileName, cancellation: ct);
+                await Send.StreamAsync(ms, existingSymbol.UpstreamFileName ?? existingSymbol.FileName, cancellation: ct);
 
                 // update statistics
                 existingSymbol.LastAccessedAt = DateTime.UtcNow;
@@ -119,7 +119,7 @@ public sealed class SymbolsDownloadEndpoint : Endpoint<SymbolsRequest>
             // set last 404-timestamp
             newSymbol.NotFoundAt = DateTime.UtcNow;
             await newSymbol.SaveAsync(cancellation: ct);
-            await SendNotFoundAsync(ct);
+            await Send.NotFoundAsync(ct);
             return;
         }
 
@@ -127,7 +127,7 @@ public sealed class SymbolsDownloadEndpoint : Endpoint<SymbolsRequest>
         {
             _logger.LogError("Missing request message");
             AddError("Missing request message");
-            await SendErrorsAsync(cancellation: ct);
+            await Send.ErrorsAsync(cancellation: ct);
             return;
         }
 
@@ -135,7 +135,7 @@ public sealed class SymbolsDownloadEndpoint : Endpoint<SymbolsRequest>
         {
             _logger.LogError("Missing request URI");
             AddError("Missing request URI");
-            await SendErrorsAsync(cancellation: ct);
+            await Send.ErrorsAsync(cancellation: ct);
             return;
         }
 
@@ -170,6 +170,6 @@ public sealed class SymbolsDownloadEndpoint : Endpoint<SymbolsRequest>
 
         cache.Position = 0;
 
-        await SendStreamAsync(cache, upstreamFilename, cancellation: ct);
+        await Send.StreamAsync(cache, upstreamFilename, cancellation: ct);
     }
 }

@@ -13,6 +13,6 @@ internal sealed class Index2Endpoint : EndpointWithoutRequest
 
     public override Task HandleAsync(CancellationToken ct)
     {
-        return SendNotFoundAsync(ct);
+        return Send.NotFoundAsync(ct);
     }
 }

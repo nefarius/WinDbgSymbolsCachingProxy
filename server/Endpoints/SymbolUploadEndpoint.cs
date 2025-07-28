@@ -85,7 +85,7 @@ internal sealed class SymbolUploadEndpoint : EndpointWithoutRequest
                 {
                     _logger.LogError("Symbol with name {Filename} and index prefix {IndexPrefix} already exists",
                         filename, result.IndexPrefix);
-                    await SendAsync(
+                    await Send.ResponseAsync(
                         $"Symbol with name {filename} and index prefix {result.IndexPrefix} already exists.", 409,
                         ct);
                     return;
@@ -122,11 +122,11 @@ internal sealed class SymbolUploadEndpoint : EndpointWithoutRequest
 
         if (ValidationFailures.Count > 0)
         {
-            await SendErrorsAsync(cancellation: ct);
+            await Send.ErrorsAsync(cancellation: ct);
         }
         else
         {
-            await SendOkAsync("Upload complete.", ct);
+            await Send.OkAsync("Upload complete.", ct);
         }
     }
 }

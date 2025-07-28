@@ -35,7 +35,7 @@ public sealed class InfoEndpoint : EndpointWithoutRequest<RootResponse>
     {
         if (_memoryCache.TryGetValue(nameof(InfoEndpoint), out RootResponse? response) && response is not null)
         {
-            await SendOkAsync(response, ct);
+            await Send.OkAsync(response, ct);
             return;
         }
 
@@ -44,7 +44,7 @@ public sealed class InfoEndpoint : EndpointWithoutRequest<RootResponse>
         if (peFile.Resources is null)
         {
             _logger.LogError("Couldn't get PE file resources");
-            await SendErrorsAsync(500, ct);
+            await Send.ErrorsAsync(500, ct);
             return;
         }
 
@@ -64,6 +64,6 @@ public sealed class InfoEndpoint : EndpointWithoutRequest<RootResponse>
 
         _memoryCache.Set(nameof(InfoEndpoint), response, TimeSpan.FromHours(1));
 
-        await SendOkAsync(response, ct);
+        await Send.OkAsync(response, ct);
     }
 }

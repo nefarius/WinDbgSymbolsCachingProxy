@@ -18,8 +18,8 @@
 
     <ItemGroup>
         <PackageReference Include="Coravel" Version="6.0.2" />
-        <PackageReference Include="FastEndpoints" Version="6.2.0" />
-        <PackageReference Include="FastEndpoints.Swagger" Version="6.2.0" />
+        <PackageReference Include="FastEndpoints" Version="7.0.1" />
+        <PackageReference Include="FastEndpoints.Swagger" Version="7.0.1" />
         <PackageReference Include="Fody" Version="6.9.2">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -28,8 +28,8 @@
         <PackageReference Include="KaitaiStruct.Runtime.CSharp" Version="0.10.0" />
         <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="9.0.7" />
         <PackageReference Include="Microsoft.Extensions.Http.Polly" Version="9.0.7" />
-        <PackageReference Include="Microsoft.FileFormats" Version="1.0.637001" />
-        <PackageReference Include="Microsoft.SymbolStore" Version="1.0.637001" />
+        <PackageReference Include="Microsoft.FileFormats" Version="1.0.637701" />
+        <PackageReference Include="Microsoft.SymbolStore" Version="1.0.637701" />
         <PackageReference Include="MinVer" Version="6.0.0">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

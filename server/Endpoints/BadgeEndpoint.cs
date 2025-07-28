@@ -98,7 +98,7 @@ public sealed class BadgeEndpoint : EndpointWithoutRequest
                 parameters.ResultColor = "#2ac33bff"; // green
                 break;
             default:
-                await SendNotFoundAsync(ct);
+                await Send.NotFoundAsync(ct);
                 return;
         }
 
@@ -117,6 +117,6 @@ public sealed class BadgeEndpoint : EndpointWithoutRequest
         HttpContext.Response.Headers.LastModified = new StringValues(now.ToString("R"));
         HttpContext.Response.Headers.Expires = new StringValues(now.AddSeconds(expiresSeconds).ToString("R"));
 
-        await SendStreamAsync(ms, contentType: "image/svg+xml", cancellation: ct);
+        await Send.StreamAsync(ms, contentType: "image/svg+xml", cancellation: ct);
     }
 }

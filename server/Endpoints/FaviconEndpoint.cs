@@ -19,7 +19,7 @@ internal sealed class FaviconEndpoint : EndpointWithoutRequest
     {
         SetCacheControl(TimeSpan.FromHours(12).Seconds, DateTimeOffset.Now);
 
-        await SendStreamAsync(Resource.AsStream("WinDbgSymbolsCachingProxy.favicon.ico"), contentType: "image/x-icon",
+        await Send.StreamAsync(Resource.AsStream("WinDbgSymbolsCachingProxy.favicon.ico"), contentType: "image/x-icon",
             cancellation: ct);
     }
 
