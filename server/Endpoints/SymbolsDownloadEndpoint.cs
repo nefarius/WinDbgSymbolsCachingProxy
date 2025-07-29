@@ -78,6 +78,8 @@ public sealed class SymbolsDownloadEndpoint(
             {
                 logger.LogInformation("Cached symbol marked as not found");
 
+                CacheSymbolInMemory(req, existingSymbol);
+                
                 await Send.NotFoundAsync(ct);
                 return;
             }
@@ -99,7 +101,6 @@ public sealed class SymbolsDownloadEndpoint(
                 existingSymbol.LastAccessedAt = DateTime.UtcNow;
                 existingSymbol.AccessedCount = ++existingSymbol.AccessedCount ?? 1;
                 
-                ms.Position = 0;
                 CacheSymbolInMemory(req, existingSymbol, ms);
 
                 await existingSymbol.SaveAsync(cancellation: ct);
@@ -185,9 +186,7 @@ public sealed class SymbolsDownloadEndpoint(
         // save and upload to DB
         await newSymbol.SaveAsync(cancellation: ct);
         await newSymbol.Data.UploadAsync(cache, cancellation: ct);
-
-        cache.Position = 0;
-
+        
         // save in memory cache to take the load off of the DB
         CacheSymbolInMemory(req, newSymbol, cache);
 
@@ -201,6 +200,7 @@ public sealed class SymbolsDownloadEndpoint(
         SymbolsCachedEntity memCacheItem = (SymbolsCachedEntity)newSymbol;
         if (data is not null)
         {
+            data.Position = 0;
             memCacheItem.Blob = data.ToArray();
         }
 
