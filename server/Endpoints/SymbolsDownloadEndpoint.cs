@@ -70,7 +70,7 @@ public sealed class SymbolsDownloadEndpoint(
         // cached entry found
         if (existingSymbol is not null)
         {
-            logger.LogInformation("Found cached symbol {@Symbol}", existingSymbol);
+            logger.LogInformation("Found cached symbol {@Symbol}", existingSymbol.ToString());
 
             // has been checked for existence recently so skip check and return immediately 
             if (existingSymbol.NotFoundAt.HasValue &&
@@ -132,7 +132,7 @@ public sealed class SymbolsDownloadEndpoint(
 
         if (!response.IsSuccessStatusCode)
         {
-            logger.LogInformation("Requested symbol {@Symbol} not found upstream", req);
+            logger.LogInformation("Requested symbol {Symbol} not found upstream", req.ToString());
 
             // set last 404-timestamp
             newSymbol.NotFoundAt = DateTime.UtcNow;
@@ -169,7 +169,7 @@ public sealed class SymbolsDownloadEndpoint(
             upstreamFilename = req.FileName.ToLowerInvariant();
         }
 
-        logger.LogInformation("Got requested symbol {@Symbol} ({Filename}), caching", req, upstreamFilename);
+        logger.LogInformation("Got requested symbol {@Symbol} ({Filename}), caching", req.ToString(), upstreamFilename);
 
         Stream upstreamContent = await response.Content.ReadAsStreamAsync(ct);
 
@@ -197,6 +197,8 @@ public sealed class SymbolsDownloadEndpoint(
 
     private void CacheSymbolInMemory(SymbolsRequest req, SymbolsEntity newSymbol, MemoryStream? data = null)
     {
+        return; // TODO: fixme
+        
         SymbolsCachedEntity memCacheItem = (SymbolsCachedEntity)newSymbol;
         if (data is not null)
         {
