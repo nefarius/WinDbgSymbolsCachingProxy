@@ -4,11 +4,11 @@ namespace WinDbgSymbolsCachingProxy.Models;
 
 public class BadgeModel
 {
-    public string Label { get; set; }
-    public string Result { get; set; }
-    public int Height { get; set; }
-    public SKColor ResultBackgroundColor { get; set; }
-    public SKColor LabelBackgroundColor { get; set; }
+    public string Label { get; init; }
+    public string Result { get; init; }
+    public int Height { get; init; }
+    public SKColor ResultBackgroundColor { get; init; }
+    public SKColor LabelBackgroundColor { get; init; }
 
     public int TopBottomMargin => Height / 5;
 }

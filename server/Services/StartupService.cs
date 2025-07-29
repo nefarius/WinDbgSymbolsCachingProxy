@@ -6,30 +6,22 @@ using WinDbgSymbolsCachingProxy.Models;
 
 namespace WinDbgSymbolsCachingProxy.Services;
 
-internal sealed class StartupService : BackgroundService
+internal sealed class StartupService(
+    RecheckNotFoundService recheckNotFoundService,
+    ILogger<StartupService> logger,
+    IConfiguration config,
+    SymbolParsingService parsingService)
+    : BackgroundService
 {
     private const string RunParser = "RunParser";
     private const string RunRecheck = "RunRecheck";
-    private readonly IConfiguration _config;
-    private readonly ILogger<StartupService> _logger;
-    private readonly SymbolParsingService _parsingService;
-    private readonly RecheckNotFoundService _recheckNotFoundService;
-
-    public StartupService(RecheckNotFoundService recheckNotFoundService, ILogger<StartupService> logger,
-        IConfiguration config, SymbolParsingService parsingService)
-    {
-        _recheckNotFoundService = recheckNotFoundService;
-        _logger = logger;
-        _config = config;
-        _parsingService = parsingService;
-    }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         // run PDBSharp parsing for all DB entries, if enabled
-        if (bool.TryParse(_config.GetSection(nameof(RunParser)).Value, out bool runParser) && runParser)
+        if (bool.TryParse(config.GetSection(nameof(RunParser)).Value, out bool runParser) && runParser)
         {
-            _logger.LogWarning(
+            logger.LogWarning(
                 "{Setting} is enabled, this can severely impact startup performance on huge databases",
                 nameof(RunParser));
 
@@ -37,21 +29,21 @@ internal sealed class StartupService : BackgroundService
         }
 
         // run 404 re-check, if enabled
-        if (bool.TryParse(_config.GetSection(nameof(RunRecheck)).Value, out bool runRecheck) && runRecheck)
+        if (bool.TryParse(config.GetSection(nameof(RunRecheck)).Value, out bool runRecheck) && runRecheck)
         {
-            _logger.LogWarning(
+            logger.LogWarning(
                 "{Setting} is enabled, this can severely impact startup performance on huge databases",
                 nameof(RunRecheck));
 
             Stopwatch sw = Stopwatch.StartNew();
 
-            _logger.LogInformation("Running 404 re-check");
+            logger.LogInformation("Running 404 re-check");
 
-            await _recheckNotFoundService.Run(stoppingToken);
+            await recheckNotFoundService.Run(stoppingToken);
 
             sw.Stop();
 
-            _logger.LogInformation("Re-check finished after {Timespan}", sw.Elapsed);
+            logger.LogInformation("Re-check finished after {Timespan}", sw.Elapsed);
         }
     }
 
@@ -60,7 +52,7 @@ internal sealed class StartupService : BackgroundService
     /// </summary>
     private async Task ParseAllEntries(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Parsing all symbols ind database");
+        logger.LogInformation("Parsing all symbols ind database");
 
         List<SymbolsEntity> symbols = await DB.Find<SymbolsEntity>()
             .ManyAsync(sym => sym.NotFoundAt == null && !sym.IsCustom, stoppingToken);
@@ -73,18 +65,18 @@ internal sealed class StartupService : BackgroundService
         };
 
         // boost performance by issuing requests in parallel
-        await Parallel.ForEachAsync(symbols, opts, async (symbol, token) =>
+        await Parallel.ForEachAsync(symbols, opts, async (symbol, innerToken) =>
         {
-            _logger.LogInformation("Processing {IndexPrefix}", symbol.IndexPrefix);
+            logger.LogInformation("Processing {IndexPrefix}", symbol.IndexPrefix);
 
             using MemoryStream ms = new();
             try
             {
-                await symbol.Data.DownloadAsync(ms, cancellation: token);
+                await symbol.Data.DownloadAsync(ms, cancellation: innerToken);
             }
             catch (InvalidOperationException)
             {
-                _logger.LogWarning("No data blob available for {IndexPrefix}", symbol.IndexPrefix);
+                logger.LogWarning("No data blob available for {IndexPrefix}", symbol.IndexPrefix);
                 return;
             }
 
@@ -92,23 +84,23 @@ internal sealed class StartupService : BackgroundService
 
             try
             {
-                SymbolParsingResult result = await _parsingService.ParseSymbol(symbol.FileName, ms, stoppingToken);
+                SymbolParsingResult result = await parsingService.ParseSymbol(symbol.FileName, ms, innerToken);
 
                 symbol.Signature = result.Signature;
                 symbol.NewSignature = result.NewSignature;
                 symbol.Age = result.Age;
 
-                _logger.LogInformation("Got {NewSignature} and {Age} for {IndexPrefix}",
+                logger.LogInformation("Got {NewSignature} and {Age} for {IndexPrefix}",
                     symbol.NewSignature, symbol.Age, symbol.IndexPrefix);
 
-                await symbol.SaveAsync(cancellation: token);
+                await symbol.SaveAsync(cancellation: innerToken);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to parse {File}", symbol.FileName);
+                logger.LogError(ex, "Failed to parse {File}", symbol.FileName);
             }
         });
 
-        _logger.LogInformation("Parsing finished");
+        logger.LogInformation("Parsing finished");
     }
 }

@@ -15,12 +15,7 @@ internal sealed record SymbolParsingResult(
     {
         get
         {
-            if (!Age.HasValue)
-            {
-                return IndexPrefix.Split('/')[1].ToUpperInvariant();
-            }
-
-            if (!Signature.HasValue && !NewSignature.HasValue)
+            if (!Age.HasValue || !Signature.HasValue && !NewSignature.HasValue)
             {
                 return IndexPrefix.Split('/')[1].ToUpperInvariant();
             }

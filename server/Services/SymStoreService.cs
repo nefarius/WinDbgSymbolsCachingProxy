@@ -8,18 +8,12 @@ using WinDbgSymbolsCachingProxy.Core;
 
 namespace WinDbgSymbolsCachingProxy.Services;
 
-public sealed class SymStoreService
+public sealed class SymStoreService(ITracer tracer)
 {
-    private static readonly HashSet<string> ValidSourceExtensions = [..new[] { ".cs", ".vb", ".h", ".cpp", ".inl" }];
-    private readonly ITracer _tracer;
-
-    public SymStoreService(ITracer tracer)
-    {
-        _tracer = tracer;
-    }
+    private static readonly HashSet<string> ValidSourceExtensions = [".cs", ".vb", ".h", ".cpp", ".inl"];
 
     private static HashSet<string> ValidExtensions { get; } =
-        new(new[] { ".sys", ".exe", ".dll", ".pdb", ".so", ".dbg", ".dylib", ".dwarf" });
+        [".sys", ".exe", ".dll", ".pdb", ".so", ".dbg", ".dylib", ".dwarf"];
 
     [SuppressMessage("ReSharper", "UnusedMember.Global")]
     [SuppressMessage("ReSharper", "MemberCanBePrivate.Global")]
@@ -27,7 +21,7 @@ public sealed class SymStoreService
     {
         Tuple<string, Stream> tuple = new(inputFile, inputStream);
 
-        return GetKeys(flags, new[] { tuple });
+        return GetKeys(flags, [tuple]);
     }
 
     /// <summary>
@@ -82,7 +76,7 @@ public sealed class SymStoreService
 
                 using Stream zipFileStream = entry.Open();
                 SymbolStoreFile file = new(zipFileStream, entry.FullName);
-                yield return new FileKeyGenerator(_tracer, file);
+                yield return new FileKeyGenerator(tracer, file);
             }
         }
         else
@@ -91,11 +85,11 @@ public sealed class SymStoreService
             string extension = Path.GetExtension(inputFile);
             if (ValidSourceExtensions.Contains(extension))
             {
-                yield return new SourceFileKeyGenerator(_tracer, file);
+                yield return new SourceFileKeyGenerator(tracer, file);
             }
             else
             {
-                yield return new FileKeyGenerator(_tracer, file);
+                yield return new FileKeyGenerator(tracer, file);
             }
         }
     }

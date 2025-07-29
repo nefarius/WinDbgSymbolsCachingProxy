@@ -1,6 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
-
-using Kaitai;
+﻿using Kaitai;
 
 using Microsoft.SymbolStore.KeyGenerators;
 
@@ -15,18 +13,8 @@ using WinDbgSymbolsCachingProxy.Models;
 
 namespace WinDbgSymbolsCachingProxy.Services;
 
-[SuppressMessage("ReSharper", "UnusedMember.Global")]
-internal sealed class SymbolParsingService
+internal sealed class SymbolParsingService(ILogger<SymbolParsingService> logger, SymStoreService symStore)
 {
-    private readonly ILogger<SymbolParsingService> _logger;
-    private readonly SymStoreService _symStore;
-
-    public SymbolParsingService(ILogger<SymbolParsingService> logger, SymStoreService symStore)
-    {
-        _logger = logger;
-        _symStore = symStore;
-    }
-
     /// <summary>
     ///     Extracts a <see cref="SymbolParsingResult" /> from a given symbol file.
     /// </summary>
@@ -75,7 +63,7 @@ internal sealed class SymbolParsingService
                     stream.Position = 0;
                     indexPrefix = await ParseExecutable(filename, stream);
                     signature = indexPrefix.Split('/')[1].ToUpper();
-                    _logger.LogInformation("File {File} (EXE/DLL/SYS) has signature {Signature}", filename,
+                    logger.LogInformation("File {File} (EXE/DLL/SYS) has signature {Signature}", filename,
                         signature);
                     return new SymbolParsingResult(filename, indexPrefix);
                 }
@@ -86,7 +74,7 @@ internal sealed class SymbolParsingService
                     PdbParsingResult result = await ParsePdb(filename, stream);
                     indexPrefix = result.IndexPrefix;
                     signature = indexPrefix.Split('/')[1].ToUpper();
-                    _logger.LogInformation("File {File} (PDB) has signature {Signature}", filename, signature);
+                    logger.LogInformation("File {File} (PDB) has signature {Signature}", filename, signature);
                     return new SymbolParsingResult(filename, indexPrefix, result.Age, result.Signature,
                         result.NewSignature);
                 }
@@ -105,7 +93,7 @@ internal sealed class SymbolParsingService
     {
         const KeyTypeFlags flags = KeyTypeFlags.IdentityKey | KeyTypeFlags.SymbolKey | KeyTypeFlags.ClrKeys;
 
-        IEnumerable<SymbolStoreKeyWrapper> keys = _symStore.GetKeys(flags, fileName, stream).ToList();
+        IEnumerable<SymbolStoreKeyWrapper> keys = symStore.GetKeys(flags, fileName, stream).ToList();
 
         if (!keys.Any())
         {
@@ -170,18 +158,18 @@ internal sealed class SymbolParsingService
 
                     if (dbi is null)
                     {
-                        _logger.LogWarning("Couldn't get DBIReader, using symstore fallback");
+                        logger.LogWarning("Couldn't get DBIReader, using symstore fallback");
 
-                        keys = _symStore.GetKeys(flags, fileName, stream).ToList();
+                        keys = symStore.GetKeys(flags, fileName, stream).ToList();
 
                         return new PdbParsingResult(keys.First().Key.IndexPrefix.ToLowerInvariant());
                     }
 
                     if (dbi.Header is not DBIHeaderNew hdr)
                     {
-                        _logger.LogWarning("Couldn't get DBIHeaderNew, using symstore fallback");
+                        logger.LogWarning("Couldn't get DBIHeaderNew, using symstore fallback");
 
-                        keys = _symStore.GetKeys(flags, fileName, stream).ToList();
+                        keys = symStore.GetKeys(flags, fileName, stream).ToList();
 
                         return new PdbParsingResult(keys.First().Key.IndexPrefix.ToLowerInvariant());
                     }
@@ -192,9 +180,9 @@ internal sealed class SymbolParsingService
 
                     if (pdbStream.NewSignature is null)
                     {
-                        _logger.LogWarning("Couldn't get NewSignature, using symstore fallback");
+                        logger.LogWarning("Couldn't get NewSignature, using symstore fallback");
 
-                        keys = _symStore.GetKeys(flags, fileName, stream).ToList();
+                        keys = symStore.GetKeys(flags, fileName, stream).ToList();
 
                         return new PdbParsingResult(keys.First().Key.IndexPrefix.ToLowerInvariant());
                     }
@@ -208,7 +196,7 @@ internal sealed class SymbolParsingService
                     pdb.Dispose();
                     stream.Position = 0;
 
-                    keys = _symStore.GetKeys(flags, fileName, stream).ToList();
+                    keys = symStore.GetKeys(flags, fileName, stream).ToList();
 
                     if (keys.Count == 0)
                     {

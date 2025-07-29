@@ -6,17 +6,8 @@ using WinDbgSymbolsCachingProxy.Models;
 
 namespace WinDbgSymbolsCachingProxy.Services;
 
-public sealed class RecheckNotFoundService
+public sealed class RecheckNotFoundService(IHttpClientFactory clientFactory, ILogger<RecheckNotFoundService> logger)
 {
-    private readonly IHttpClientFactory _clientFactory;
-    private readonly ILogger<RecheckNotFoundService> _logger;
-
-    public RecheckNotFoundService(IHttpClientFactory clientFactory, ILogger<RecheckNotFoundService> logger)
-    {
-        _clientFactory = clientFactory;
-        _logger = logger;
-    }
-
     /// <summary>
     ///     Queries all 404 symbols from DB and contacts the upstream server to check if they have become available since the
     ///     last run.
@@ -34,37 +25,37 @@ public sealed class RecheckNotFoundService
         };
 
         // boost performance by issuing requests in parallel
-        await Parallel.ForEachAsync(notFoundSymbols, opts, async (symbol, token) =>
+        await Parallel.ForEachAsync(notFoundSymbols, opts, async (symbol, innerToken) =>
         {
-            using HttpClient client = _clientFactory.CreateClient("MicrosoftSymbolServer");
+            using HttpClient client = clientFactory.CreateClient("MicrosoftSymbolServer");
 
             using HttpResponseMessage response =
-                await client.GetAsync($"download/symbols/{symbol.RelativeUri}", token);
+                await client.GetAsync($"download/symbols/{symbol.RelativeUri}", innerToken);
 
             if (response is { IsSuccessStatusCode: false, StatusCode: HttpStatusCode.NotFound })
             {
-                _logger.LogInformation("Requested symbol {Symbol} not found upstream", symbol);
+                logger.LogInformation("Requested symbol {Symbol} not found upstream", symbol);
 
                 symbol.NotFoundAt = DateTime.UtcNow;
-                await symbol.SaveAsync(cancellation: ct);
+                await symbol.SaveAsync(cancellation: innerToken);
                 return;
             }
 
             if (!response.IsSuccessStatusCode)
             {
-                _logger.LogError("Request failed with unexpected status {StatusCode}", response.StatusCode);
+                logger.LogError("Request failed with unexpected status {StatusCode}", response.StatusCode);
                 return;
             }
 
             if (response.RequestMessage is null)
             {
-                _logger.LogError("Missing request message");
+                logger.LogError("Missing request message");
                 return;
             }
 
             if (response.RequestMessage.RequestUri is null)
             {
-                _logger.LogError("Missing request URI");
+                logger.LogError("Missing request URI");
                 return;
             }
 
@@ -72,20 +63,20 @@ public sealed class RecheckNotFoundService
 
             if (string.IsNullOrEmpty(upstreamFilename))
             {
-                _logger.LogWarning("Failed to extract upstream filename");
+                logger.LogWarning("Failed to extract upstream filename");
                 return;
             }
 
-            _logger.LogInformation("Got requested symbol {Symbol} ({Filename}), caching",
+            logger.LogInformation("Got requested symbol {Symbol} ({Filename}), caching",
                 symbol, upstreamFilename);
 
-            await using Stream upstreamContent = await response.Content.ReadAsStreamAsync(token);
+            await using Stream upstreamContent = await response.Content.ReadAsStreamAsync(innerToken);
 
             symbol.NotFoundAt = null;
-            await symbol.SaveAsync(cancellation: token);
-            await symbol.Data.UploadAsync(upstreamContent, cancellation: token);
+            await symbol.SaveAsync(cancellation: innerToken);
+            await symbol.Data.UploadAsync(upstreamContent, cancellation: innerToken);
 
-            _logger.LogInformation("Symbol {Symbol} ({Filename}) cached",
+            logger.LogInformation("Symbol {Symbol} ({Filename}) cached",
                 symbol, upstreamFilename);
         });
     }

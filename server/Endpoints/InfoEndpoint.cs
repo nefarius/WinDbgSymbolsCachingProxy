@@ -13,17 +13,9 @@ using WinDbgSymbolsCachingProxy.Models;
 
 namespace WinDbgSymbolsCachingProxy.Endpoints;
 
-public sealed class InfoEndpoint : EndpointWithoutRequest<RootResponse>
+public sealed class InfoEndpoint(ILogger<InfoEndpoint> logger, IMemoryCache memoryCache)
+    : EndpointWithoutRequest<RootResponse>
 {
-    private readonly ILogger<InfoEndpoint> _logger;
-    private readonly IMemoryCache _memoryCache;
-
-    public InfoEndpoint(ILogger<InfoEndpoint> logger, IMemoryCache memoryCache)
-    {
-        _logger = logger;
-        _memoryCache = memoryCache;
-    }
-
     public override void Configure()
     {
         Get("/info");
@@ -33,7 +25,7 @@ public sealed class InfoEndpoint : EndpointWithoutRequest<RootResponse>
 
     public override async Task HandleAsync(CancellationToken ct)
     {
-        if (_memoryCache.TryGetValue(nameof(InfoEndpoint), out RootResponse? response) && response is not null)
+        if (memoryCache.TryGetValue(nameof(InfoEndpoint), out RootResponse? response) && response is not null)
         {
             await Send.OkAsync(response, ct);
             return;
@@ -43,7 +35,7 @@ public sealed class InfoEndpoint : EndpointWithoutRequest<RootResponse>
 
         if (peFile.Resources is null)
         {
-            _logger.LogError("Couldn't get PE file resources");
+            logger.LogError("Couldn't get PE file resources");
             await Send.ErrorsAsync(500, ct);
             return;
         }
@@ -62,7 +54,7 @@ public sealed class InfoEndpoint : EndpointWithoutRequest<RootResponse>
                 cancellation: ct)
         };
 
-        _memoryCache.Set(nameof(InfoEndpoint), response, TimeSpan.FromHours(1));
+        memoryCache.Set(nameof(InfoEndpoint), response, TimeSpan.FromHours(1));
 
         await Send.OkAsync(response, ct);
     }

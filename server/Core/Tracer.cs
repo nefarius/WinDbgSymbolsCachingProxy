@@ -7,7 +7,9 @@ namespace WinDbgSymbolsCachingProxy.Core;
 /// <summary>
 ///     Simple trace/logging support. Used by <see cref="SymStoreService"/>.
 /// </summary>
-/// <remarks>TODO: pipe this into OTEL in the future.</remarks>
+/// <remarks>
+///     TODO: pipe this into OTEL or Serilog in the future.
+/// </remarks>
 internal sealed class Tracer : ITracer
 {
     public bool Enabled { get; set; }

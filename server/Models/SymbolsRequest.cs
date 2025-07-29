@@ -1,13 +1,9 @@
-﻿using System.Diagnostics.CodeAnalysis;
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
 namespace WinDbgSymbolsCachingProxy.Models;
 
 #nullable disable
 
-[SuppressMessage("ReSharper", "ClassNeverInstantiated.Global")]
-[SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Global")]
-[SuppressMessage("ReSharper", "UnusedMember.Global")]
 public sealed class SymbolsRequest
 {
     /// <summary>
@@ -27,7 +23,7 @@ public sealed class SymbolsRequest
     public string FileName { get; set; }
 
     /// <summary>
-    ///     The index prefix is built as a relative URL segment from <see cref="Symbol"/> and <see cref="SymbolKey"/>.
+    ///     The index prefix is built as a relative URL segment from <see cref="Symbol" /> and <see cref="SymbolKey" />.
     /// </summary>
     [JsonIgnore]
     public string IndexPrefix => $"{Symbol}/{SymbolKey.ToLowerInvariant()}/";

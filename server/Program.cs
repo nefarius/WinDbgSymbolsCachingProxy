@@ -177,12 +177,12 @@ builder.Services.AddAuthentication(BasicAuthenticationDefaults.AuthenticationSch
                 }
 
                 Claim[] claims =
-                {
+                [
                     new(ClaimTypes.NameIdentifier, context.Username, ClaimValueTypes.String,
                         context.Options.ClaimsIssuer),
                     new(ClaimTypes.Name, context.Username, ClaimValueTypes.String,
                         context.Options.ClaimsIssuer)
-                };
+                ];
 
                 context.Principal = new ClaimsPrincipal(new ClaimsIdentity(claims, context.Scheme.Name));
                 context.Success();
@@ -221,7 +221,7 @@ WebApplication? app = builder.Build().Setup();
 
 if (!app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler("/Error", createScopeForErrors: true);
+    app.UseExceptionHandler("/Error", true);
 }
 
 app.Services.UseScheduler(scheduler =>

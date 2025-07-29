@@ -14,20 +14,13 @@ namespace WinDbgSymbolsCachingProxy.Endpoints;
 /// <summary>
 ///     Serves symbol downloads, mirroring the behavior of the Microsoft Symbol Server.
 /// </summary>
-public sealed class SymbolsDownloadEndpoint : Endpoint<SymbolsRequest>
+public sealed class SymbolsDownloadEndpoint(
+    ILogger<SymbolsDownloadEndpoint> logger,
+    IHttpClientFactory clientFactory,
+    IOptions<ServiceConfig> options)
+    : Endpoint<SymbolsRequest>
 {
     private readonly ActivitySource _activitySource = new(TracingSources.AppActivitySourceName);
-    private readonly IHttpClientFactory _clientFactory;
-    private readonly ILogger<SymbolsDownloadEndpoint> _logger;
-    private readonly IOptions<ServiceConfig> _options;
-
-    public SymbolsDownloadEndpoint(ILogger<SymbolsDownloadEndpoint> logger, IHttpClientFactory clientFactory,
-        IOptions<ServiceConfig> options)
-    {
-        _logger = logger;
-        _clientFactory = clientFactory;
-        _options = options;
-    }
 
     public override void Configure()
     {
@@ -39,12 +32,12 @@ public sealed class SymbolsDownloadEndpoint : Endpoint<SymbolsRequest>
     public override async Task HandleAsync(SymbolsRequest req, CancellationToken ct)
     {
         Activity? parentActivity = Activity.Current;
-        
+
         parentActivity?.AddTag("request.IndexPrefix", req.IndexPrefix);
         parentActivity?.AddTag("request.FileName", req.FileName);
-        
+
         Activity? querySymbolInDbActivity = _activitySource.StartActivity(nameof(DB.Find));
-        
+
         SymbolsEntity? existingSymbol = (await DB.Find<SymbolsEntity>()
                 .ManyAsync(lr =>
                         lr.Eq(r => r.IndexPrefix, req.IndexPrefix.ToLowerInvariant()) &
@@ -53,23 +46,23 @@ public sealed class SymbolsDownloadEndpoint : Endpoint<SymbolsRequest>
             ).FirstOrDefault();
 
         querySymbolInDbActivity?.Dispose();
-        
+
         // cached entry found
         if (existingSymbol is not null)
         {
-            _logger.LogInformation("Found cached symbol {@Symbol}", existingSymbol);
+            logger.LogInformation("Found cached symbol {@Symbol}", existingSymbol);
 
             // has been checked for existence recently so skip check and return immediately 
             if (existingSymbol.NotFoundAt.HasValue &&
-                existingSymbol.NotFoundAt.Value.Add(_options.Value.UpstreamRecheckPeriod) > DateTime.UtcNow)
+                existingSymbol.NotFoundAt.Value.Add(options.Value.UpstreamRecheckPeriod) > DateTime.UtcNow)
             {
-                _logger.LogInformation("Cached symbol marked as not found");
+                logger.LogInformation("Cached symbol marked as not found");
 
                 await Send.NotFoundAsync(ct);
                 return;
             }
 
-            _logger.LogInformation("Returning cached copy");
+            logger.LogInformation("Returning cached copy");
 
             // deliver cached copy of symbol blob
             using MemoryStream ms = new();
@@ -79,7 +72,8 @@ public sealed class SymbolsDownloadEndpoint : Endpoint<SymbolsRequest>
                 await existingSymbol.Data.DownloadAsync(ms, cancellation: ct);
 
                 ms.Position = 0;
-                await Send.StreamAsync(ms, existingSymbol.UpstreamFileName ?? existingSymbol.FileName, cancellation: ct);
+                await Send.StreamAsync(ms, existingSymbol.UpstreamFileName ?? existingSymbol.FileName,
+                    cancellation: ct);
 
                 // update statistics
                 existingSymbol.LastAccessedAt = DateTime.UtcNow;
@@ -91,15 +85,15 @@ public sealed class SymbolsDownloadEndpoint : Endpoint<SymbolsRequest>
             }
             catch (InvalidOperationException)
             {
-                _logger.LogWarning("Failed to fetch cached copy, re-downloading from upstream");
+                logger.LogWarning("Failed to fetch cached copy, re-downloading from upstream");
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to fetch cached copy, re-downloading from upstream");
+                logger.LogWarning(ex, "Failed to fetch cached copy, re-downloading from upstream");
             }
         }
 
-        HttpClient client = _clientFactory.CreateClient("MicrosoftSymbolServer");
+        HttpClient client = clientFactory.CreateClient("MicrosoftSymbolServer");
 
         HttpResponseMessage response =
             await client.GetAsync($"download/symbols/{req.Symbol}/{req.SymbolKey}/{req.FileName}", ct);
@@ -114,7 +108,7 @@ public sealed class SymbolsDownloadEndpoint : Endpoint<SymbolsRequest>
 
         if (!response.IsSuccessStatusCode)
         {
-            _logger.LogInformation("Requested symbol {@Symbol} not found upstream", req);
+            logger.LogInformation("Requested symbol {@Symbol} not found upstream", req);
 
             // set last 404-timestamp
             newSymbol.NotFoundAt = DateTime.UtcNow;
@@ -125,7 +119,7 @@ public sealed class SymbolsDownloadEndpoint : Endpoint<SymbolsRequest>
 
         if (response.RequestMessage is null)
         {
-            _logger.LogError("Missing request message");
+            logger.LogError("Missing request message");
             AddError("Missing request message");
             await Send.ErrorsAsync(cancellation: ct);
             return;
@@ -133,7 +127,7 @@ public sealed class SymbolsDownloadEndpoint : Endpoint<SymbolsRequest>
 
         if (response.RequestMessage.RequestUri is null)
         {
-            _logger.LogError("Missing request URI");
+            logger.LogError("Missing request URI");
             AddError("Missing request URI");
             await Send.ErrorsAsync(cancellation: ct);
             return;
@@ -144,13 +138,13 @@ public sealed class SymbolsDownloadEndpoint : Endpoint<SymbolsRequest>
 
         if (string.IsNullOrEmpty(upstreamFilename))
         {
-            _logger.LogWarning("Failed to extract upstream filename");
+            logger.LogWarning("Failed to extract upstream filename");
 
             // fallback value
             upstreamFilename = req.FileName.ToLowerInvariant();
         }
 
-        _logger.LogInformation("Got requested symbol {@Symbol} ({Filename}), caching", req, upstreamFilename);
+        logger.LogInformation("Got requested symbol {@Symbol} ({Filename}), caching", req, upstreamFilename);
 
         Stream upstreamContent = await response.Content.ReadAsStreamAsync(ct);
 

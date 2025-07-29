@@ -35,19 +35,12 @@ public enum Badge
 /// <summary>
 ///     Serves certain database metrics as embeddable SVG badges.
 /// </summary>
-public sealed class BadgeEndpoint : EndpointWithoutRequest
+public sealed class BadgeEndpoint(
+    ISvgService svgService,
+    ILogger<BadgeEndpoint> logger,
+    IOptions<ServiceConfig> options)
+    : EndpointWithoutRequest
 {
-    private readonly ILogger<BadgeEndpoint> _logger;
-    private readonly IOptions<ServiceConfig> _options;
-    private readonly ISvgService _svgService;
-
-    public BadgeEndpoint(ISvgService svgService, ILogger<BadgeEndpoint> logger, IOptions<ServiceConfig> options)
-    {
-        _svgService = svgService;
-        _logger = logger;
-        _options = options;
-    }
-
     public override void Configure()
     {
         Get("/api/badges/{Name}");
@@ -72,14 +65,14 @@ public sealed class BadgeEndpoint : EndpointWithoutRequest
         switch (badge)
         {
             case Badge.CachedSymbolsTotal:
-                _logger.LogDebug("Returning cached symbols count");
+                logger.LogDebug("Returning cached symbols count");
                 long symbolsCount = await DB.CountAsync<SymbolsEntity>(cancellation: ct);
                 parameters.Label = "Cached Symbols Total";
                 parameters.Result = symbolsCount.ToString();
                 parameters.ResultColor = "#0f82bfff"; // blue
                 break;
             case Badge.CachedSymbolsNotFound:
-                _logger.LogDebug("Returning cached 404 symbols count");
+                logger.LogDebug("Returning cached 404 symbols count");
                 long symbols404Count = await DB.CountAsync<SymbolsEntity>(
                     s => s.NotFoundAt != null,
                     cancellation: ct);
@@ -88,7 +81,7 @@ public sealed class BadgeEndpoint : EndpointWithoutRequest
                 parameters.ResultColor = "#dcb135ff"; // yellow
                 break;
             case Badge.CachedSymbolsFound:
-                _logger.LogDebug("Returning cached existing symbols count");
+                logger.LogDebug("Returning cached existing symbols count");
                 long symbolsFoundCount =
                     await DB.CountAsync<SymbolsEntity>(
                         s => s.NotFoundAt == null,
@@ -102,12 +95,12 @@ public sealed class BadgeEndpoint : EndpointWithoutRequest
                 return;
         }
 
-        _svgService.Draw(parameters, ms);
+        svgService.Draw(parameters, ms);
 
         ms.Position = 0;
 
         DateTime now = DateTime.UtcNow;
-        int expiresSeconds = _options.Value.BadgeExpiresSeconds;
+        int expiresSeconds = options.Value.BadgeExpiresSeconds;
 
         // cache control, otherwise GitHub etc. will not request an update for like a day or so
         HttpContext.Response.Headers.CacheControl =

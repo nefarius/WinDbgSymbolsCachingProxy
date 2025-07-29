@@ -1,15 +1,10 @@
-﻿using System.Diagnostics.CodeAnalysis;
-
-using MongoDB.Entities;
+﻿using MongoDB.Entities;
 
 namespace WinDbgSymbolsCachingProxy.Models;
 
 /// <summary>
 ///     Represents a cached symbol.
 /// </summary>
-[SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Global")]
-[SuppressMessage("ReSharper", "UnusedMember.Global")]
-[SuppressMessage("ReSharper", "PropertyCanBeMadeInitOnly.Global")]
 public class SymbolsEntity : FileEntity
 {
     /*
@@ -37,7 +32,7 @@ public class SymbolsEntity : FileEntity
     public required string SymbolKey { get; set; }
 
     /// <summary>
-    ///     The symbol blob file name.
+    ///     The symbol-blob file name.
     /// </summary>
     public required string FileName { get; set; }
 
@@ -62,8 +57,8 @@ public class SymbolsEntity : FileEntity
     public DateTime? NotFoundAt { get; set; }
 
     /// <summary>
-    ///     The file name the upstream server originally returned. This will most likely differ since most symbol path requests
-    ///     upstream will end in a redirect.
+    ///     The file name that the upstream server originally returned. This will most likely differ since most symbol path
+    ///     requests upstream will end in a redirect.
     /// </summary>
     public string? UpstreamFileName { get; set; }
 
@@ -73,7 +68,7 @@ public class SymbolsEntity : FileEntity
     public DateTime? LastAccessedAt { get; set; }
 
     /// <summary>
-    ///     The amount of times this symbol got requested, if ever.
+    ///     The number of times this symbol got requested, if ever.
     /// </summary>
     public ulong? AccessedCount { get; set; }
 
@@ -100,6 +95,6 @@ public class SymbolsEntity : FileEntity
 
     public override string ToString()
     {
-        return $"{IndexPrefix}{FileName}";
+        return RelativeUri;
     }
 }

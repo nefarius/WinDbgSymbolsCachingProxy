@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Components.Web;
+﻿using JetBrains.Annotations;
+
+using Microsoft.AspNetCore.Components.Web;
 
 using MongoDB.Entities;
 
@@ -8,6 +10,7 @@ using WinDbgSymbolsCachingProxy.Models;
 
 namespace WinDbgSymbolsCachingProxy.Components.Pages;
 
+[UsedImplicitly]
 public partial class Search
 {
     private MudMenu _contextMenu = null!;
