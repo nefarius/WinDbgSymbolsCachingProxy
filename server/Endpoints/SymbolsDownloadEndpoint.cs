@@ -8,6 +8,7 @@ using Microsoft.Extensions.Options;
 using MongoDB.Entities;
 
 using WinDbgSymbolsCachingProxy.Core;
+using WinDbgSymbolsCachingProxy.Mappers;
 using WinDbgSymbolsCachingProxy.Models;
 
 namespace WinDbgSymbolsCachingProxy.Endpoints;
@@ -39,9 +40,9 @@ public sealed class SymbolsDownloadEndpoint(
         parentActivity?.AddTag("request.FileName", req.FileName);
 
         // try to probe memory cache before querying DB
-        if (mc.TryGetValue(req.ToString(), out SymbolsCachedEntity? cachedEntity) && cachedEntity is not null)
+        if (mc.TryGetValue(req.ToString(), out SymbolsEntityDto? cachedEntity) && cachedEntity is not null)
         {
-            logger.LogInformation("Found cached copy in memory for {Request}", req);
+            logger.LogInformation("Found cached copy in memory for {Request}", req.ToString());
 
             if (cachedEntity.NotFoundAt.HasValue)
             {
@@ -79,7 +80,7 @@ public sealed class SymbolsDownloadEndpoint(
                 logger.LogInformation("Cached symbol marked as not found");
 
                 CacheSymbolInMemory(req, existingSymbol);
-                
+
                 await Send.NotFoundAsync(ct);
                 return;
             }
@@ -100,7 +101,7 @@ public sealed class SymbolsDownloadEndpoint(
                 // update statistics
                 existingSymbol.LastAccessedAt = DateTime.UtcNow;
                 existingSymbol.AccessedCount = ++existingSymbol.AccessedCount ?? 1;
-                
+
                 CacheSymbolInMemory(req, existingSymbol, ms);
 
                 await existingSymbol.SaveAsync(cancellation: ct);
@@ -122,7 +123,7 @@ public sealed class SymbolsDownloadEndpoint(
         HttpResponseMessage response =
             await client.GetAsync($"download/symbols/{req.Symbol}/{req.SymbolKey}/{req.FileName}", ct);
 
-        SymbolsEntity newSymbol = existingSymbol ?? new SymbolsCachedEntity
+        SymbolsEntity newSymbol = existingSymbol ?? new SymbolsEntity
         {
             CreatedAt = DateTime.UtcNow,
             SymbolKey = req.SymbolKey.ToLowerInvariant(),
@@ -186,7 +187,7 @@ public sealed class SymbolsDownloadEndpoint(
         // save and upload to DB
         await newSymbol.SaveAsync(cancellation: ct);
         await newSymbol.Data.UploadAsync(cache, cancellation: ct);
-        
+
         // save in memory cache to take the load off of the DB
         CacheSymbolInMemory(req, newSymbol, cache);
 
@@ -195,18 +196,22 @@ public sealed class SymbolsDownloadEndpoint(
         await Send.StreamAsync(cache, upstreamFilename, cancellation: ct);
     }
 
-    private void CacheSymbolInMemory(SymbolsRequest req, SymbolsEntity newSymbol, MemoryStream? data = null)
+    private void CacheSymbolInMemory(SymbolsRequest request, SymbolsEntity entity, MemoryStream? data = null)
     {
-        return; // TODO: fixme
-        
-        SymbolsCachedEntity memCacheItem = (SymbolsCachedEntity)newSymbol;
+        SymbolsEntityMapper mapper = new();
+
+        SymbolsEntityDto memCacheItem = mapper.SymbolsEntityToSymbolsEntityDto(entity);
+
         if (data is not null)
         {
             data.Position = 0;
             memCacheItem.Blob = data.ToArray();
         }
 
-        mc.Set(req.ToString(), memCacheItem,
-            new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(12) });
+        mc.Set(
+            request.ToString(),
+            memCacheItem,
+            new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(12) }
+        );
     }
 }

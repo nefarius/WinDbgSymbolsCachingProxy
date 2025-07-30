@@ -48,6 +48,7 @@
         <PackageReference Include="Resourcer.Fody" Version="1.8.1">
             <PrivateAssets>all</PrivateAssets>
         </PackageReference>
+        <PackageReference Include="Riok.Mapperly" Version="4.2.1" />
         <PackageReference Include="SkiaSharp" Version="3.119.0" />
         <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="3.119.0" />
         <PackageReference Include="Smx.PDBSharp" Version="1.0.0-alpha4" />
