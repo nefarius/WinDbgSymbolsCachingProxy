@@ -34,6 +34,11 @@ public sealed class SymbolsDownloadEndpoint(
 
     public override async Task HandleAsync(SymbolsRequest req, CancellationToken ct)
     {
+        HttpContext.RequestAborted.Register(() =>
+        {
+            logger.LogWarning("Client disconnected while streaming file: {RequestPath}", HttpContext.Request.Path);
+        });
+
         Activity? parentActivity = Activity.Current;
 
         parentActivity?.AddTag("request.IndexPrefix", req.IndexPrefix);
@@ -193,7 +198,21 @@ public sealed class SymbolsDownloadEndpoint(
 
         cache.Position = 0;
 
-        await Send.StreamAsync(cache, upstreamFilename, cancellation: ct);
+        try
+        {
+            await Send.StreamAsync(cache, upstreamFilename, cancellation: ct);
+        }
+        catch (Exception ex)
+        {
+            if (!HttpContext.Response.HasStarted)
+            {
+                HttpContext.Response.StatusCode = 500;
+                await HttpContext.Response.WriteAsync("Error while sending symbol file.", ct);
+            }
+
+            // Log the actual exception regardless
+            logger.LogError(ex, "Failed to stream symbol file for {RequestPath}", HttpContext.Request.Path);
+        }
     }
 
     private void CacheSymbolInMemory(SymbolsRequest request, SymbolsEntity entity, MemoryStream? data = null)
