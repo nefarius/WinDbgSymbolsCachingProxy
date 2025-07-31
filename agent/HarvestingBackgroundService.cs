@@ -92,7 +92,7 @@ public class HarvestingBackgroundService : BackgroundService
 
         while (!stoppingToken.IsCancellationRequested)
         {
-            await Task.Delay(1000, stoppingToken);
+            await Task.Delay(1000, cts.Token);
         }
 
         foreach (KeyValuePair<FileSystemWatcher, ServerConfig> map in _maps)
