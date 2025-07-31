@@ -15,6 +15,7 @@
     <ItemGroup>
         <!-- Nefarius.Shared.PdbUtils -->
         <Compile Include="..\pdbutils\**\*.cs" LinkBase="Shared" Visible="false" />
+        <ProjectReference Include="..\pdbutils\Nefarius.Shared.PdbUtils.csproj" />
     </ItemGroup>
     
     <PropertyGroup>
@@ -64,10 +65,6 @@
     <ItemGroup>
         <None Remove="favicon.ico" />
         <EmbeddedResource Include="favicon.ico" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <ProjectReference Include="..\pdbutils\Nefarius.Shared.PdbUtils.csproj" />
     </ItemGroup>
 
 </Project>
