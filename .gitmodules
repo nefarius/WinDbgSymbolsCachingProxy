@@ -1,0 +1,3 @@
+[submodule "pdbutils"]
+	path = pdbutils
+	url = https://github.com/nefarius/PdbUtils.git
