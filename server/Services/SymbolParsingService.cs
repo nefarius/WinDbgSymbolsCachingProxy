@@ -2,6 +2,8 @@
 
 using Microsoft.SymbolStore.KeyGenerators;
 
+using Nefarius.Shared.PdbUtils.Extensions;
+
 using PeNet;
 using PeNet.Header.Resource;
 
@@ -250,21 +252,7 @@ internal sealed class SymbolParsingService(ILogger<SymbolParsingService> logger,
     private static string? GetOriginalPdbName(Stream stream)
     {
         MsPdb pdb = new(new KaitaiStream(stream));
-        MsPdb.UModuleInfo? pdbModule = pdb.DbiStream.ModulesList.Items
-            .FirstOrDefault(info => info.Module.EcInfo.PdbFilenameIndex != 0);
-
-        if (pdbModule is null)
-        {
-            return null;
-        }
-
-        uint index = pdbModule.Module.EcInfo.PdbFilenameIndex;
-        string? pdbPathName = pdb.DbiStream.EcInfo.Strings.Strings.FirstOrDefault(s => s.CharsIndex == index)?.String;
-
-        // required to work on Linux
-        string? normalizedPath = pdbPathName?.Replace('\\', Path.DirectorySeparatorChar);
-
-        return string.IsNullOrEmpty(normalizedPath) ? null : Path.GetFileName(normalizedPath);
+        return pdb.GetOriginalPdbName();
     }
 
     private record PdbParsingResult(
