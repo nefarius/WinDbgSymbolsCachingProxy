@@ -15,7 +15,6 @@
     <ItemGroup>
         <!-- Nefarius.Shared.PdbUtils -->
         <Compile Include="..\pdbutils\**\*.cs" LinkBase="Shared" Visible="false" />
-        <ProjectReference Include="..\pdbutils\Nefarius.Shared.PdbUtils.csproj" />
     </ItemGroup>
     
     <PropertyGroup>
