@@ -1,5 +1,8 @@
-﻿namespace HarvestingAgent;
+﻿using JetBrains.Annotations;
 
+namespace HarvestingAgent;
+
+[UsedImplicitly]
 public sealed class AuthenticationConfig
 {
     public required string Username { get; set; }
@@ -7,6 +10,7 @@ public sealed class AuthenticationConfig
     public required string Password { get; set; }
 }
 
+[UsedImplicitly]
 public sealed class ServerConfig
 {
     /// <summary>
