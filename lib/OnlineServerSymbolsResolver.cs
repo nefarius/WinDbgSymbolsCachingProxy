@@ -90,7 +90,7 @@ public sealed class OnlineServerSymbolsResolver : ISymbolReaderProvider, IDispos
             // ignored
         }
 
-        using DataTarget dt = DataTarget.CreateSnapshotAndAttach(Process.GetCurrentProcess().Id);
+        using DataTarget dt = DataTarget.CreateSnapshotAndAttach(Environment.ProcessId);
 
         ClrRuntime runtime = dt.ClrVersions.First().CreateRuntime();
         ClrModule? clrModule =
