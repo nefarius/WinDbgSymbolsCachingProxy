@@ -38,7 +38,7 @@
         <PackageReference Include="MongoDB.Entities" Version="24.1.1" />
         <PackageReference Include="Nefarius.Shared.PdbUtils" Version="1.0.0-pre002" />
         <PackageReference Include="Nefarius.Utilities.AspNetCore" Version="2.8.1" />
-        <PackageReference Include="MudBlazor" Version="8.12.0" />
+        <PackageReference Include="MudBlazor" Version="8.13.0" />
         <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.12.0" />
         <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.12.0" />
         <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.12.0" />
