@@ -29,7 +29,7 @@
         <PackageReference Include="KaitaiStruct.Runtime.CSharp" Version="0.11.0" />
         <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="9.0.9" />
         <PackageReference Include="Microsoft.Extensions.Http.Polly" Version="9.0.8" />
-        <PackageReference Include="Microsoft.FileFormats" Version="1.0.645601" />
+        <PackageReference Include="Microsoft.FileFormats" Version="1.0.650401" />
         <PackageReference Include="Microsoft.SymbolStore" Version="1.0.645601" />
         <PackageReference Include="MinVer" Version="6.0.0">
             <PrivateAssets>all</PrivateAssets>
