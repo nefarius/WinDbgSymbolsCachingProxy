@@ -24,7 +24,6 @@ using MudBlazor.Services;
 
 using Nefarius.Utilities.AspNetCore;
 
-
 using Polly;
 using Polly.Contrib.WaitAndRetry;
 
@@ -161,9 +160,9 @@ builder.Services.AddAuthentication(BasicAuthenticationDefaults.AuthenticationSch
 
                 Claim[] claims =
                 [
-                    new(ClaimTypes.NameIdentifier, context.Username, ClaimValueTypes.String,
+                    new Claim(ClaimTypes.NameIdentifier, context.Username, ClaimValueTypes.String,
                         context.Options.ClaimsIssuer),
-                    new(ClaimTypes.Name, context.Username, ClaimValueTypes.String,
+                    new Claim(ClaimTypes.Name, context.Username, ClaimValueTypes.String,
                         context.Options.ClaimsIssuer)
                 ];
 
