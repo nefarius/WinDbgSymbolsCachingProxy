@@ -24,8 +24,6 @@ using MudBlazor.Services;
 
 using Nefarius.Utilities.AspNetCore;
 
-using OpenTelemetry.Resources;
-using OpenTelemetry.Trace;
 
 using Polly;
 using Polly.Contrib.WaitAndRetry;
@@ -55,21 +53,6 @@ if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         options.ServiceName = TracingSources.AppActivitySourceName;
     });
 }
-
-#region OTEL
-
-builder.Services.AddOpenTelemetry()
-    .WithTracing(tracerProviderBuilder =>
-    {
-        tracerProviderBuilder
-            .ConfigureResource(_ => ResourceBuilder.CreateDefault().AddService(TracingSources.AppActivitySourceName))
-            .AddSource(TracingSources.AppActivitySourceName)
-            .AddAspNetCoreInstrumentation()
-            .AddHttpClientInstrumentation()
-            .AddOtlpExporter();
-    });
-
-#endregion
 
 #region Configuration
 
