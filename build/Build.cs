@@ -1,15 +1,9 @@
+using System.Linq;
+
 using Nuke.Common;
-using Nuke.Common.CI;
-using Nuke.Common.Execution;
-using Nuke.Common.IO;
 using Nuke.Common.ProjectModel;
-using Nuke.Common.Tooling;
 using Nuke.Common.Tools.Docker;
 using Nuke.Common.Tools.DotNet;
-using Nuke.Common.Utilities.Collections;
-using static Nuke.Common.EnvironmentInfo;
-using static Nuke.Common.IO.FileSystemTasks;
-using static Nuke.Common.IO.PathConstruction;
 
 class Build : NukeBuild
 {
@@ -53,8 +47,8 @@ class Build : NukeBuild
         .Description("Publish server and agent locally using the Release configuration and win-x64 runtime")
         .Executes(() =>
         {
-            PublishProject(Solution.GetProject("WinDbgSymbolsCachingProxy"));
-            PublishProject(Solution.GetProject("HarvestingAgent"));
+            PublishProject(Solution.GetAllProjects("WinDbgSymbolsCachingProxy").Single());
+            PublishProject(Solution.GetAllProjects("HarvestingAgent").Single());
         });
 
     Target PublishRemote => _ => _
