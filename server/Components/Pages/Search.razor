@@ -23,7 +23,7 @@
         <PropertyColumn Property="x => x.UploadedAt" Title="Upload timestamp"/>
         <PropertyColumn Property="x => x.IsCustom" Title="Is custom">
             <CellTemplate>
-                @if (context.Item.IsCustom)
+                @if (@context.Item.IsCustom)
                 {
                     <MudChip Color="Color.Success" Size="Size.Small">Yes</MudChip>
                 }
