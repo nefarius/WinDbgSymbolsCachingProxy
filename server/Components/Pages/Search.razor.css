@@ -1,0 +1,28 @@
+.search-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    height: calc(100vh - 144px);
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.search-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.search-input {
+    min-width: 240px;
+    max-width: 420px;
+    width: 100%;
+}
+
+.search-grid {
+    flex: 1;
+    min-height: 360px;
+    width: 100%;
+}

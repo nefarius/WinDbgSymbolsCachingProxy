@@ -4,41 +4,69 @@
 
 <PageTitle>Search</PageTitle>
 
-<MudDataGrid T="SymbolsEntity" @ref="_dataGrid" Dense="true"
-             Filterable="true" FilterMode="DataGridFilterMode.Simple"
-             FilterCaseSensitivity="DataGridFilterCaseSensitivity.CaseInsensitive"
-             ServerData="ServerReload" RowContextMenuClick="OpenMenuContent">
-    <ToolBarContent>
-        <MudText Typo="Typo.h6">Stored Symbols</MudText>
-        <MudSpacer/>
-        <MudTextField T="string" ValueChanged="@(s => OnSearch(s))" Placeholder="Search" Adornment="Adornment.Start"
-                      AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
-    </ToolBarContent>
-    <Columns>
-        <PropertyColumn Property="x => x.FileName" Title="Filename"/>
-        <PropertyColumn Property="x => x.SymbolKey" Title="Symbol key"/>
-        <PropertyColumn Property="x => x.IndexPrefix" Title="Index prefix"/>
-        <PropertyColumn Property="x => x.UpstreamFileName" Title="Upstream filename"/>
-        <PropertyColumn Property="x => x.CreatedAt" Title="Creation timestamp"/>
-        <PropertyColumn Property="x => x.UploadedAt" Title="Upload timestamp"/>
-        <PropertyColumn Property="x => x.IsCustom" Title="Is custom">
-            <CellTemplate>
-                @if (@context.Item.IsCustom)
-                {
-                    <MudChip Color="Color.Success" Size="Size.Small">Yes</MudChip>
-                }
-                else
-                {
-                    <MudChip Color="Color.Dark" Size="Size.Small">No</MudChip>
-                }
-            </CellTemplate>
-        </PropertyColumn>
-        <PropertyColumn Property="x => x.AccessedCount" Title="Download count"/>
-    </Columns>
-    <PagerContent>
-        <MudDataGridPager T="SymbolsEntity"/>
-    </PagerContent>
-</MudDataGrid>
+<MudPaper Class="search-wrapper pa-4" Elevation="0" Square="true">
+    <MudStack Spacing="2" Class="h-100">
+        <MudStack Direction="Row" Justify="Space-between" AlignItems="Center" Class="search-toolbar">
+            <MudStack Spacing="0.5">
+                <MudText Typo="Typo.h5">Stored Symbols</MudText>
+                <MudText Typo="Typo.body2" Color="Color.TextSecondary">
+                    Browse cached symbol uploads and search by filename, index prefix, or symbol key.
+                </MudText>
+            </MudStack>
+            <MudTextField T="string"
+                          @bind-Value="_searchString"
+                          ValueChanged="OnSearch"
+                          Placeholder="Search symbols"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          Immediate="true"
+                          DebounceInterval="200"
+                          Clearable="true"
+                          IconSize="Size.Medium"
+                          Class="search-input" />
+        </MudStack>
+
+        <MudDataGrid T="SymbolsEntity"
+                     Class="search-grid"
+                     @ref="_dataGrid"
+                     Dense="true"
+                     Hover="true"
+                     Striped="true"
+                     Bordered="true"
+                     FixedHeader="true"
+                     Filterable="true"
+                     FilterMode="DataGridFilterMode.Simple"
+                     FilterCaseSensitivity="DataGridFilterCaseSensitivity.CaseInsensitive"
+                     ServerData="ServerReload"
+                     RowContextMenuClick="OpenMenuContent">
+            <Columns>
+                <PropertyColumn Property="x => x.FileName" Title="Filename" />
+                <PropertyColumn Property="x => x.SymbolKey" Title="Symbol key" />
+                <PropertyColumn Property="x => x.IndexPrefix" Title="Index prefix" />
+                <PropertyColumn Property="x => x.UpstreamFileName" Title="Upstream filename" />
+                <PropertyColumn Property="x => x.CreatedAt" Title="Creation timestamp" />
+                <PropertyColumn Property="x => x.UploadedAt" Title="Upload timestamp" />
+                <PropertyColumn Property="x => x.IsCustom" Title="Is custom">
+                    <CellTemplate>
+                        @if (@context.Item.IsCustom)
+                        {
+                            <MudChip Color="Color.Success" Size="Size.Small">Yes</MudChip>
+                        }
+                        else
+                        {
+                            <MudChip Color="Color.Dark" Size="Size.Small">No</MudChip>
+                        }
+                    </CellTemplate>
+                </PropertyColumn>
+                <PropertyColumn Property="x => x.AccessedCount" Title="Download count" />
+            </Columns>
+            <PagerContent>
+                <MudDataGridPager T="SymbolsEntity" />
+            </PagerContent>
+        </MudDataGrid>
+    </MudStack>
+</MudPaper>
+
 <MudMenu PositionAtCursor="true" @ref="_contextMenu" id="_contextMenu">
     <MudMenuItem Icon="@Icons.Material.Filled.DeleteForever" OnClick="OnDeleteClick">
         Delete @_contextRow?.IndexPrefix

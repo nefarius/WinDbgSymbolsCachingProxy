@@ -15,8 +15,8 @@ public partial class Search
 {
     private MudMenu _contextMenu = null!;
     private SymbolsEntity? _contextRow;
-    private MudDataGrid<SymbolsEntity> _dataGrid;
-    private string _searchString;
+    private MudDataGrid<SymbolsEntity> _dataGrid = null!;
+    private string _searchString = string.Empty;
 
     private async Task OnDeleteClick(MouseEventArgs obj)
     {
@@ -75,9 +75,13 @@ public partial class Search
         return new GridData<SymbolsEntity> { TotalItems = (int)res.TotalCount, Items = data };
     }
 
-    private Task OnSearch(string text)
+    private async Task OnSearch(string text)
     {
-        _searchString = text;
-        return _dataGrid.ReloadServerData();
+        _searchString = text ?? string.Empty;
+
+        if (_dataGrid is not null)
+        {
+            await _dataGrid.ReloadServerData();
+        }
     }
 }
