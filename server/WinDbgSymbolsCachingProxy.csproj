@@ -35,7 +35,7 @@
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="MongoDB.Entities" Version="24.1.1" />
+        <PackageReference Include="MongoDB.Entities" Version="25.0.0" />
         <PackageReference Include="Nefarius.Shared.PdbUtils" Version="1.0.0-pre002" />
         <PackageReference Include="Nefarius.Utilities.AspNetCore" Version="2.8.1" />
         <PackageReference Include="MudBlazor" Version="8.15.0" />
