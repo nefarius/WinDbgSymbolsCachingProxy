@@ -46,7 +46,7 @@
         </PackageReference>
         <PackageReference Include="Riok.Mapperly" Version="4.3.1" />
         <PackageReference Include="SkiaSharp" Version="3.119.2" />
-        <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="3.119.1" />
+        <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="3.119.2" />
         <PackageReference Include="Smx.PDBSharp" Version="1.0.0-alpha4" />
         <PackageReference Include="Smx.SharpIO" Version="1.1.0.1" />
         <PackageReference Include="System.Text.RegularExpressions" Version="4.3.1" />
