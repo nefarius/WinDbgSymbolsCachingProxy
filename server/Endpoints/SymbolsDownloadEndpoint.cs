@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 
 using FastEndpoints;
 
@@ -17,6 +17,7 @@ namespace WinDbgSymbolsCachingProxy.Endpoints;
 ///     Serves symbol downloads, mirroring the behavior of the Microsoft Symbol Server.
 /// </summary>
 public sealed class SymbolsDownloadEndpoint(
+    DB db,
     ILogger<SymbolsDownloadEndpoint> logger,
     IHttpClientFactory clientFactory,
     IOptions<ServiceConfig> options,
@@ -62,9 +63,9 @@ public sealed class SymbolsDownloadEndpoint(
             return;
         }
 
-        Activity? querySymbolInDbActivity = _activitySource.StartActivity(nameof(DB.Find));
+        Activity? querySymbolInDbActivity = _activitySource.StartActivity("Find");
 
-        SymbolsEntity? existingSymbol = (await DB.Find<SymbolsEntity>()
+        SymbolsEntity? existingSymbol = (await db.Find<SymbolsEntity>()
                 .ManyAsync(lr =>
                         lr.Eq(r => r.IndexPrefix, req.IndexPrefix.ToLowerInvariant()) &
                         lr.Eq(r => r.FileName, req.FileName.ToLowerInvariant())
@@ -97,7 +98,7 @@ public sealed class SymbolsDownloadEndpoint(
 
             try
             {
-                await existingSymbol.Data.DownloadAsync(ms, cancellation: ct);
+                await existingSymbol.Data(db).DownloadAsync(ms, cancellation: ct);
 
                 ms.Position = 0;
                 await Send.StreamAsync(ms, existingSymbol.UpstreamFileName ?? existingSymbol.FileName,
@@ -109,7 +110,7 @@ public sealed class SymbolsDownloadEndpoint(
 
                 CacheSymbolInMemory(req, existingSymbol, ms);
 
-                await existingSymbol.SaveAsync(cancellation: ct);
+                await db.SaveAsync(existingSymbol, cancellation: ct);
 
                 return;
             }
@@ -142,7 +143,7 @@ public sealed class SymbolsDownloadEndpoint(
 
             // set last 404-timestamp
             newSymbol.NotFoundAt = DateTime.UtcNow;
-            await newSymbol.SaveAsync(cancellation: ct);
+            await db.SaveAsync(newSymbol, cancellation: ct);
             CacheSymbolInMemory(req, newSymbol);
             await Send.NotFoundAsync(ct);
             return;
@@ -190,8 +191,8 @@ public sealed class SymbolsDownloadEndpoint(
         newSymbol.AccessedCount = 1;
 
         // save and upload to DB
-        await newSymbol.SaveAsync(cancellation: ct);
-        await newSymbol.Data.UploadAsync(cache, cancellation: ct);
+        await db.SaveAsync(newSymbol, cancellation: ct);
+        await newSymbol.Data(db).UploadAsync(cache, cancellation: ct);
 
         // save in memory cache to take the load off of the DB
         CacheSymbolInMemory(req, newSymbol, cache);

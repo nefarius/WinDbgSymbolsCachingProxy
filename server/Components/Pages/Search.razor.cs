@@ -1,5 +1,6 @@
-﻿using JetBrains.Annotations;
+using JetBrains.Annotations;
 
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 
 using MongoDB.Entities;
@@ -13,6 +14,9 @@ namespace WinDbgSymbolsCachingProxy.Components.Pages;
 [UsedImplicitly]
 public partial class Search
 {
+    [Inject]
+    private DB Db { get; set; } = null!;
+
     private MudMenu _contextMenu = null!;
     private SymbolsEntity? _contextRow;
     private MudDataGrid<SymbolsEntity> _dataGrid;
@@ -22,10 +26,10 @@ public partial class Search
     {
         if (_contextRow is not null)
         {
-            await DB.DeleteAsync<SymbolsEntity>(_contextRow.ID);
-            
+            await Db.DeleteAsync<SymbolsEntity>(_contextRow.ID);
+
             Snackbar.Add($"Deleted {_contextRow.IndexPrefix}", Severity.Success);
-            
+
             await _dataGrid.ReloadServerData();
         }
     }
@@ -38,7 +42,7 @@ public partial class Search
     
     private async Task<GridData<SymbolsEntity>> ServerReload(GridState<SymbolsEntity> state)
     {
-        (IReadOnlyList<SymbolsEntity> Results, long TotalCount, int PageCount) res = await DB
+        (IReadOnlyList<SymbolsEntity> Results, long TotalCount, int PageCount) res = await Db
             .PagedSearch<SymbolsEntity>()
             .Match(b => string.IsNullOrEmpty(_searchString) ||
                         b.FileName.Contains(_searchString) ||

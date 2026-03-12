@@ -1,4 +1,4 @@
-﻿using FastEndpoints;
+using FastEndpoints;
 
 using Microsoft.AspNetCore.WebUtilities;
 
@@ -12,7 +12,7 @@ namespace WinDbgSymbolsCachingProxy.Endpoints;
 /// <summary>
 ///     Allows uploading custom symbol files to the database.
 /// </summary>
-internal sealed class SymbolUploadEndpoint(ILogger<SymbolUploadEndpoint> logger, SymbolParsingService parsingService)
+internal sealed class SymbolUploadEndpoint(DB db, ILogger<SymbolUploadEndpoint> logger, SymbolParsingService parsingService)
     : EndpointWithoutRequest
 {
     public override void Configure()
@@ -58,7 +58,7 @@ internal sealed class SymbolUploadEndpoint(ILogger<SymbolUploadEndpoint> logger,
                 SymbolsEntity? existingSymbol = null;
 
                 // duplicate check
-                if ((await DB.Find<SymbolsEntity>()
+                if ((await db.Find<SymbolsEntity>()
                         .ManyAsync(lr =>
                                 lr.Eq(r => r.IndexPrefix, result.IndexPrefix) &
                                 lr.Eq(r => r.FileName, result.FileName)
@@ -66,7 +66,7 @@ internal sealed class SymbolUploadEndpoint(ILogger<SymbolUploadEndpoint> logger,
                 {
                     if (force.HasValue && force.Value)
                     {
-                        existingSymbol = (await DB.Find<SymbolsEntity>()
+                        existingSymbol = (await db.Find<SymbolsEntity>()
                                 .ManyAsync(lr =>
                                         lr.Eq(r => r.IndexPrefix, result.IndexPrefix) &
                                         lr.Eq(r => r.FileName, result.FileName)
@@ -100,8 +100,8 @@ internal sealed class SymbolUploadEndpoint(ILogger<SymbolUploadEndpoint> logger,
                 ms.Position = 0;
 
                 // upload blob
-                await symbol.SaveAsync(cancellation: ct);
-                await symbol.Data.UploadAsync(ms, cancellation: ct);
+                await db.SaveAsync(symbol, cancellation: ct);
+                await symbol.Data(db).UploadAsync(ms, cancellation: ct);
 
                 logger.LogInformation("Added new symbol {Symbol}", symbol);
             }

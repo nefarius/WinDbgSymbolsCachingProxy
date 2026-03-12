@@ -1,11 +1,11 @@
-﻿using MongoDB.Entities;
+using MongoDB.Entities;
 
 namespace WinDbgSymbolsCachingProxy.Models;
 
 /// <summary>
 ///     Represents a cached symbol.
 /// </summary>
-public class SymbolsEntity : FileEntity
+public class SymbolsEntity : FileEntity<SymbolsEntity>
 {
     /*
      * Relative URI format explanation:
@@ -23,18 +23,18 @@ public class SymbolsEntity : FileEntity
     /// <summary>
     ///     The unique identifier of a specific symbol.
     /// </summary>
-    public required string IndexPrefix { get; set; }
+    public string IndexPrefix { get; set; } = null!;
 
     /// <summary>
     ///     A hex-encoded concatenated string of the Signature and Age where the Signature in "modern" PDB v7 symbols is
     ///     represented in a GUID format, and the Age is an unsigned 32-bit integer without leading zeroes.
     /// </summary>
-    public required string SymbolKey { get; set; }
+    public string SymbolKey { get; set; } = null!;
 
     /// <summary>
     ///     The symbol-blob file name.
     /// </summary>
-    public required string FileName { get; set; }
+    public string FileName { get; set; } = null!;
 
     /// <summary>
     ///     The pre-v7 PDB UInt32 Signature.
@@ -85,7 +85,7 @@ public class SymbolsEntity : FileEntity
     /// <summary>
     ///     Gets the creating timestamp.
     /// </summary>
-    public required DateTime? CreatedAt { get; init; }
+    public DateTime? CreatedAt { get; init; }
 
     /// <summary>
     ///     Gets the relative URI (built from <see cref="IndexPrefix" /> and <see cref="FileName" />).

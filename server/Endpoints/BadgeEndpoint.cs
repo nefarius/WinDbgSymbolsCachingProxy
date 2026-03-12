@@ -1,4 +1,4 @@
-﻿using FastEndpoints;
+using FastEndpoints;
 
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
@@ -36,6 +36,7 @@ public enum Badge
 ///     Serves certain database metrics as embeddable SVG badges.
 /// </summary>
 public sealed class BadgeEndpoint(
+    DB db,
     ISvgService svgService,
     ILogger<BadgeEndpoint> logger,
     IOptions<ServiceConfig> options)
@@ -66,14 +67,14 @@ public sealed class BadgeEndpoint(
         {
             case Badge.CachedSymbolsTotal:
                 logger.LogDebug("Returning cached symbols count");
-                long symbolsCount = await DB.CountAsync<SymbolsEntity>(cancellation: ct);
+                long symbolsCount = await db.CountAsync<SymbolsEntity>(cancellation: ct);
                 parameters.Label = "Cached Symbols Total";
                 parameters.Result = symbolsCount.ToString();
                 parameters.ResultColor = "#0f82bfff"; // blue
                 break;
             case Badge.CachedSymbolsNotFound:
                 logger.LogDebug("Returning cached 404 symbols count");
-                long symbols404Count = await DB.CountAsync<SymbolsEntity>(
+                long symbols404Count = await db.CountAsync<SymbolsEntity>(
                     s => s.NotFoundAt != null,
                     cancellation: ct);
                 parameters.Label = "Cached Symbols 404";
@@ -83,7 +84,7 @@ public sealed class BadgeEndpoint(
             case Badge.CachedSymbolsFound:
                 logger.LogDebug("Returning cached existing symbols count");
                 long symbolsFoundCount =
-                    await DB.CountAsync<SymbolsEntity>(
+                    await db.CountAsync<SymbolsEntity>(
                         s => s.NotFoundAt == null,
                         cancellation: ct);
                 parameters.Label = "Cached Symbols Found";

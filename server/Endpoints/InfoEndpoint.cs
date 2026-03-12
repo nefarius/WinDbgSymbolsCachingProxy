@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 
 using FastEndpoints;
 
@@ -13,7 +13,7 @@ using WinDbgSymbolsCachingProxy.Models;
 
 namespace WinDbgSymbolsCachingProxy.Endpoints;
 
-public sealed class InfoEndpoint(ILogger<InfoEndpoint> logger, IMemoryCache memoryCache)
+public sealed class InfoEndpoint(DB db, ILogger<InfoEndpoint> logger, IMemoryCache memoryCache)
     : EndpointWithoutRequest<RootResponse>
 {
     public override void Configure()
@@ -45,11 +45,11 @@ public sealed class InfoEndpoint(ILogger<InfoEndpoint> logger, IMemoryCache memo
         response = new RootResponse
         {
             ServerVersion = stringTable.FileVersion,
-            CachedSymbolsTotal = await DB.CountAsync<SymbolsEntity>(cancellation: ct),
-            CachedSymbols404 = await DB.CountAsync<SymbolsEntity>(
+            CachedSymbolsTotal = await db.CountAsync<SymbolsEntity>(cancellation: ct),
+            CachedSymbols404 = await db.CountAsync<SymbolsEntity>(
                 s => s.NotFoundAt != null,
                 cancellation: ct),
-            CachedSymbolsFound = await DB.CountAsync<SymbolsEntity>(
+            CachedSymbolsFound = await db.CountAsync<SymbolsEntity>(
                 s => s.NotFoundAt == null,
                 cancellation: ct)
         };
