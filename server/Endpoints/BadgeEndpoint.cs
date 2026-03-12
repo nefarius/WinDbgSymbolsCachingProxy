@@ -55,6 +55,10 @@ public sealed class BadgeEndpoint(
         });
     }
 
+    /// <summary>
+    /// Generates and returns an SVG badge for the badge specified by the route parameter "Name"; if the badge name is unrecognized, returns 404. The response includes HTTP caching headers based on the configured badge expiration.
+    /// </summary>
+    /// <param name="ct">Cancellation token used to cancel badge generation and response streaming.</param>
     public override async Task HandleAsync(CancellationToken ct)
     {
         Badge badge = Route<Badge>("Name");

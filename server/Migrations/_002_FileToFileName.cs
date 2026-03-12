@@ -6,6 +6,10 @@ namespace WinDbgSymbolsCachingProxy.Migrations;
 
 public class _002_FileToFileName : IMigration
 {
+    /// <summary>
+    /// Migrate the SymbolsEntity collection by renaming the "File" field to "FileName".
+    /// </summary>
+    /// <returns>A Task representing the update operation over the SymbolsEntity collection.</returns>
     public Task UpgradeAsync()
     {
         return DB.Default.Update<SymbolsEntity>()

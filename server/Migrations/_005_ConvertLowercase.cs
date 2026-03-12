@@ -6,6 +6,9 @@ namespace WinDbgSymbolsCachingProxy.Migrations;
 
 public class _005_ConvertLowercase : IMigration
 {
+    /// <summary>
+    /// Converts the IndexPrefix and FileName fields of all SymbolsEntity documents in the default database to lowercase.
+    /// </summary>
     public async Task UpgradeAsync()
     {
         // convert IndexPrefix

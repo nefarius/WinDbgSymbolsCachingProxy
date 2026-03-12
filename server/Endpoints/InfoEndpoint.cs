@@ -16,6 +16,12 @@ namespace WinDbgSymbolsCachingProxy.Endpoints;
 public sealed class InfoEndpoint(DB db, ILogger<InfoEndpoint> logger, IMemoryCache memoryCache)
     : EndpointWithoutRequest<RootResponse>
 {
+    /// <summary>
+    /// Configures routing and metadata for the "/info" endpoint.
+    /// </summary>
+    /// <remarks>
+    /// Maps the endpoint to HTTP GET at path "/info", allows anonymous access, and excludes the endpoint from OpenAPI/endpoint descriptions.
+    /// </remarks>
     public override void Configure()
     {
         Get("/info");
@@ -23,6 +29,12 @@ public sealed class InfoEndpoint(DB db, ILogger<InfoEndpoint> logger, IMemoryCac
         Options(builder => builder.ExcludeFromDescription());
     }
 
+    /// <summary>
+    /// Handles the /info request by sending a RootResponse containing the server version and cached symbol counts.
+    /// </summary>
+    /// <remarks>
+    /// If an in-memory cached response exists it is returned. Otherwise the endpoint reads the entry assembly's PE resources to construct the response, stores it in memory for one hour, and sends it. If PE resources cannot be obtained, an error is logged and an HTTP 500 response is sent.
+    /// </remarks>
     public override async Task HandleAsync(CancellationToken ct)
     {
         if (memoryCache.TryGetValue(nameof(InfoEndpoint), out RootResponse? response) && response is not null)

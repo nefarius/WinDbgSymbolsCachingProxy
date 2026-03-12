@@ -50,7 +50,10 @@ internal sealed class StartupService(
 
     /// <summary>
     ///     Fetches all found symbols from the database and enriches them with all missing PDB properties.
+    /// <summary>
+    /// Parses stored symbol blobs for all non-custom symbols that are not marked as not found, updates each symbol's signature and age, and saves the changes.
     /// </summary>
+    /// <param name="stoppingToken">Cancellation token to stop the parsing operation.</param>
     private async Task ParseAllEntries(CancellationToken stoppingToken)
     {
         logger.LogInformation("Parsing all symbols ind database");

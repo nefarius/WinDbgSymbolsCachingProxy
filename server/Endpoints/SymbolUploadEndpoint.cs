@@ -15,6 +15,9 @@ namespace WinDbgSymbolsCachingProxy.Endpoints;
 internal sealed class SymbolUploadEndpoint(DB db, ILogger<SymbolUploadEndpoint> logger, SymbolParsingService parsingService)
     : EndpointWithoutRequest
 {
+    /// <summary>
+    /// Registers the HTTP POST endpoint at "/api/uploads/symbol", enables file uploads for the route, and applies the "Symbols" tag.
+    /// </summary>
     public override void Configure()
     {
         Post("/api/uploads/symbol");
@@ -22,6 +25,10 @@ internal sealed class SymbolUploadEndpoint(DB db, ILogger<SymbolUploadEndpoint> 
         Options(x => x.WithTags("Symbols"));
     }
 
+    /// <summary>
+    /// Processes uploaded symbol files from the HTTP request: parses each file, detects duplicates (honoring the optional "force" query parameter), creates or updates symbol entities in the database, uploads their blob data, and returns either validation errors or a completion response.
+    /// </summary>
+    /// <param name="ct">The cancellation token that can be used to cancel request processing.</param>
     public override async Task HandleAsync(CancellationToken ct)
     {
         bool? force = Query<bool?>("force", false);

@@ -33,6 +33,10 @@ public sealed class SymbolsDownloadEndpoint(
         Options(x => x.WithTags("Symbols"));
     }
 
+    /// <summary>
+    /// Handles a symbol download request by locating the requested symbol in the in-memory cache, database, or upstream symbol server and streaming the symbol file to the HTTP response.
+    /// </summary>
+    /// <param name="req">Route parameters identifying the symbol to retrieve (IndexPrefix, Symbol, SymbolKey, FileName).</param>
     public override async Task HandleAsync(SymbolsRequest req, CancellationToken ct)
     {
         HttpContext.RequestAborted.Register(() =>
