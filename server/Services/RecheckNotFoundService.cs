@@ -73,9 +73,9 @@ public sealed class RecheckNotFoundService(DB db, IHttpClientFactory clientFacto
 
             await using Stream upstreamContent = await response.Content.ReadAsStreamAsync(innerToken);
 
+            await symbol.Data(db).UploadAsync(upstreamContent, cancellation: innerToken);
             symbol.NotFoundAt = null;
             await db.SaveAsync(symbol, cancellation: innerToken);
-            await symbol.Data(db).UploadAsync(upstreamContent, cancellation: innerToken);
 
             logger.LogInformation("Symbol {Symbol} ({Filename}) cached",
                 symbol, upstreamFilename);

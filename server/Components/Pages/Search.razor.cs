@@ -64,40 +64,30 @@ public partial class Search
         string pattern = string.IsNullOrEmpty(normalizedSearch) ? ".*" : Regex.Escape(normalizedSearch);
         var regex = new BsonRegularExpression(pattern, "i");
 
-        (IReadOnlyList<SymbolsEntity> Results, long TotalCount, int PageCount) res = await Db
-            .PagedSearch<SymbolsEntity>()
+        var query = Db.PagedSearch<SymbolsEntity>()
             .Match(f => f.Or(
                 f.Regex(b => b.FileName, regex),
                 f.Regex(b => b.IndexPrefix, regex),
                 f.Regex(b => b.SymbolKey, regex),
-                f.And(f.Ne(b => b.UpstreamFileName, null), f.Regex(b => b.UpstreamFileName, regex))))
-            .Sort(b => b.FileName, Order.Ascending)
+                f.And(f.Ne(b => b.UpstreamFileName, null), f.Regex(b => b.UpstreamFileName, regex))));
+
+        SortDefinition<SymbolsEntity>? sortDefinition = state.SortDefinitions.FirstOrDefault();
+        Order order = sortDefinition?.Descending == true ? Order.Descending : Order.Ascending;
+        var withSort = (sortDefinition?.SortBy) switch
+        {
+            nameof(SymbolsEntity.FileName) => query.Sort(b => b.FileName, order),
+            nameof(SymbolsEntity.IndexPrefix) => query.Sort(b => b.IndexPrefix, order),
+            nameof(SymbolsEntity.SymbolKey) => query.Sort(b => b.SymbolKey, order),
+            nameof(SymbolsEntity.UpstreamFileName) => query.Sort(b => b.UpstreamFileName, order),
+            _ => query.Sort(b => b.FileName, Order.Ascending)
+        };
+
+        (IReadOnlyList<SymbolsEntity> Results, long TotalCount, int PageCount) res = await withSort
             .PageSize(_dataGrid.RowsPerPage)
             .PageNumber(_dataGrid.CurrentPage + 1)
             .ExecuteAsync();
 
-        IEnumerable<SymbolsEntity> data = res.Results;
-
-        SortDefinition<SymbolsEntity>? sortDefinition = state.SortDefinitions.FirstOrDefault();
-
-        if (sortDefinition != null)
-        {
-            data = sortDefinition.SortBy switch
-            {
-                nameof(SymbolsEntity.FileName) => data.OrderByDirection(
-                    sortDefinition.Descending ? SortDirection.Descending : SortDirection.Ascending, o => o.FileName),
-                nameof(SymbolsEntity.IndexPrefix) => data.OrderByDirection(
-                    sortDefinition.Descending ? SortDirection.Descending : SortDirection.Ascending, o => o.IndexPrefix),
-                nameof(SymbolsEntity.SymbolKey) => data.OrderByDirection(
-                    sortDefinition.Descending ? SortDirection.Descending : SortDirection.Ascending, o => o.SymbolKey),
-                nameof(SymbolsEntity.UpstreamFileName) => data.OrderByDirection(
-                    sortDefinition.Descending ? SortDirection.Descending : SortDirection.Ascending,
-                    o => o.UpstreamFileName),
-                _ => data
-            };
-        }
-
-        return new GridData<SymbolsEntity> { TotalItems = (int)res.TotalCount, Items = data };
+        return new GridData<SymbolsEntity> { TotalItems = (int)res.TotalCount, Items = res.Results };
     }
 
     /// <summary>

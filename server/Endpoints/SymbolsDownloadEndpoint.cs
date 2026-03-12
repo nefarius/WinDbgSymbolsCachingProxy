@@ -194,10 +194,26 @@ public sealed class SymbolsDownloadEndpoint(
         newSymbol.NotFoundAt = null;
         newSymbol.LastAccessedAt = DateTime.UtcNow;
         newSymbol.AccessedCount = 1;
+        newSymbol.BlobUploadComplete = false;
 
-        // save and upload to DB
         await db.SaveAsync(newSymbol, cancellation: ct);
-        await newSymbol.Data(db).UploadAsync(cache, cancellation: ct);
+
+        try
+        {
+            await newSymbol.Data(db).UploadAsync(cache, cancellation: ct);
+            await db.Update<SymbolsEntity>()
+                .Match(x => x.ID == newSymbol.ID)
+                .Modify(x => x.BlobUploadComplete, true)
+                .ExecuteAsync(ct);
+        }
+        catch
+        {
+            if (existingSymbol is null)
+            {
+                await db.DeleteAsync<SymbolsEntity>(newSymbol.ID, ct);
+            }
+            throw;
+        }
 
         // save in memory cache to take the load off of the DB
         CacheSymbolInMemory(req, newSymbol, cache);
