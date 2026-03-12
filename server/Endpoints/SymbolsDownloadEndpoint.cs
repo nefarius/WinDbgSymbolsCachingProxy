@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 
 using FastEndpoints;
 
@@ -34,9 +34,13 @@ public sealed class SymbolsDownloadEndpoint(
     }
 
     /// <summary>
-    /// Handles a symbol download request by locating the requested symbol in the in-memory cache, database, or upstream symbol server and streaming the symbol file to the HTTP response.
+    ///     Processes the request for downloading and caching a symbol file. The method attempts to retrieve the symbol from
+    ///     memory cache, database, or an upstream symbol server.
+    ///     It ensures the symbol is properly cached for future requests and streams the file to the client.
     /// </summary>
-    /// <param name="req">Route parameters identifying the symbol to retrieve (IndexPrefix, Symbol, SymbolKey, FileName).</param>
+    /// <param name="req">The symbol request containing details such as IndexPrefix, Symbol, SymbolKey, and FileName.</param>
+    /// <param name="ct">A token to monitor for cancellation requests.</param>
+    /// <returns>A task representing the asynchronous operation of handling the symbol request.</returns>
     public override async Task HandleAsync(SymbolsRequest req, CancellationToken ct)
     {
         HttpContext.RequestAborted.Register(() =>
@@ -115,7 +119,7 @@ public sealed class SymbolsDownloadEndpoint(
 
                 CacheSymbolInMemory(req, existingSymbol, ms);
 
-                await db.SaveAsync(existingSymbol, cancellation: ct);
+                await db.SaveAsync(existingSymbol, ct);
 
                 return;
             }
@@ -148,7 +152,7 @@ public sealed class SymbolsDownloadEndpoint(
 
             // set last 404-timestamp
             newSymbol.NotFoundAt = DateTime.UtcNow;
-            await db.SaveAsync(newSymbol, cancellation: ct);
+            await db.SaveAsync(newSymbol, ct);
             CacheSymbolInMemory(req, newSymbol);
             await Send.NotFoundAsync(ct);
             return;
@@ -196,7 +200,7 @@ public sealed class SymbolsDownloadEndpoint(
         newSymbol.AccessedCount = 1;
         newSymbol.BlobUploadComplete = false;
 
-        await db.SaveAsync(newSymbol, cancellation: ct);
+        await db.SaveAsync(newSymbol, ct);
 
         try
         {
@@ -212,6 +216,7 @@ public sealed class SymbolsDownloadEndpoint(
             {
                 await db.DeleteAsync<SymbolsEntity>(newSymbol.ID, ct);
             }
+
             throw;
         }
 
