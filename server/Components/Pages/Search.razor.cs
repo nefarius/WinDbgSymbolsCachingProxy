@@ -57,7 +57,7 @@ public partial class Search
     /// Paging uses <c>_dataGrid.RowsPerPage</c> and <c>_dataGrid.CurrentPage</c>.
     /// </remarks>
     /// <returns>A GridData&lt;SymbolsEntity&gt; containing the page of items in <c>Items</c> and the total number of matching items in <c>TotalItems</c>.</returns>
-    private async Task<GridData<SymbolsEntity>> ServerReload(GridState<SymbolsEntity> state)
+    private async Task<GridData<SymbolsEntity>> ServerReload(GridState<SymbolsEntity> state, CancellationToken cancellationToken)
     {
         string normalizedSearch = _searchString?.Trim() ?? "";
         // Case-insensitive "contains" via MongoDB regex; when empty, pattern ".*" matches all
@@ -85,7 +85,7 @@ public partial class Search
         (IReadOnlyList<SymbolsEntity> Results, long TotalCount, int PageCount) res = await withSort
             .PageSize(_dataGrid.RowsPerPage)
             .PageNumber(_dataGrid.CurrentPage + 1)
-            .ExecuteAsync();
+            .ExecuteAsync(cancellationToken);
 
         return new GridData<SymbolsEntity> { TotalItems = (int)res.TotalCount, Items = res.Results };
     }
