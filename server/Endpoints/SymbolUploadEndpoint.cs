@@ -57,21 +57,18 @@ internal sealed class SymbolUploadEndpoint(DB db, ILogger<SymbolUploadEndpoint> 
 
                 SymbolsEntity? existingSymbol = null;
 
-                // duplicate check
-                if ((await db.Find<SymbolsEntity>()
-                        .ManyAsync(lr =>
-                                lr.Eq(r => r.IndexPrefix, result.IndexPrefix) &
-                                lr.Eq(r => r.FileName, result.FileName)
-                            , ct)).Count != 0)
+                // duplicate check – single query, then use result for count and existingSymbol
+                List<SymbolsEntity> existingSymbols = await db.Find<SymbolsEntity>()
+                    .ManyAsync(lr =>
+                            lr.Eq(r => r.IndexPrefix, result.IndexPrefix) &
+                            lr.Eq(r => r.FileName, result.FileName)
+                        , ct);
+
+                if (existingSymbols.Count != 0)
                 {
                     if (force.HasValue && force.Value)
                     {
-                        existingSymbol = (await db.Find<SymbolsEntity>()
-                                .ManyAsync(lr =>
-                                        lr.Eq(r => r.IndexPrefix, result.IndexPrefix) &
-                                        lr.Eq(r => r.FileName, result.FileName)
-                                    , ct)
-                            ).FirstOrDefault();
+                        existingSymbol = existingSymbols.FirstOrDefault();
                     }
                     else
                     {

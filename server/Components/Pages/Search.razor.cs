@@ -42,13 +42,15 @@ public partial class Search
     
     private async Task<GridData<SymbolsEntity>> ServerReload(GridState<SymbolsEntity> state)
     {
+        string normalizedSearch = _searchString?.ToLowerInvariant() ?? "";
+
         (IReadOnlyList<SymbolsEntity> Results, long TotalCount, int PageCount) res = await Db
             .PagedSearch<SymbolsEntity>()
-            .Match(b => string.IsNullOrEmpty(_searchString) ||
-                        b.FileName.Contains(_searchString) ||
-                        b.IndexPrefix.Contains(_searchString) ||
-                        b.SymbolKey.Contains(_searchString) ||
-                        (!string.IsNullOrEmpty(b.UpstreamFileName) && b.UpstreamFileName.Contains(_searchString))
+            .Match(b => string.IsNullOrEmpty(normalizedSearch) ||
+                        b.FileName.Contains(normalizedSearch) ||
+                        b.IndexPrefix.Contains(normalizedSearch) ||
+                        b.SymbolKey.Contains(normalizedSearch) ||
+                        (!string.IsNullOrEmpty(b.UpstreamFileName) && b.UpstreamFileName.Contains(normalizedSearch))
             )
             .Sort(b => b.FileName, Order.Ascending)
             .PageSize(_dataGrid.RowsPerPage)
@@ -81,7 +83,7 @@ public partial class Search
 
     private Task OnSearch(string text)
     {
-        _searchString = text;
+        _searchString = text?.ToLowerInvariant() ?? "";
         return _dataGrid.ReloadServerData();
     }
 }
