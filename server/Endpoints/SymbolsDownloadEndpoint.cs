@@ -17,6 +17,7 @@ namespace WinDbgSymbolsCachingProxy.Endpoints;
 ///     Serves symbol downloads, mirroring the behavior of the Microsoft Symbol Server.
 /// </summary>
 public sealed class SymbolsDownloadEndpoint(
+    DB db,
     ILogger<SymbolsDownloadEndpoint> logger,
     IHttpClientFactory clientFactory,
     IOptions<ServiceConfig> options,
@@ -32,6 +33,14 @@ public sealed class SymbolsDownloadEndpoint(
         Options(x => x.WithTags("Symbols"));
     }
 
+    /// <summary>
+    ///     Processes the request for downloading and caching a symbol file. The method attempts to retrieve the symbol from
+    ///     memory cache, database, or an upstream symbol server.
+    ///     It ensures the symbol is properly cached for future requests and streams the file to the client.
+    /// </summary>
+    /// <param name="req">The symbol request containing details such as IndexPrefix, Symbol, SymbolKey, and FileName.</param>
+    /// <param name="ct">A token to monitor for cancellation requests.</param>
+    /// <returns>A task representing the asynchronous operation of handling the symbol request.</returns>
     public override async Task HandleAsync(SymbolsRequest req, CancellationToken ct)
     {
         HttpContext.RequestAborted.Register(() =>
@@ -62,12 +71,13 @@ public sealed class SymbolsDownloadEndpoint(
             return;
         }
 
-        Activity? querySymbolInDbActivity = _activitySource.StartActivity(nameof(DB.Find));
+        Activity? querySymbolInDbActivity = _activitySource.StartActivity("Find");
 
-        SymbolsEntity? existingSymbol = (await DB.Find<SymbolsEntity>()
+        SymbolsEntity? existingSymbol = (await db.Find<SymbolsEntity>()
                 .ManyAsync(lr =>
                         lr.Eq(r => r.IndexPrefix, req.IndexPrefix.ToLowerInvariant()) &
-                        lr.Eq(r => r.FileName, req.FileName.ToLowerInvariant())
+                        lr.Eq(r => r.FileName, req.FileName.ToLowerInvariant()) &
+                        lr.Ne(r => r.BlobUploadComplete, false)
                     , ct)
             ).FirstOrDefault();
 
@@ -97,7 +107,7 @@ public sealed class SymbolsDownloadEndpoint(
 
             try
             {
-                await existingSymbol.Data.DownloadAsync(ms, cancellation: ct);
+                await existingSymbol.Data(db).DownloadAsync(ms, cancellation: ct);
 
                 ms.Position = 0;
                 await Send.StreamAsync(ms, existingSymbol.UpstreamFileName ?? existingSymbol.FileName,
@@ -109,7 +119,7 @@ public sealed class SymbolsDownloadEndpoint(
 
                 CacheSymbolInMemory(req, existingSymbol, ms);
 
-                await existingSymbol.SaveAsync(cancellation: ct);
+                await db.SaveAsync(existingSymbol, ct);
 
                 return;
             }
@@ -142,7 +152,7 @@ public sealed class SymbolsDownloadEndpoint(
 
             // set last 404-timestamp
             newSymbol.NotFoundAt = DateTime.UtcNow;
-            await newSymbol.SaveAsync(cancellation: ct);
+            await db.SaveAsync(newSymbol, ct);
             CacheSymbolInMemory(req, newSymbol);
             await Send.NotFoundAsync(ct);
             return;
@@ -188,10 +198,27 @@ public sealed class SymbolsDownloadEndpoint(
         newSymbol.NotFoundAt = null;
         newSymbol.LastAccessedAt = DateTime.UtcNow;
         newSymbol.AccessedCount = 1;
+        newSymbol.BlobUploadComplete = false;
 
-        // save and upload to DB
-        await newSymbol.SaveAsync(cancellation: ct);
-        await newSymbol.Data.UploadAsync(cache, cancellation: ct);
+        await db.SaveAsync(newSymbol, ct);
+
+        try
+        {
+            await newSymbol.Data(db).UploadAsync(cache, cancellation: ct);
+            await db.Update<SymbolsEntity>()
+                .Match(x => x.ID == newSymbol.ID)
+                .Modify(x => x.BlobUploadComplete, true)
+                .ExecuteAsync(ct);
+        }
+        catch
+        {
+            if (existingSymbol is null)
+            {
+                await db.DeleteAsync<SymbolsEntity>(newSymbol.ID, ct);
+            }
+
+            throw;
+        }
 
         // save in memory cache to take the load off of the DB
         CacheSymbolInMemory(req, newSymbol, cache);

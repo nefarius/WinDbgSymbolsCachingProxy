@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 
 using FastEndpoints;
 
@@ -13,9 +13,15 @@ using WinDbgSymbolsCachingProxy.Models;
 
 namespace WinDbgSymbolsCachingProxy.Endpoints;
 
-public sealed class InfoEndpoint(ILogger<InfoEndpoint> logger, IMemoryCache memoryCache)
+public sealed class InfoEndpoint(DB db, ILogger<InfoEndpoint> logger, IMemoryCache memoryCache)
     : EndpointWithoutRequest<RootResponse>
 {
+    /// <summary>
+    /// Configures routing and metadata for the "/info" endpoint.
+    /// </summary>
+    /// <remarks>
+    /// Maps the endpoint to HTTP GET at path "/info", allows anonymous access, and excludes the endpoint from OpenAPI/endpoint descriptions.
+    /// </remarks>
     public override void Configure()
     {
         Get("/info");
@@ -23,6 +29,12 @@ public sealed class InfoEndpoint(ILogger<InfoEndpoint> logger, IMemoryCache memo
         Options(builder => builder.ExcludeFromDescription());
     }
 
+    /// <summary>
+    /// Handles the /info request by sending a RootResponse containing the server version and cached symbol counts.
+    /// </summary>
+    /// <remarks>
+    /// If an in-memory cached response exists it is returned. Otherwise the endpoint reads the entry assembly's PE resources to construct the response, stores it in memory for one hour, and sends it. If PE resources cannot be obtained, an error is logged and an HTTP 500 response is sent.
+    /// </remarks>
     public override async Task HandleAsync(CancellationToken ct)
     {
         if (memoryCache.TryGetValue(nameof(InfoEndpoint), out RootResponse? response) && response is not null)
@@ -45,11 +57,11 @@ public sealed class InfoEndpoint(ILogger<InfoEndpoint> logger, IMemoryCache memo
         response = new RootResponse
         {
             ServerVersion = stringTable.FileVersion,
-            CachedSymbolsTotal = await DB.CountAsync<SymbolsEntity>(cancellation: ct),
-            CachedSymbols404 = await DB.CountAsync<SymbolsEntity>(
+            CachedSymbolsTotal = await db.CountAsync<SymbolsEntity>(cancellation: ct),
+            CachedSymbols404 = await db.CountAsync<SymbolsEntity>(
                 s => s.NotFoundAt != null,
                 cancellation: ct),
-            CachedSymbolsFound = await DB.CountAsync<SymbolsEntity>(
+            CachedSymbolsFound = await db.CountAsync<SymbolsEntity>(
                 s => s.NotFoundAt == null,
                 cancellation: ct)
         };

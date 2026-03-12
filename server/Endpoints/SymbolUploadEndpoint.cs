@@ -1,4 +1,4 @@
-﻿using FastEndpoints;
+using FastEndpoints;
 
 using Microsoft.AspNetCore.WebUtilities;
 
@@ -12,9 +12,12 @@ namespace WinDbgSymbolsCachingProxy.Endpoints;
 /// <summary>
 ///     Allows uploading custom symbol files to the database.
 /// </summary>
-internal sealed class SymbolUploadEndpoint(ILogger<SymbolUploadEndpoint> logger, SymbolParsingService parsingService)
+internal sealed class SymbolUploadEndpoint(DB db, ILogger<SymbolUploadEndpoint> logger, SymbolParsingService parsingService)
     : EndpointWithoutRequest
 {
+    /// <summary>
+    /// Registers the HTTP POST endpoint at "/api/uploads/symbol", enables file uploads for the route, and applies the "Symbols" tag.
+    /// </summary>
     public override void Configure()
     {
         Post("/api/uploads/symbol");
@@ -22,6 +25,10 @@ internal sealed class SymbolUploadEndpoint(ILogger<SymbolUploadEndpoint> logger,
         Options(x => x.WithTags("Symbols"));
     }
 
+    /// <summary>
+    /// Processes uploaded symbol files from the HTTP request: parses each file, detects duplicates (honoring the optional "force" query parameter), creates or updates symbol entities in the database, uploads their blob data, and returns either validation errors or a completion response.
+    /// </summary>
+    /// <param name="ct">The cancellation token that can be used to cancel request processing.</param>
     public override async Task HandleAsync(CancellationToken ct)
     {
         bool? force = Query<bool?>("force", false);
@@ -57,21 +64,19 @@ internal sealed class SymbolUploadEndpoint(ILogger<SymbolUploadEndpoint> logger,
 
                 SymbolsEntity? existingSymbol = null;
 
-                // duplicate check
-                if ((await DB.Find<SymbolsEntity>()
-                        .ManyAsync(lr =>
-                                lr.Eq(r => r.IndexPrefix, result.IndexPrefix) &
-                                lr.Eq(r => r.FileName, result.FileName)
-                            , ct)).Count != 0)
+                // duplicate check – single query by IndexPrefix, FileName, and SymbolKey (revision), then use result for count and existingSymbol
+                List<SymbolsEntity> existingSymbols = await db.Find<SymbolsEntity>()
+                    .ManyAsync(lr =>
+                            lr.Eq(r => r.IndexPrefix, result.IndexPrefix) &
+                            lr.Eq(r => r.FileName, result.FileName) &
+                            lr.Eq(r => r.SymbolKey, result.SymbolKey)
+                        , ct);
+
+                if (existingSymbols.Count != 0)
                 {
                     if (force.HasValue && force.Value)
                     {
-                        existingSymbol = (await DB.Find<SymbolsEntity>()
-                                .ManyAsync(lr =>
-                                        lr.Eq(r => r.IndexPrefix, result.IndexPrefix) &
-                                        lr.Eq(r => r.FileName, result.FileName)
-                                    , ct)
-                            ).FirstOrDefault();
+                        existingSymbol = existingSymbols.FirstOrDefault();
                     }
                     else
                     {
@@ -96,12 +101,36 @@ internal sealed class SymbolUploadEndpoint(ILogger<SymbolUploadEndpoint> logger,
                 symbol.IsCustom = true;
                 symbol.UploadedAt = DateTime.UtcNow;
                 symbol.NotFoundAt = null;
+                bool? previousBlobUploadComplete = existingSymbol?.BlobUploadComplete;
+                symbol.BlobUploadComplete = false; // transient until blob upload succeeds; enables cleanup on failure
 
                 ms.Position = 0;
 
-                // upload blob
-                await symbol.SaveAsync(cancellation: ct);
-                await symbol.Data.UploadAsync(ms, cancellation: ct);
+                await db.SaveAsync(symbol, cancellation: ct);
+
+                try
+                {
+                    await symbol.Data(db).UploadAsync(ms, cancellation: ct);
+                    await db.Update<SymbolsEntity>()
+                        .Match(x => x.ID == symbol.ID)
+                        .Modify(x => x.BlobUploadComplete, true)
+                        .ExecuteAsync(ct);
+                }
+                catch
+                {
+                    if (existingSymbol is null)
+                    {
+                        await db.DeleteAsync<SymbolsEntity>(symbol.ID, ct);
+                    }
+                    else
+                    {
+                        await db.Update<SymbolsEntity>()
+                            .Match(x => x.ID == symbol.ID)
+                            .Modify(x => x.BlobUploadComplete, previousBlobUploadComplete)
+                            .ExecuteAsync(ct);
+                    }
+                    throw;
+                }
 
                 logger.LogInformation("Added new symbol {Symbol}", symbol);
             }

@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 
 using MongoDB.Entities;
 
@@ -6,15 +6,16 @@ using WinDbgSymbolsCachingProxy.Models;
 
 namespace WinDbgSymbolsCachingProxy.Services;
 
-public sealed class RecheckNotFoundService(IHttpClientFactory clientFactory, ILogger<RecheckNotFoundService> logger)
+public sealed class RecheckNotFoundService(DB db, IHttpClientFactory clientFactory, ILogger<RecheckNotFoundService> logger)
 {
     /// <summary>
     ///     Queries all 404 symbols from DB and contacts the upstream server to check if they have become available since the
-    ///     last run.
+    ///     last run. Rechecks symbols previously marked as not found by querying the upstream symbol server and caches any that are now available.
     /// </summary>
+    /// <param name="ct">Cancellation token to cancel the recheck operation.</param>
     public async Task Run(CancellationToken ct = default)
     {
-        List<SymbolsEntity> notFoundSymbols = await DB.Find<SymbolsEntity>().ManyAsync(
+        List<SymbolsEntity> notFoundSymbols = await db.Find<SymbolsEntity>().ManyAsync(
             sym => sym.NotFoundAt != null && !sym.IsCustom, ct);
 
         // https://stackoverflow.com/a/9290531
@@ -37,7 +38,7 @@ public sealed class RecheckNotFoundService(IHttpClientFactory clientFactory, ILo
                 logger.LogInformation("Requested symbol {Symbol} not found upstream", symbol);
 
                 symbol.NotFoundAt = DateTime.UtcNow;
-                await symbol.SaveAsync(cancellation: innerToken);
+                await db.SaveAsync(symbol, cancellation: innerToken);
                 return;
             }
 
@@ -72,9 +73,9 @@ public sealed class RecheckNotFoundService(IHttpClientFactory clientFactory, ILo
 
             await using Stream upstreamContent = await response.Content.ReadAsStreamAsync(innerToken);
 
+            await symbol.Data(db).UploadAsync(upstreamContent, cancellation: innerToken);
             symbol.NotFoundAt = null;
-            await symbol.SaveAsync(cancellation: innerToken);
-            await symbol.Data.UploadAsync(upstreamContent, cancellation: innerToken);
+            await db.SaveAsync(symbol, cancellation: innerToken);
 
             logger.LogInformation("Symbol {Symbol} ({Filename}) cached",
                 symbol, upstreamFilename);

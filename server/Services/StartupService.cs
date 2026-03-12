@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 
 using MongoDB.Entities;
 
@@ -7,6 +7,7 @@ using WinDbgSymbolsCachingProxy.Models;
 namespace WinDbgSymbolsCachingProxy.Services;
 
 internal sealed class StartupService(
+    DB db,
     RecheckNotFoundService recheckNotFoundService,
     ILogger<StartupService> logger,
     IConfiguration config,
@@ -49,12 +50,14 @@ internal sealed class StartupService(
 
     /// <summary>
     ///     Fetches all found symbols from the database and enriches them with all missing PDB properties.
+    ///     Parses stored symbol blobs for all non-custom symbols that are not marked as not found, updates each symbol's signature and age, and saves the changes.
     /// </summary>
+    /// <param name="stoppingToken">Cancellation token to stop the parsing operation.</param>
     private async Task ParseAllEntries(CancellationToken stoppingToken)
     {
         logger.LogInformation("Parsing all symbols ind database");
 
-        List<SymbolsEntity> symbols = await DB.Find<SymbolsEntity>()
+        List<SymbolsEntity> symbols = await db.Find<SymbolsEntity>()
             .ManyAsync(sym => sym.NotFoundAt == null && !sym.IsCustom, stoppingToken);
 
         // https://stackoverflow.com/a/9290531
@@ -72,7 +75,7 @@ internal sealed class StartupService(
             using MemoryStream ms = new();
             try
             {
-                await symbol.Data.DownloadAsync(ms, cancellation: innerToken);
+                await symbol.Data(db).DownloadAsync(ms, cancellation: innerToken);
             }
             catch (InvalidOperationException)
             {
@@ -93,7 +96,7 @@ internal sealed class StartupService(
                 logger.LogInformation("Got {NewSignature} and {Age} for {IndexPrefix}",
                     symbol.NewSignature, symbol.Age, symbol.IndexPrefix);
 
-                await symbol.SaveAsync(cancellation: innerToken);
+                await db.SaveAsync(symbol, cancellation: innerToken);
             }
             catch (Exception ex)
             {
