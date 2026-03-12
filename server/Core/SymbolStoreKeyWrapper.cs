@@ -2,6 +2,11 @@
 
 namespace WinDbgSymbolsCachingProxy.Core;
 
+/// <summary>
+///     Provides a wrapper for the <see cref="SymbolStoreKey" /> class, associating it with the input file
+///     from which the key was generated. This is particularly useful for working with symbol store keys
+///     in scenarios where the input file context needs to be retained.
+/// </summary>
 public sealed class SymbolStoreKeyWrapper
 {
     public readonly string InputFile;

@@ -2,6 +2,9 @@
 
 namespace WinDbgSymbolsCachingProxy.Core;
 
+/// <summary>
+///     Represents configuration settings used for the service.
+/// </summary>
 [SuppressMessage("ReSharper", "AutoPropertyCanBeMadeGetOnly.Global")]
 public sealed class ServiceConfig
 {

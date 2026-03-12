@@ -2,6 +2,10 @@
 
 namespace WinDbgSymbolsCachingProxy.Core;
 
+/// <summary>
+///     Middleware that handles exceptions occurring during the execution of the HTTP pipeline
+///     and logs them using the provided logger.
+/// </summary>
 public class CustomExceptionHandlerMiddleware(ILogger<CustomExceptionHandlerMiddleware> logger, RequestDelegate next)
 {
     public async Task Invoke(HttpContext context)
