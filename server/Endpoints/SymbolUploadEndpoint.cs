@@ -64,11 +64,12 @@ internal sealed class SymbolUploadEndpoint(DB db, ILogger<SymbolUploadEndpoint> 
 
                 SymbolsEntity? existingSymbol = null;
 
-                // duplicate check – single query, then use result for count and existingSymbol
+                // duplicate check – single query by IndexPrefix, FileName, and SymbolKey (revision), then use result for count and existingSymbol
                 List<SymbolsEntity> existingSymbols = await db.Find<SymbolsEntity>()
                     .ManyAsync(lr =>
                             lr.Eq(r => r.IndexPrefix, result.IndexPrefix) &
-                            lr.Eq(r => r.FileName, result.FileName)
+                            lr.Eq(r => r.FileName, result.FileName) &
+                            lr.Eq(r => r.SymbolKey, result.SymbolKey)
                         , ct);
 
                 if (existingSymbols.Count != 0)
@@ -100,12 +101,28 @@ internal sealed class SymbolUploadEndpoint(DB db, ILogger<SymbolUploadEndpoint> 
                 symbol.IsCustom = true;
                 symbol.UploadedAt = DateTime.UtcNow;
                 symbol.NotFoundAt = null;
+                symbol.BlobUploadComplete = false; // transient until blob upload succeeds; enables cleanup on failure
 
                 ms.Position = 0;
 
-                // upload blob
                 await db.SaveAsync(symbol, cancellation: ct);
-                await symbol.Data(db).UploadAsync(ms, cancellation: ct);
+
+                try
+                {
+                    await symbol.Data(db).UploadAsync(ms, cancellation: ct);
+                    await db.Update<SymbolsEntity>()
+                        .Match(x => x.ID == symbol.ID)
+                        .Modify(x => x.BlobUploadComplete, true)
+                        .ExecuteAsync(ct);
+                }
+                catch
+                {
+                    if (existingSymbol is null)
+                    {
+                        await db.DeleteAsync<SymbolsEntity>(symbol.ID, ct);
+                    }
+                    throw;
+                }
 
                 logger.LogInformation("Added new symbol {Symbol}", symbol);
             }

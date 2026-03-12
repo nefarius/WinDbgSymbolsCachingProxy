@@ -1,8 +1,11 @@
+using System.Text.RegularExpressions;
+
 using JetBrains.Annotations;
 
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 
+using MongoDB.Bson;
 using MongoDB.Entities;
 
 using MudBlazor;
@@ -49,23 +52,25 @@ public partial class Search
     /// Loads a page of SymbolsEntity records for the data grid, applying filtering, sorting, and paging.
     /// </summary>
     /// <remarks>
-    /// The filter matches the normalized (lowercased) search string against FileName, IndexPrefix, SymbolKey, and UpstreamFileName.
+    /// The filter matches the search string case-insensitively (via MongoDB regex) against FileName, IndexPrefix, SymbolKey, and UpstreamFileName.
     /// If the client provides a sort definition in <c>state.SortDefinitions</c>, that sort (field and direction) is applied; otherwise FileName ascending is used.
     /// Paging uses <c>_dataGrid.RowsPerPage</c> and <c>_dataGrid.CurrentPage</c>.
     /// </remarks>
     /// <returns>A GridData&lt;SymbolsEntity&gt; containing the page of items in <c>Items</c> and the total number of matching items in <c>TotalItems</c>.</returns>
     private async Task<GridData<SymbolsEntity>> ServerReload(GridState<SymbolsEntity> state)
     {
-        string normalizedSearch = _searchString?.ToLowerInvariant() ?? "";
+        string normalizedSearch = _searchString?.Trim() ?? "";
+        // Case-insensitive "contains" via MongoDB regex; when empty, pattern ".*" matches all
+        string pattern = string.IsNullOrEmpty(normalizedSearch) ? ".*" : Regex.Escape(normalizedSearch);
+        var regex = new BsonRegularExpression(pattern, "i");
 
         (IReadOnlyList<SymbolsEntity> Results, long TotalCount, int PageCount) res = await Db
             .PagedSearch<SymbolsEntity>()
-            .Match(b => string.IsNullOrEmpty(normalizedSearch) ||
-                        b.FileName.Contains(normalizedSearch) ||
-                        b.IndexPrefix.Contains(normalizedSearch) ||
-                        b.SymbolKey.Contains(normalizedSearch) ||
-                        (!string.IsNullOrEmpty(b.UpstreamFileName) && b.UpstreamFileName.Contains(normalizedSearch))
-            )
+            .Match(f => f.Or(
+                f.Regex(b => b.FileName, regex),
+                f.Regex(b => b.IndexPrefix, regex),
+                f.Regex(b => b.SymbolKey, regex),
+                f.And(f.Ne(b => b.UpstreamFileName, null), f.Regex(b => b.UpstreamFileName, regex))))
             .Sort(b => b.FileName, Order.Ascending)
             .PageSize(_dataGrid.RowsPerPage)
             .PageNumber(_dataGrid.CurrentPage + 1)
@@ -98,11 +103,11 @@ public partial class Search
     /// <summary>
     /// Updates the component's search filter and requests the data grid to reload.
     /// </summary>
-    /// <param name="text">Search text to apply; null is treated as empty and the value is lowercased for matching.</param>
+    /// <param name="text">Search text to apply; null is treated as empty and the value is trimmed. Matching is case-insensitive.</param>
     /// <returns>A task that completes when the data grid has reloaded using the updated search filter.</returns>
     private Task OnSearch(string text)
     {
-        _searchString = text?.ToLowerInvariant() ?? "";
+        _searchString = text?.Trim() ?? "";
         return _dataGrid.ReloadServerData();
     }
 }

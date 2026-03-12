@@ -10,9 +10,7 @@ public sealed class RecheckNotFoundService(DB db, IHttpClientFactory clientFacto
 {
     /// <summary>
     ///     Queries all 404 symbols from DB and contacts the upstream server to check if they have become available since the
-    ///     last run.
-    /// <summary>
-    /// Rechecks symbols previously marked as not found by querying the upstream symbol server and caches any that are now available.
+    ///     last run. Rechecks symbols previously marked as not found by querying the upstream symbol server and caches any that are now available.
     /// </summary>
     /// <param name="ct">Cancellation token to cancel the recheck operation.</param>
     public async Task Run(CancellationToken ct = default)

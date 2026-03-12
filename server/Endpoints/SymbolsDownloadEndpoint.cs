@@ -72,7 +72,8 @@ public sealed class SymbolsDownloadEndpoint(
         SymbolsEntity? existingSymbol = (await db.Find<SymbolsEntity>()
                 .ManyAsync(lr =>
                         lr.Eq(r => r.IndexPrefix, req.IndexPrefix.ToLowerInvariant()) &
-                        lr.Eq(r => r.FileName, req.FileName.ToLowerInvariant())
+                        lr.Eq(r => r.FileName, req.FileName.ToLowerInvariant()) &
+                        lr.Ne(r => r.BlobUploadComplete, false)
                     , ct)
             ).FirstOrDefault();
 
