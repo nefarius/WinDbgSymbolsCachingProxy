@@ -4,42 +4,46 @@
 
 <PageTitle>Search</PageTitle>
 
-<MudDataGrid T="SymbolsEntity" @ref="_dataGrid" Dense="true"
-             Filterable="true" FilterMode="DataGridFilterMode.Simple"
-             FilterCaseSensitivity="DataGridFilterCaseSensitivity.CaseInsensitive"
-             ServerData="ServerReload" RowContextMenuClick="OpenMenuContent">
-    <ToolBarContent>
-        <MudText Typo="Typo.h6">Stored Symbols</MudText>
-        <MudSpacer/>
-        <MudTextField T="string" ValueChanged="@(s => OnSearch(s))" Placeholder="Search" Adornment="Adornment.Start"
-                      AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
-    </ToolBarContent>
-    <Columns>
-        <PropertyColumn Property="x => x.FileName" Title="Filename"/>
-        <PropertyColumn Property="x => x.SymbolKey" Title="Symbol key"/>
-        <PropertyColumn Property="x => x.IndexPrefix" Title="Index prefix"/>
-        <PropertyColumn Property="x => x.UpstreamFileName" Title="Upstream filename"/>
-        <PropertyColumn Property="x => x.CreatedAt" Title="Creation timestamp"/>
-        <PropertyColumn Property="x => x.UploadedAt" Title="Upload timestamp"/>
-        <PropertyColumn Property="x => x.NotFoundAt" Title="Not found timestamp"/>
-        <PropertyColumn Property="x => x.IsCustom" Title="Is custom">
-            <CellTemplate>
-                @if (@context.Item.IsCustom)
-                {
-                    <MudChip Color="Color.Success" Size="Size.Small">Yes</MudChip>
-                }
-                else
-                {
-                    <MudChip Color="Color.Dark" Size="Size.Small">No</MudChip>
-                }
-            </CellTemplate>
-        </PropertyColumn>
-        <PropertyColumn Property="x => x.AccessedCount" Title="Download count"/>
-    </Columns>
-    <PagerContent>
-        <MudDataGridPager T="SymbolsEntity"/>
-    </PagerContent>
-</MudDataGrid>
+<div class="search-grid-container">
+    <MudDataGrid T="SymbolsEntity" @ref="_dataGrid" Dense="true"
+                 Filterable="false"
+                 ServerData="ServerReload" RowContextMenuClick="OpenMenuContent"
+                 FixedHeader="true" Striped="true" Hover="true"
+                 RowsPerPage="25">
+        <ToolBarContent>
+            <MudText Typo="Typo.h6">Stored Symbols</MudText>
+            <MudSpacer/>
+            <MudTextField T="string" Value="_searchString" ValueChanged="OnSearch" Placeholder="Search (filters server-side)"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                          IconSize="Size.Medium" Class="mt-0" Immediate="true"/>
+        </ToolBarContent>
+        <Columns>
+            <PropertyColumn Property="x => x.FileName" Title="Filename" Sortable="true" InitialDirection="SortDirection.Ascending"/>
+            <PropertyColumn Property="x => x.SymbolKey" Title="Symbol key" Sortable="true"/>
+            <PropertyColumn Property="x => x.IndexPrefix" Title="Index prefix" Sortable="true"/>
+            <PropertyColumn Property="x => x.UpstreamFileName" Title="Upstream filename" Sortable="true"/>
+            <PropertyColumn Property="x => x.CreatedAt" Title="Creation timestamp" Sortable="true"/>
+            <PropertyColumn Property="x => x.UploadedAt" Title="Upload timestamp" Sortable="true"/>
+            <PropertyColumn Property="x => x.NotFoundAt" Title="Not found timestamp" Sortable="true"/>
+            <PropertyColumn Property="x => x.IsCustom" Title="Is custom" Sortable="true">
+                <CellTemplate>
+                    @if (context.Item.IsCustom)
+                    {
+                        <MudChip Color="Color.Success" Size="Size.Small">Yes</MudChip>
+                    }
+                    else
+                    {
+                        <MudChip Color="Color.Dark" Size="Size.Small">No</MudChip>
+                    }
+                </CellTemplate>
+            </PropertyColumn>
+            <PropertyColumn Property="x => x.AccessedCount" Title="Download count" Sortable="true"/>
+        </Columns>
+        <PagerContent>
+            <MudDataGridPager T="SymbolsEntity" showrowsperpage="true" rowsperpagestring="Rows per page:"/>
+        </PagerContent>
+    </MudDataGrid>
+</div>
 <MudMenu PositionAtCursor="true" @ref="_contextMenu" id="_contextMenu">
     <MudMenuItem Icon="@Icons.Material.Filled.DeleteForever" OnClick="OnDeleteClick">
         Delete @_contextRow?.IndexPrefix
