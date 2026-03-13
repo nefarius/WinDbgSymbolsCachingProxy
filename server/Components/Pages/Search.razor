@@ -1,4 +1,4 @@
-@page "/"
+﻿@page "/"
 @using WinDbgSymbolsCachingProxy.Models
 @inject ISnackbar Snackbar
 
@@ -16,7 +16,7 @@
             <MudTextField T="string" Value="_searchString" ValueChanged="OnSearch" Placeholder="Search (filters server-side)"
                           Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
                           IconSize="Size.Medium" Class="mt-0" Immediate="true"/>
-            <MudIconButton Icon="@Icons.Material.Filled.Refresh" OnClick="OnRefreshClick" Title="Refresh data" Class="mt-0"/>
+            <MudIconButton Icon="@Icons.Material.Filled.Refresh" OnClick="OnRefreshClick" title="Refresh data" Class="mt-0"/>
         </ToolBarContent>
         <ColGroup>
             <col style="width: 14%;"/>
