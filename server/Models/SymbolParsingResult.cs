@@ -25,7 +25,15 @@ internal sealed record SymbolParsingResult(
         {
             if (!Age.HasValue || !Signature.HasValue && !NewSignature.HasValue)
             {
-                return IndexPrefix.Split('/')[1].ToUpperInvariant();
+                string[] segments = IndexPrefix?.Split('/') ?? Array.Empty<string>();
+                if (segments.Length < 2)
+                {
+                    throw new ArgumentException(
+                        $"IndexPrefix must contain at least two segments separated by '/'. Actual value: '{IndexPrefix}'.",
+                        nameof(IndexPrefix));
+                }
+
+                return segments[1].ToUpperInvariant();
             }
 
             if (NewSignature.HasValue)
