@@ -43,4 +43,15 @@ public class SymbolsEntityDto
     ///     Symbol content if <see cref="NotFoundAt"/> is null.  
     /// </summary>
     public byte[] Blob { get; set; }
+    
+    /// <summary>
+    ///     Gets the relative URI (built from <see cref="IndexPrefix" /> and <see cref="FileName" />).
+    /// </summary>
+    [Ignore]
+    private string RelativeUri => $"{IndexPrefix}{FileName}";
+
+    public override string ToString()
+    {
+        return RelativeUri;
+    }
 }
