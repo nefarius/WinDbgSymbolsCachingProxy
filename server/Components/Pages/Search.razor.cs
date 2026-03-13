@@ -4,6 +4,7 @@ using JetBrains.Annotations;
 
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
+using Microsoft.JSInterop;
 
 using MongoDB.Bson;
 using MongoDB.Entities;
@@ -19,6 +20,12 @@ public partial class Search
 {
     [Inject]
     private DB Db { get; set; } = null!;
+
+    [Inject]
+    private IJSRuntime Js { get; set; } = null!;
+
+    [Inject]
+    private NavigationManager Navigation { get; set; } = null!;
 
     private MudMenu _contextMenu = null!;
     private SymbolsEntity? _contextRow;
@@ -47,13 +54,28 @@ public partial class Search
         _contextRow = args.Item;
         await _contextMenu.OpenMenuAsync(args.MouseEventArgs);
     }
-    
+
+    /// <summary>
+    /// Opens the symbol download URL in a new browser tab. No-op if the row has no data (NotFoundAt is set).
+    /// </summary>
+    private async Task OnDownloadClick(MouseEventArgs _)
+    {
+        if (_contextRow is null || _contextRow.NotFoundAt.HasValue)
+            return;
+
+        var baseUri = Navigation.BaseUri.TrimEnd('/');
+        var path = $"download/symbols/{_contextRow.RelativeUri}";
+        var url = $"{baseUri}/{path}";
+        await Js.InvokeVoidAsync("open", url, "_blank");
+    }
+
     /// <summary>
     /// Loads a page of SymbolsEntity records for the data grid, applying filtering, sorting, and paging.
+    /// All operations are performed server-side via MongoDB.Entities PagedSearch (no client-side sorting/filtering).
     /// </summary>
     /// <remarks>
-    /// The filter matches the search string case-insensitively (via MongoDB regex) against FileName, IndexPrefix, SymbolKey, and UpstreamFileName.
-    /// If the client provides a sort definition in <c>state.SortDefinitions</c>, that sort (field and direction) is applied; otherwise FileName ascending is used.
+    /// When the search box is empty, the filter matches all documents; otherwise it matches case-insensitively (MongoDB regex)
+    /// against FileName, IndexPrefix, SymbolKey, and UpstreamFileName. Sort is applied in MongoDB (including timestamps and all columns).
     /// Paging uses <c>_dataGrid.RowsPerPage</c> and <c>_dataGrid.CurrentPage</c>.
     /// </remarks>
     /// <returns>A GridData&lt;SymbolsEntity&gt; containing the page of items in <c>Items</c> and the total number of matching items in <c>TotalItems</c>.</returns>
@@ -73,12 +95,19 @@ public partial class Search
 
         SortDefinition<SymbolsEntity>? sortDefinition = state.SortDefinitions.FirstOrDefault();
         Order order = sortDefinition?.Descending == true ? Order.Descending : Order.Ascending;
-        var withSort = (sortDefinition?.SortBy) switch
+        string? sortBy = sortDefinition?.SortBy?.ToString();
+        var withSort = sortBy switch
         {
             nameof(SymbolsEntity.FileName) => query.Sort(b => b.FileName, order),
             nameof(SymbolsEntity.IndexPrefix) => query.Sort(b => b.IndexPrefix, order),
             nameof(SymbolsEntity.SymbolKey) => query.Sort(b => b.SymbolKey, order),
             nameof(SymbolsEntity.UpstreamFileName) => query.Sort(b => b.UpstreamFileName, order),
+            nameof(SymbolsEntity.CreatedAt) => query.Sort(b => b.CreatedAt, order),
+            nameof(SymbolsEntity.UploadedAt) => query.Sort(b => b.UploadedAt, order),
+            nameof(SymbolsEntity.NotFoundAt) => query.Sort(b => b.NotFoundAt, order),
+            nameof(SymbolsEntity.IsCustom) => query.Sort(b => b.IsCustom, order),
+            nameof(SymbolsEntity.AccessedCount) => query.Sort(b => b.AccessedCount, order),
+            nameof(SymbolsEntity.LastAccessedAt) => query.Sort(b => b.LastAccessedAt, order),
             _ => query.Sort(b => b.FileName, Order.Ascending)
         };
 
@@ -89,6 +118,11 @@ public partial class Search
 
         return new GridData<SymbolsEntity> { TotalItems = (int)res.TotalCount, Items = res.Results };
     }
+
+    /// <summary>
+    /// Reloads the data grid without changing the search filter.
+    /// </summary>
+    private Task OnRefreshClick(MouseEventArgs _) => _dataGrid.ReloadServerData();
 
     /// <summary>
     /// Updates the component's search filter and requests the data grid to reload.

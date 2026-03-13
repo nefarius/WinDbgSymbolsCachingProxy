@@ -1,0 +1,25 @@
+/* Fixed-height container so the table body scrolls instead of the whole page */
+.search-grid-container {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 12rem);
+    min-height: 400px;
+}
+
+.search-grid-container ::deep .mud-data-grid {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+.search-grid-container ::deep .mud-table-container {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+}
+
+/* Enforce column widths so they don't jump when sorting changes content */
+.search-grid-container ::deep table.mud-table {
+    table-layout: fixed;
+}
