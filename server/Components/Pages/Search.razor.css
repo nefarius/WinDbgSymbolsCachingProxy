@@ -23,11 +23,3 @@
 .search-grid-container ::deep table.mud-table {
     table-layout: fixed;
 }
-
-/* Truncate long text with ellipsis in table cells (used by PropertyColumn CellClass) */
-.cell-ellipsis {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 0;
-    white-space: nowrap;
-}

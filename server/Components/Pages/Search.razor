@@ -30,10 +30,10 @@
             <col style="width: 5%;"/>
         </ColGroup>
         <Columns>
-            <PropertyColumn Property="x => x.FileName" Title="Filename" Sortable="true" InitialDirection="SortDirection.Ascending" CellClass="cell-ellipsis"/>
-            <PropertyColumn Property="x => x.SymbolKey" Title="Symbol key" Sortable="true" CellClass="cell-ellipsis"/>
-            <PropertyColumn Property="x => x.IndexPrefix" Title="Index prefix" Sortable="true" CellClass="cell-ellipsis"/>
-            <PropertyColumn Property="x => x.UpstreamFileName" Title="Upstream filename" Sortable="true" CellClass="cell-ellipsis"/>
+            <PropertyColumn Property="x => x.FileName" Title="Filename" Sortable="true" InitialDirection="SortDirection.Ascending" CellStyle="overflow: hidden; text-overflow: ellipsis; max-width: 0; white-space: nowrap;"/>
+            <PropertyColumn Property="x => x.SymbolKey" Title="Symbol key" Sortable="true" CellStyle="overflow: hidden; text-overflow: ellipsis; max-width: 0; white-space: nowrap;"/>
+            <PropertyColumn Property="x => x.IndexPrefix" Title="Index prefix" Sortable="true" CellStyle="overflow: hidden; text-overflow: ellipsis; max-width: 0; white-space: nowrap;"/>
+            <PropertyColumn Property="x => x.UpstreamFileName" Title="Upstream filename" Sortable="true" CellStyle="overflow: hidden; text-overflow: ellipsis; max-width: 0; white-space: nowrap;"/>
             <PropertyColumn Property="x => x.CreatedAt" Title="Creation timestamp" Sortable="true"/>
             <PropertyColumn Property="x => x.UploadedAt" Title="Upload timestamp" Sortable="true"/>
             <PropertyColumn Property="x => x.NotFoundAt" Title="Not found timestamp" Sortable="true"/>
