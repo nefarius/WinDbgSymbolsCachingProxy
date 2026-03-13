@@ -114,7 +114,7 @@ internal sealed class SymbolUploadEndpoint(DB db, ILogger<SymbolUploadEndpoint> 
                 {
                     if (existingSymbol is null)
                     {
-                        await db.DeleteAsync<SymbolsEntity>(symbol.ID, ct);
+                        await db.DeleteAsync<SymbolsEntity>(symbol.ID, CancellationToken.None);
                     }
                     throw;
                 }

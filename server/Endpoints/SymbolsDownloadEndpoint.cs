@@ -149,7 +149,7 @@ public sealed class SymbolsDownloadEndpoint(
                     logger.LogWarning("Cached metadata found but blob missing or unreadable, re-downloading from upstream");
                     if (existingSymbol is not null)
                     {
-                        await db.DeleteAsync<SymbolsEntity>(existingSymbol.ID, ct);
+                        await db.DeleteAsync<SymbolsEntity>(existingSymbol.ID, CancellationToken.None);
                     }
                 }
             }
@@ -164,7 +164,7 @@ public sealed class SymbolsDownloadEndpoint(
                     logger.LogWarning(ex, "Cached metadata found but blob missing or unreadable, re-downloading from upstream");
                     if (existingSymbol is not null)
                     {
-                        await db.DeleteAsync<SymbolsEntity>(existingSymbol.ID, ct);
+                        await db.DeleteAsync<SymbolsEntity>(existingSymbol.ID, CancellationToken.None);
                     }
                 }
             }
@@ -259,7 +259,7 @@ public sealed class SymbolsDownloadEndpoint(
         {
             if (existingSymbol is null)
             {
-                await db.DeleteAsync<SymbolsEntity>(newSymbol.ID, ct);
+                await db.DeleteAsync<SymbolsEntity>(newSymbol.ID, CancellationToken.None);
             }
 
             throw;
