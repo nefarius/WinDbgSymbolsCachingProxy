@@ -71,6 +71,19 @@ public sealed class SymbolsDownloadEndpoint(
 
             await Send.BytesAsync(cachedEntity.Blob, cachedEntity.UpstreamFileName ?? cachedEntity.FileName,
                 cancellation: ct);
+
+            SymbolsEntity? entityToUpdate = (await db.Find<SymbolsEntity>()
+                    .ManyAsync(lr =>
+                            lr.Eq(r => r.IndexPrefix, req.IndexPrefix.ToLowerInvariant()) &
+                            lr.Eq(r => r.FileName, req.FileName.ToLowerInvariant())
+                        , ct))
+                .FirstOrDefault();
+            if (entityToUpdate is not null)
+            {
+                entityToUpdate.LastAccessedAt = DateTime.UtcNow;
+                entityToUpdate.AccessedCount = (entityToUpdate.AccessedCount ?? 0) + 1;
+                await db.SaveAsync(entityToUpdate, ct);
+            }
             return;
         }
 
@@ -79,8 +92,7 @@ public sealed class SymbolsDownloadEndpoint(
         SymbolsEntity? existingSymbol = (await db.Find<SymbolsEntity>()
                 .ManyAsync(lr =>
                         lr.Eq(r => r.IndexPrefix, req.IndexPrefix.ToLowerInvariant()) &
-                        lr.Eq(r => r.FileName, req.FileName.ToLowerInvariant()) &
-                        lr.Ne(r => r.BlobUploadComplete, false)
+                        lr.Eq(r => r.FileName, req.FileName.ToLowerInvariant())
                     , ct)
             ).FirstOrDefault();
 
@@ -103,8 +115,6 @@ public sealed class SymbolsDownloadEndpoint(
                 return;
             }
 
-            logger.LogInformation("Returning cached copy");
-
             // deliver cached copy of symbol blob
             using MemoryStream ms = new();
 
@@ -113,26 +123,55 @@ public sealed class SymbolsDownloadEndpoint(
                 await existingSymbol.Data(db).DownloadAsync(ms, cancellation: ct);
 
                 ms.Position = 0;
-                await Send.StreamAsync(ms, existingSymbol.UpstreamFileName ?? existingSymbol.FileName,
+                byte[] blob = ms.ToArray();
+                logger.LogInformation("Returning cached copy");
+                await Send.StreamAsync(new MemoryStream(blob), existingSymbol.UpstreamFileName ?? existingSymbol.FileName,
                     cancellation: ct);
 
                 // update statistics
                 existingSymbol.LastAccessedAt = DateTime.UtcNow;
                 existingSymbol.AccessedCount = ++existingSymbol.AccessedCount ?? 1;
 
-                CacheSymbolInMemory(req, existingSymbol, ms);
+                CacheSymbolInMemory(req, existingSymbol, new MemoryStream(blob));
 
                 await db.SaveAsync(existingSymbol, ct);
 
                 return;
             }
-            catch (InvalidOperationException)
+            catch (InvalidOperationException ex)
             {
-                logger.LogWarning("Failed to fetch cached copy, re-downloading from upstream");
+                if (HttpContext.Response.HasStarted)
+                {
+                    logger.LogWarning(ex, "Error after starting response (e.g. client disconnect), cache entry unchanged");
+                }
+                else
+                {
+                    logger.LogWarning("Cached metadata found but blob missing or unreadable, re-downloading from upstream");
+                    if (existingSymbol is not null)
+                    {
+                        await db.DeleteAsync<SymbolsEntity>(existingSymbol.ID, ct);
+                    }
+                }
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Failed to fetch cached copy, re-downloading from upstream");
+                if (HttpContext.Response.HasStarted)
+                {
+                    logger.LogWarning(ex, "Error after starting response (e.g. client disconnect), cache entry unchanged");
+                }
+                else
+                {
+                    logger.LogWarning(ex, "Cached metadata found but blob missing or unreadable, re-downloading from upstream");
+                    if (existingSymbol is not null)
+                    {
+                        await db.DeleteAsync<SymbolsEntity>(existingSymbol.ID, ct);
+                    }
+                }
+            }
+
+            if (HttpContext.Response.HasStarted)
+            {
+                return;
             }
         }
 
@@ -153,11 +192,19 @@ public sealed class SymbolsDownloadEndpoint(
         {
             logger.LogInformation("Requested symbol {Symbol} not found upstream", req.ToString());
 
-            // set last 404-timestamp
-            newSymbol.NotFoundAt = DateTime.UtcNow;
-            await db.SaveAsync(newSymbol, ct);
-            CacheSymbolInMemory(req, newSymbol);
-            await Send.NotFoundAsync(ct);
+            // Only persist 404 when this was a first-time lookup. If we had existingSymbol we fell through
+            // from a failed blob fetch—do not overwrite a valid cache entry with NotFoundAt.
+            if (existingSymbol is null)
+            {
+                newSymbol.NotFoundAt = DateTime.UtcNow;
+                await db.SaveAsync(newSymbol, ct);
+                CacheSymbolInMemory(req, newSymbol);
+            }
+
+            if (!HttpContext.Response.HasStarted)
+            {
+                await Send.NotFoundAsync(ct);
+            }
             return;
         }
 
@@ -201,17 +248,12 @@ public sealed class SymbolsDownloadEndpoint(
         newSymbol.NotFoundAt = null;
         newSymbol.LastAccessedAt = DateTime.UtcNow;
         newSymbol.AccessedCount = 1;
-        newSymbol.BlobUploadComplete = false;
 
         await db.SaveAsync(newSymbol, ct);
 
         try
         {
             await newSymbol.Data(db).UploadAsync(cache, cancellation: ct);
-            await db.Update<SymbolsEntity>()
-                .Match(x => x.ID == newSymbol.ID)
-                .Modify(x => x.BlobUploadComplete, true)
-                .ExecuteAsync(ct);
         }
         catch
         {

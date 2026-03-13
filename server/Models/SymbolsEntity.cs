@@ -83,12 +83,6 @@ public class SymbolsEntity : FileEntity<SymbolsEntity>
     public DateTime? UploadedAt { get; set; }
 
     /// <summary>
-    ///     True when the blob has been uploaded successfully; false when metadata was saved but blob upload is in progress or failed (transient state for recovery).
-    ///     Null for legacy entities (treated as complete). Used to avoid serving metadata without a corresponding blob.
-    /// </summary>
-    public bool? BlobUploadComplete { get; set; }
-
-    /// <summary>
     ///     Gets the creating timestamp.
     /// </summary>
     public DateTime? CreatedAt { get; init; }

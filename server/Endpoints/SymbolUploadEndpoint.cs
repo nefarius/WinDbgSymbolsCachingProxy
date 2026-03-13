@@ -101,8 +101,6 @@ internal sealed class SymbolUploadEndpoint(DB db, ILogger<SymbolUploadEndpoint> 
                 symbol.IsCustom = true;
                 symbol.UploadedAt = DateTime.UtcNow;
                 symbol.NotFoundAt = null;
-                bool? previousBlobUploadComplete = existingSymbol?.BlobUploadComplete;
-                symbol.BlobUploadComplete = false; // transient until blob upload succeeds; enables cleanup on failure
 
                 ms.Position = 0;
 
@@ -111,23 +109,12 @@ internal sealed class SymbolUploadEndpoint(DB db, ILogger<SymbolUploadEndpoint> 
                 try
                 {
                     await symbol.Data(db).UploadAsync(ms, cancellation: ct);
-                    await db.Update<SymbolsEntity>()
-                        .Match(x => x.ID == symbol.ID)
-                        .Modify(x => x.BlobUploadComplete, true)
-                        .ExecuteAsync(ct);
                 }
                 catch
                 {
                     if (existingSymbol is null)
                     {
                         await db.DeleteAsync<SymbolsEntity>(symbol.ID, ct);
-                    }
-                    else
-                    {
-                        await db.Update<SymbolsEntity>()
-                            .Match(x => x.ID == symbol.ID)
-                            .Modify(x => x.BlobUploadComplete, previousBlobUploadComplete)
-                            .ExecuteAsync(ct);
                     }
                     throw;
                 }
