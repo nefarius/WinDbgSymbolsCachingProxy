@@ -4,6 +4,7 @@ using JetBrains.Annotations;
 
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
+using Microsoft.JSInterop;
 
 using MongoDB.Bson;
 using MongoDB.Entities;
@@ -19,6 +20,12 @@ public partial class Search
 {
     [Inject]
     private DB Db { get; set; } = null!;
+
+    [Inject]
+    private IJSRuntime Js { get; set; } = null!;
+
+    [Inject]
+    private NavigationManager Navigation { get; set; } = null!;
 
     private MudMenu _contextMenu = null!;
     private SymbolsEntity? _contextRow;
@@ -47,7 +54,21 @@ public partial class Search
         _contextRow = args.Item;
         await _contextMenu.OpenMenuAsync(args.MouseEventArgs);
     }
-    
+
+    /// <summary>
+    /// Opens the symbol download URL in a new browser tab. No-op if the row has no data (NotFoundAt is set).
+    /// </summary>
+    private async Task OnDownloadClick(MouseEventArgs _)
+    {
+        if (_contextRow is null || _contextRow.NotFoundAt.HasValue)
+            return;
+
+        var baseUri = Navigation.BaseUri.TrimEnd('/');
+        var path = $"download/symbols/{_contextRow.RelativeUri}";
+        var url = $"{baseUri}/{path}";
+        await Js.InvokeVoidAsync("open", url, "_blank");
+    }
+
     /// <summary>
     /// Loads a page of SymbolsEntity records for the data grid, applying filtering, sorting, and paging.
     /// All operations are performed server-side via MongoDB.Entities PagedSearch (no client-side sorting/filtering).
@@ -97,6 +118,11 @@ public partial class Search
 
         return new GridData<SymbolsEntity> { TotalItems = (int)res.TotalCount, Items = res.Results };
     }
+
+    /// <summary>
+    /// Reloads the data grid without changing the search filter.
+    /// </summary>
+    private Task OnRefreshClick(MouseEventArgs _) => _dataGrid.ReloadServerData();
 
     /// <summary>
     /// Updates the component's search filter and requests the data grid to reload.
