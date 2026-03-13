@@ -1,4 +1,4 @@
-﻿@page "/"
+@page "/"
 @using WinDbgSymbolsCachingProxy.Models
 @inject ISnackbar Snackbar
 
@@ -21,6 +21,7 @@
         <PropertyColumn Property="x => x.UpstreamFileName" Title="Upstream filename"/>
         <PropertyColumn Property="x => x.CreatedAt" Title="Creation timestamp"/>
         <PropertyColumn Property="x => x.UploadedAt" Title="Upload timestamp"/>
+        <PropertyColumn Property="x => x.NotFoundAt" Title="Not found timestamp"/>
         <PropertyColumn Property="x => x.IsCustom" Title="Is custom">
             <CellTemplate>
                 @if (@context.Item.IsCustom)
