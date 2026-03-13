@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.Text.RegularExpressions;
 
 using SkiaSharp;
@@ -7,15 +7,27 @@ using WinDbgSymbolsCachingProxy.Models;
 
 namespace WinDbgSymbolsCachingProxy.Services;
 
+/// <summary>
+///     Builds a <see cref="BadgeModel"/> from badge parameters (e.g. parsing hex colors).
+/// </summary>
 public interface IBadgeFactory
 {
+    /// <summary>
+    ///     Creates a badge model from the given parameters.
+    /// </summary>
+    /// <param name="p">Badge parameters (label, result, colors, height).</param>
+    /// <returns>A badge model ready for rendering.</returns>
     BadgeModel GetBadge(BadgeParameters p);
 }
 
+/// <summary>
+///     Converts <see cref="BadgeParameters"/> to <see cref="BadgeModel"/>, including hex color parsing.
+/// </summary>
 public partial class BadgeFactory : IBadgeFactory
 {
     private static readonly Regex HexColorRegex = MyRegex();
 
+    /// <inheritdoc />
     public BadgeModel GetBadge(BadgeParameters p)
     {
         return new BadgeModel

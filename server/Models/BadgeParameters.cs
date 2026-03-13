@@ -1,7 +1,13 @@
-﻿namespace WinDbgSymbolsCachingProxy.Models;
+namespace WinDbgSymbolsCachingProxy.Models;
 
+/// <summary>
+///     Input parameters for generating a badge (label, result, colors, height).
+/// </summary>
 public class BadgeParameters
 {
+    /// <summary>
+    ///     Initializes a new instance with default height and colors.
+    /// </summary>
     public BadgeParameters()
     {
         Height = 22;

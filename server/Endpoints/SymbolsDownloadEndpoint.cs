@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 
 using FastEndpoints;
 
@@ -26,6 +26,9 @@ public sealed class SymbolsDownloadEndpoint(
 {
     private readonly ActivitySource _activitySource = new(TracingSources.AppActivitySourceName);
 
+    /// <summary>
+    ///     Configures the GET route for symbol download at "/download/symbols/{Symbol}/{SymbolKey}/{FileName}" with anonymous access and the "Symbols" tag.
+    /// </summary>
     public override void Configure()
     {
         Get("/download/symbols/{Symbol}/{SymbolKey}/{FileName}");
@@ -242,6 +245,12 @@ public sealed class SymbolsDownloadEndpoint(
         }
     }
 
+    /// <summary>
+    ///     Stores a symbol (or its not-found marker) in memory cache for 12 hours to reduce database load.
+    /// </summary>
+    /// <param name="request">The symbol request used as the cache key.</param>
+    /// <param name="entity">The symbol entity to cache.</param>
+    /// <param name="data">Optional blob data; when provided, it is included in the cached DTO.</param>
     private void CacheSymbolInMemory(SymbolsRequest request, SymbolsEntity entity, MemoryStream? data = null)
     {
         SymbolsEntityMapper mapper = new();

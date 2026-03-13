@@ -42,6 +42,9 @@ public sealed class BadgeEndpoint(
     IOptions<ServiceConfig> options)
     : EndpointWithoutRequest
 {
+    /// <summary>
+    ///     Configures the GET route at "/api/badges/{Name}" with anonymous access and the "Badges" tag.
+    /// </summary>
     public override void Configure()
     {
         Get("/api/badges/{Name}");

@@ -1,5 +1,13 @@
 namespace WinDbgSymbolsCachingProxy.Models;
 
+/// <summary>
+///     Result of parsing a symbol file: file name, index prefix, and optional PDB signature/age.
+/// </summary>
+/// <param name="FileName">The symbol file name (e.g. module.pdb).</param>
+/// <param name="IndexPrefix">The index prefix path (e.g. "module.pdb/GUIDAGE/").</param>
+/// <param name="Age">The PDB age value, if applicable.</param>
+/// <param name="Signature">The pre-v7 PDB signature, if applicable.</param>
+/// <param name="NewSignature">The v7 PDB GUID signature, if applicable.</param>
 internal sealed record SymbolParsingResult(
     string FileName,
     string IndexPrefix,
