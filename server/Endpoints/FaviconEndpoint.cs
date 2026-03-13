@@ -28,7 +28,7 @@ internal sealed class FaviconEndpoint : EndpointWithoutRequest
     /// <returns>A task that completes when the response has been sent.</returns>
     public override async Task HandleAsync(CancellationToken ct)
     {
-        SetCacheControl(TimeSpan.FromHours(12).Seconds, DateTimeOffset.Now);
+        SetCacheControl((int)TimeSpan.FromHours(12).TotalSeconds, DateTimeOffset.Now);
 
         await Send.StreamAsync(Resource.AsStream("WinDbgSymbolsCachingProxy.favicon.ico"), contentType: "image/x-icon",
             cancellation: ct);

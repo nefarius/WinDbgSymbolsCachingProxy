@@ -33,9 +33,7 @@ internal sealed record SymbolParsingResult(
                 return $"{NewSignature.Value:N}{Age.Value:X}".ToUpperInvariant();
             }
 
-            return Signature.HasValue
-                ? $"{Signature.Value:X}{Age.Value:X}".ToUpperInvariant()
-                : IndexPrefix.Split('/')[1].ToUpperInvariant();
+            return $"{Signature!.Value:X}{Age.Value:X}".ToUpperInvariant();
         }
     }
 }

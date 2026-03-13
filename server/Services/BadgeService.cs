@@ -89,7 +89,7 @@ public class BadgeService : IBadgeService
         return new SKPaint { IsAntialias = true, IsStroke = false, Color = SKColors.White };
     }
 
-    private SKPaint GetTextShadowPaint(BadgeModel badge)
+    private static SKPaint GetTextShadowPaint(BadgeModel badge)
     {
         SKPaint paint = GetTextPaint(badge);
         paint.Color = new SKColor(0x33, 0x33, 0x33, 0xff);
