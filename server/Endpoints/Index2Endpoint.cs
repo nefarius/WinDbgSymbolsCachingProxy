@@ -24,6 +24,6 @@ internal sealed class Index2Endpoint : EndpointWithoutRequest
     /// <returns>A task that completes when the response has been sent.</returns>
     public override Task HandleAsync(CancellationToken ct)
     {
-        return Send.NotFoundAsync(ct);
+        return Send.NotFoundAsync(CancellationToken.None);
     }
 }

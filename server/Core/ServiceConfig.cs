@@ -1,4 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 
 namespace WinDbgSymbolsCachingProxy.Core;
 
@@ -32,6 +32,11 @@ public sealed class ServiceConfig
     ///     Period after which 404ed entries should be checked for existence again upstream.
     /// </summary>
     public TimeSpan UpstreamRecheckPeriod { get; set; } = TimeSpan.FromDays(7);
+
+    /// <summary>
+    ///     Maximum memory cache size in bytes. Defaults to 512 MB.
+    /// </summary>
+    public long MemoryCacheSizeLimit { get; set; } = 512 * 1024 * 1024;
 
     /// <summary>
     ///     Option list of Basic Auth credentials for protected endpoints.

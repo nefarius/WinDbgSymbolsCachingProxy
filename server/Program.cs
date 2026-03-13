@@ -91,7 +91,10 @@ builder.Services.AddSingleton<SymbolParsingService>();
 
 #region Misc. Services
 
-builder.Services.AddMemoryCache();
+builder.Services.AddMemoryCache(cacheOptions =>
+{
+    cacheOptions.SizeLimit = serviceConfig.MemoryCacheSizeLimit;
+});
 builder.Services.AddScheduler();
 
 #endregion
@@ -195,8 +198,9 @@ await db.MigrateAsync<SymbolsEntity>();
 Log.Logger.Information("Creating index");
 
 await db.Index<SymbolsEntity>()
-    .Key(a => a.IndexPrefix, KeyType.Text)
-    .Key(a => a.FileName, KeyType.Text)
+    .Key(a => a.IndexPrefix, KeyType.Ascending)
+    .Key(a => a.FileName, KeyType.Ascending)
+    .Option(o => o.Unique = true)
     .CreateAsync();
 
 #endregion
