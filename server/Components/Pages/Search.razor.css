@@ -18,3 +18,8 @@
     min-height: 0;
     overflow: auto;
 }
+
+/* Enforce column widths so they don't jump when sorting changes content */
+.search-grid-container ::deep table.mud-table {
+    table-layout: fixed;
+}

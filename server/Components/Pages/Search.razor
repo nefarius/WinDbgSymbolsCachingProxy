@@ -17,11 +17,22 @@
                           Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
                           IconSize="Size.Medium" Class="mt-0" Immediate="true"/>
         </ToolBarContent>
+        <ColGroup>
+            <col style="width: 14%;"/>
+            <col style="width: 16%;"/>
+            <col style="width: 16%;"/>
+            <col style="width: 14%;"/>
+            <col style="width: 10%;"/>
+            <col style="width: 10%;"/>
+            <col style="width: 10%;"/>
+            <col style="width: 5%;"/>
+            <col style="width: 5%;"/>
+        </ColGroup>
         <Columns>
-            <PropertyColumn Property="x => x.FileName" Title="Filename" Sortable="true" InitialDirection="SortDirection.Ascending"/>
-            <PropertyColumn Property="x => x.SymbolKey" Title="Symbol key" Sortable="true"/>
-            <PropertyColumn Property="x => x.IndexPrefix" Title="Index prefix" Sortable="true"/>
-            <PropertyColumn Property="x => x.UpstreamFileName" Title="Upstream filename" Sortable="true"/>
+            <PropertyColumn Property="x => x.FileName" Title="Filename" Sortable="true" InitialDirection="SortDirection.Ascending" CellStyle="overflow: hidden; text-overflow: ellipsis; max-width: 0;"/>
+            <PropertyColumn Property="x => x.SymbolKey" Title="Symbol key" Sortable="true" CellStyle="overflow: hidden; text-overflow: ellipsis; max-width: 0;"/>
+            <PropertyColumn Property="x => x.IndexPrefix" Title="Index prefix" Sortable="true" CellStyle="overflow: hidden; text-overflow: ellipsis; max-width: 0;"/>
+            <PropertyColumn Property="x => x.UpstreamFileName" Title="Upstream filename" Sortable="true" CellStyle="overflow: hidden; text-overflow: ellipsis; max-width: 0;"/>
             <PropertyColumn Property="x => x.CreatedAt" Title="Creation timestamp" Sortable="true"/>
             <PropertyColumn Property="x => x.UploadedAt" Title="Upload timestamp" Sortable="true"/>
             <PropertyColumn Property="x => x.NotFoundAt" Title="Not found timestamp" Sortable="true"/>
