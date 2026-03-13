@@ -1,9 +1,12 @@
-﻿using System.Text.Json.Serialization;
+using System.Text.Json.Serialization;
 
 using JetBrains.Annotations;
 
 namespace WinDbgSymbolsCachingProxy.Models;
 
+/// <summary>
+///     Request model for symbol download: symbol name, key (signature+age), and file name.
+/// </summary>
 [UsedImplicitly]
 public sealed class SymbolsRequest
 {
@@ -29,6 +32,9 @@ public sealed class SymbolsRequest
     [JsonIgnore]
     public string IndexPrefix => $"{Symbol}/{SymbolKey.ToLowerInvariant()}/";
 
+    /// <summary>
+    ///     Returns the cache key string: lowercased index prefix plus lowercased file name.
+    /// </summary>
     public override string ToString()
     {
         return $"{IndexPrefix.ToLowerInvariant()}{FileName.ToLowerInvariant()}";

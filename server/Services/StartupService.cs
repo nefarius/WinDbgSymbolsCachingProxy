@@ -6,6 +6,9 @@ using WinDbgSymbolsCachingProxy.Models;
 
 namespace WinDbgSymbolsCachingProxy.Services;
 
+/// <summary>
+///     Hosted service that runs at startup: optionally parses all symbol entries and/or rechecks 404 symbols upstream.
+/// </summary>
 internal sealed class StartupService(
     DB db,
     RecheckNotFoundService recheckNotFoundService,
@@ -17,6 +20,10 @@ internal sealed class StartupService(
     private const string RunParser = "RunParser";
     private const string RunRecheck = "RunRecheck";
 
+    /// <summary>
+    ///     Runs optional startup tasks based on configuration: parser (enrich all symbols with PDB data) and/or 404 recheck.
+    /// </summary>
+    /// <param name="stoppingToken">Cancellation token from the host.</param>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         // run PDBSharp parsing for all DB entries, if enabled

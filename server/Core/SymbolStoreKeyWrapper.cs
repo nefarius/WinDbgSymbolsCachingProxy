@@ -1,4 +1,4 @@
-﻿using Microsoft.SymbolStore;
+using Microsoft.SymbolStore;
 
 namespace WinDbgSymbolsCachingProxy.Core;
 
@@ -9,7 +9,10 @@ namespace WinDbgSymbolsCachingProxy.Core;
 /// </summary>
 public sealed class SymbolStoreKeyWrapper
 {
+    /// <summary>The name of the input file from which the key was generated.</summary>
     public readonly string InputFile;
+
+    /// <summary>The symbol store key (index prefix, etc.).</summary>
     public readonly SymbolStoreKey Key;
 
     internal SymbolStoreKeyWrapper(SymbolStoreKey key, string inputFile)

@@ -1,7 +1,10 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 
 namespace WinDbgSymbolsCachingProxy.Models;
 
+/// <summary>
+///     Response payload for the /info endpoint: server version and cached symbol counts.
+/// </summary>
 [SuppressMessage("ReSharper", "UnusedMember.Global")]
 [SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Global")]
 public sealed class RootResponse

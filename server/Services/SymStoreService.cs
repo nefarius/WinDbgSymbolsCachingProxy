@@ -1,4 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 using System.IO.Compression;
 
 using Microsoft.SymbolStore;
@@ -8,6 +8,9 @@ using WinDbgSymbolsCachingProxy.Core;
 
 namespace WinDbgSymbolsCachingProxy.Services;
 
+/// <summary>
+///     Generates symbol store keys for executables, PDBs, and other symbol-related files using Microsoft.SymbolStore key generators.
+/// </summary>
 public sealed class SymStoreService(ITracer tracer)
 {
     private static readonly HashSet<string> ValidSourceExtensions = [".cs", ".vb", ".h", ".cpp", ".inl"];
@@ -15,6 +18,13 @@ public sealed class SymStoreService(ITracer tracer)
     private static HashSet<string> ValidExtensions { get; } =
         [".sys", ".exe", ".dll", ".pdb", ".so", ".dbg", ".dylib", ".dwarf"];
 
+    /// <summary>
+    ///     Gets <see cref="SymbolStoreKeyWrapper" />s for a single file.
+    /// </summary>
+    /// <param name="flags">The <see cref="KeyTypeFlags" /> to use for analysis.</param>
+    /// <param name="inputFile">The file name.</param>
+    /// <param name="inputStream">Stream containing the file contents.</param>
+    /// <returns>One or more <see cref="SymbolStoreKeyWrapper" />s.</returns>
     [SuppressMessage("ReSharper", "UnusedMember.Global")]
     [SuppressMessage("ReSharper", "MemberCanBePrivate.Global")]
     public IEnumerable<SymbolStoreKeyWrapper> GetKeys(KeyTypeFlags flags, string inputFile, Stream inputStream)

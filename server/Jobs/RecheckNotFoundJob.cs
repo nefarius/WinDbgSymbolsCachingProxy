@@ -1,4 +1,4 @@
-﻿using Coravel.Invocable;
+using Coravel.Invocable;
 
 using WinDbgSymbolsCachingProxy.Services;
 
@@ -12,6 +12,10 @@ public sealed class RecheckNotFoundJob(
     RecheckNotFoundService recheckNotFoundService)
     : IInvocable
 {
+    /// <summary>
+    ///     Runs the 404 recheck: queries upstream for all cached not-found symbols and updates the cache when they become available.
+    /// </summary>
+    /// <returns>A task that completes when the recheck has finished.</returns>
     public async Task Invoke()
     {
         logger.LogInformation("Running 404 re-check task");

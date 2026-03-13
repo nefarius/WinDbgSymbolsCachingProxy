@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Http.Extensions;
+using Microsoft.AspNetCore.Http.Extensions;
 
 namespace WinDbgSymbolsCachingProxy.Core;
 
@@ -8,6 +8,11 @@ namespace WinDbgSymbolsCachingProxy.Core;
 /// </summary>
 public class CustomExceptionHandlerMiddleware(ILogger<CustomExceptionHandlerMiddleware> logger, RequestDelegate next)
 {
+    /// <summary>
+    ///     Invokes the next middleware; logs and swallows exceptions so the pipeline does not throw.
+    /// </summary>
+    /// <param name="context">The HTTP context.</param>
+    /// <returns>A task that completes when the pipeline has been executed.</returns>
     public async Task Invoke(HttpContext context)
     {
         try
