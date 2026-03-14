@@ -326,7 +326,8 @@ public sealed class SymbolsDownloadEndpoint(
     }
 
     /// <summary>
-    ///     Stores a symbol (or its not-found marker) in memory cache for 12 hours to reduce database load.
+    ///     Stores a symbol (or its not-found marker) in memory cache to reduce database load.
+    ///     Positive entries expire after 12 hours; negative entries expire after the remaining upstream recheck window.
     /// </summary>
     /// <param name="request">The symbol request used as the cache key.</param>
     /// <param name="entity">The symbol entity to cache.</param>
@@ -346,12 +347,25 @@ public sealed class SymbolsDownloadEndpoint(
             entrySize = memCacheItem.Blob.Length;
         }
 
+        TimeSpan absoluteExpiration;
+
+        if (memCacheItem.NotFoundAt.HasValue)
+        {
+            TimeSpan remaining = options.Value.UpstreamRecheckPeriod -
+                (DateTime.UtcNow - memCacheItem.NotFoundAt.Value);
+            absoluteExpiration = remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero;
+        }
+        else
+        {
+            absoluteExpiration = TimeSpan.FromHours(12);
+        }
+
         mc.Set(
             request.ToString(),
             memCacheItem,
             new MemoryCacheEntryOptions
             {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(12),
+                AbsoluteExpirationRelativeToNow = absoluteExpiration,
                 Size = entrySize
             }
         );
