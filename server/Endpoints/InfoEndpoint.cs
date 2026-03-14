@@ -66,7 +66,11 @@ public sealed class InfoEndpoint(DB db, ILogger<InfoEndpoint> logger, IMemoryCac
                 cancellation: ct)
         };
 
-        memoryCache.Set(nameof(InfoEndpoint), response, TimeSpan.FromHours(1));
+        memoryCache.Set(nameof(InfoEndpoint), response, new MemoryCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1),
+            Size = 1
+        });
 
         await Send.OkAsync(response, ct);
     }

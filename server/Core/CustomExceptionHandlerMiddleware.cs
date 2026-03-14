@@ -19,6 +19,11 @@ public class CustomExceptionHandlerMiddleware(ILogger<CustomExceptionHandlerMidd
         {
             await next(context);
         }
+        catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+        {
+            logger.LogDebug("Request cancelled by client: {Method} {Url}",
+                context.Request.Method, context.Request.GetDisplayUrl());
+        }
         catch (BadHttpRequestException ex)
         {
             logger.LogWarning(ex, "BadHttpRequestException");

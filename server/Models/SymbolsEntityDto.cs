@@ -1,5 +1,3 @@
-﻿using MongoDB.Entities;
-
 namespace WinDbgSymbolsCachingProxy.Models;
 
 /// <summary>
@@ -42,12 +40,8 @@ public class SymbolsEntityDto
     /// <summary>
     ///     Symbol content if <see cref="NotFoundAt"/> is null.  
     /// </summary>
-    public byte[] Blob { get; set; }
-    
-    /// <summary>
-    ///     Gets the relative URI (built from <see cref="IndexPrefix" /> and <see cref="FileName" />).
-    /// </summary>
-    [Ignore]
+    public byte[]? Blob { get; set; }
+
     private string RelativeUri => $"{IndexPrefix}{FileName}";
 
     public override string ToString()

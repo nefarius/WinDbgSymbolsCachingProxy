@@ -91,7 +91,10 @@ builder.Services.AddSingleton<SymbolParsingService>();
 
 #region Misc. Services
 
-builder.Services.AddMemoryCache();
+builder.Services.AddMemoryCache(cacheOptions =>
+{
+    cacheOptions.SizeLimit = serviceConfig.MemoryCacheSizeLimit;
+});
 builder.Services.AddScheduler();
 
 #endregion
@@ -187,17 +190,6 @@ DB db = await DB.InitAsync(serviceConfig.DatabaseName,
     MongoClientSettings.FromConnectionString(serviceConfig.ConnectionString));
 
 builder.Services.AddSingleton(db);
-
-Log.Logger.Information("Running database migrations (if any)");
-
-await db.MigrateAsync<SymbolsEntity>();
-
-Log.Logger.Information("Creating index");
-
-await db.Index<SymbolsEntity>()
-    .Key(a => a.IndexPrefix, KeyType.Text)
-    .Key(a => a.FileName, KeyType.Text)
-    .CreateAsync();
 
 #endregion
 

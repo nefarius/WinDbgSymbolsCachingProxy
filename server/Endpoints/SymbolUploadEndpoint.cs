@@ -80,12 +80,11 @@ internal sealed class SymbolUploadEndpoint(DB db, ILogger<SymbolUploadEndpoint> 
                     }
                     else
                     {
-                        logger.LogError("Symbol with name {Filename} and index prefix {IndexPrefix} already exists",
+                        logger.LogWarning("Symbol with name {Filename} and index prefix {IndexPrefix} already exists",
                             filename, result.IndexPrefix);
-                        await Send.ResponseAsync(
-                            $"Symbol with name {filename} and index prefix {result.IndexPrefix} already exists.", 409,
-                            ct);
-                        return;
+                        AddError(
+                            $"Symbol with name {filename} and index prefix {result.IndexPrefix} already exists.");
+                        continue;
                     }
                 }
 
