@@ -1,5 +1,6 @@
 using System.Diagnostics;
 
+using MongoDB.Driver;
 using MongoDB.Entities;
 
 using WinDbgSymbolsCachingProxy.Models;
@@ -21,11 +22,35 @@ internal sealed class StartupService(
     private const string RunRecheck = "RunRecheck";
 
     /// <summary>
-    ///     Runs optional startup tasks based on configuration: parser (enrich all symbols with PDB data) and/or 404 recheck.
+    ///     Runs database migrations, creates indexes, then runs optional startup tasks (parser, 404 recheck).
     /// </summary>
     /// <param name="stoppingToken">Cancellation token from the host.</param>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        logger.LogInformation("Running database migrations (if any)");
+        await db.MigrateAsync<SymbolsEntity>();
+
+        logger.LogInformation("Ensuring database indexes");
+
+        try
+        {
+            await db.Index<SymbolsEntity>()
+                .Key(a => a.IndexPrefix, KeyType.Ascending)
+                .Key(a => a.FileName, KeyType.Ascending)
+                .Option(o => o.Unique = true)
+                .CreateAsync();
+        }
+        catch (MongoCommandException ex) when (ex.CodeName == "DuplicateKey")
+        {
+            logger.LogWarning(ex,
+                "Unique index creation failed due to remaining duplicates; falling back to non-unique ascending index");
+
+            await db.Index<SymbolsEntity>()
+                .Key(a => a.IndexPrefix, KeyType.Ascending)
+                .Key(a => a.FileName, KeyType.Ascending)
+                .CreateAsync();
+        }
+
         // run PDBSharp parsing for all DB entries, if enabled
         if (bool.TryParse(config.GetSection(nameof(RunParser)).Value, out bool runParser) && runParser)
         {

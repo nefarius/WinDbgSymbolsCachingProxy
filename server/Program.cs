@@ -191,18 +191,6 @@ DB db = await DB.InitAsync(serviceConfig.DatabaseName,
 
 builder.Services.AddSingleton(db);
 
-Log.Logger.Information("Running database migrations (if any)");
-
-await db.MigrateAsync<SymbolsEntity>();
-
-Log.Logger.Information("Creating index");
-
-await db.Index<SymbolsEntity>()
-    .Key(a => a.IndexPrefix, KeyType.Ascending)
-    .Key(a => a.FileName, KeyType.Ascending)
-    .Option(o => o.Unique = true)
-    .CreateAsync();
-
 #endregion
 
 WebApplication? app = builder.Build().Setup();
