@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Net;
 
 using FastEndpoints;
 
@@ -201,24 +202,39 @@ public sealed class SymbolsDownloadEndpoint(
 
             if (!response.IsSuccessStatusCode)
             {
-                logger.LogInformation("Requested symbol {Symbol} not found upstream", req.ToString());
-
-                if (existingSymbol is null)
+                if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Gone)
                 {
-                    newSymbol.NotFoundAt = DateTime.UtcNow;
-                    await db.SaveAsync(newSymbol, CancellationToken.None);
-                    CacheSymbolInMemory(req, newSymbol);
+                    logger.LogInformation("Requested symbol {Symbol} not found upstream", req.ToString());
+
+                    if (existingSymbol is null)
+                    {
+                        newSymbol.NotFoundAt = DateTime.UtcNow;
+                        await db.SaveAsync(newSymbol, CancellationToken.None);
+                        CacheSymbolInMemory(req, newSymbol);
+                    }
+                    else
+                    {
+                        existingSymbol.NotFoundAt = DateTime.UtcNow;
+                        await db.SaveAsync(existingSymbol, CancellationToken.None);
+                        CacheSymbolInMemory(req, existingSymbol);
+                    }
+
+                    if (!HttpContext.Response.HasStarted)
+                    {
+                        await Send.NotFoundAsync(ct);
+                    }
                 }
                 else
                 {
-                    existingSymbol.NotFoundAt = DateTime.UtcNow;
-                    await db.SaveAsync(existingSymbol, CancellationToken.None);
-                    CacheSymbolInMemory(req, existingSymbol);
-                }
+                    logger.LogWarning("Upstream returned {StatusCode} for {Symbol}; not caching",
+                        response.StatusCode, req.ToString());
 
-                if (!HttpContext.Response.HasStarted)
-                {
-                    await Send.NotFoundAsync(ct);
+                    if (!HttpContext.Response.HasStarted)
+                    {
+                        HttpContext.Response.StatusCode = 502;
+                        await HttpContext.Response.WriteAsync(
+                            $"Upstream symbol server returned {(int)response.StatusCode} {response.ReasonPhrase}.", ct);
+                    }
                 }
 
                 return;
