@@ -1,5 +1,6 @@
 using System.Diagnostics;
 
+using MongoDB.Bson;
 using MongoDB.Driver;
 using MongoDB.Entities;
 
@@ -8,7 +9,7 @@ using WinDbgSymbolsCachingProxy.Models;
 namespace WinDbgSymbolsCachingProxy.Services;
 
 /// <summary>
-///     Hosted service that runs at startup: optionally parses all symbol entries and/or rechecks 404 symbols upstream.
+///     Hosted service that runs at startup: blocks until DB is ready (migrations, indexes), then optionally parses/rechecks.
 /// </summary>
 internal sealed class StartupService(
     DB db,
@@ -21,24 +22,26 @@ internal sealed class StartupService(
     private const string RunParser = "RunParser";
     private const string RunRecheck = "RunRecheck";
 
-    /// <summary>
-    ///     Runs database migrations, creates indexes, then runs optional startup tasks (parser, 404 recheck).
-    /// </summary>
-    /// <param name="stoppingToken">Cancellation token from the host.</param>
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    public override async Task StartAsync(CancellationToken cancellationToken)
     {
         logger.LogInformation("Running database migrations (if any)");
         await db.MigrateAsync<SymbolsEntity>();
 
         logger.LogInformation("Ensuring database indexes");
+        await EnsureSymbolsIndexAsync(cancellationToken);
 
+        await base.StartAsync(cancellationToken);
+    }
+
+    private async Task EnsureSymbolsIndexAsync(CancellationToken cancellationToken)
+    {
         try
         {
             await db.Index<SymbolsEntity>()
                 .Key(a => a.IndexPrefix, KeyType.Ascending)
                 .Key(a => a.FileName, KeyType.Ascending)
                 .Option(o => o.Unique = true)
-                .CreateAsync();
+                .CreateAsync(cancellationToken);
         }
         catch (MongoCommandException ex) when (ex.CodeName == "DuplicateKey")
         {
@@ -48,9 +51,61 @@ internal sealed class StartupService(
             await db.Index<SymbolsEntity>()
                 .Key(a => a.IndexPrefix, KeyType.Ascending)
                 .Key(a => a.FileName, KeyType.Ascending)
-                .CreateAsync();
+                .CreateAsync(cancellationToken);
         }
+        catch (MongoCommandException ex) when (ex.CodeName == "IndexOptionsConflict" || ex.Code == 85)
+        {
+            logger.LogWarning(ex, "Index options conflict; dropping existing index and retrying unique index creation");
 
+            IMongoCollection<SymbolsEntity> collection = db.Collection<SymbolsEntity>();
+            using IAsyncCursor<BsonDocument> cursor = await collection.Indexes.ListAsync(cancellationToken);
+
+            while (await cursor.MoveNextAsync(cancellationToken))
+            {
+                foreach (BsonDocument index in cursor.Current)
+                {
+                    if (!index.Contains("name") || index["name"].AsString == "_id_")
+                    {
+                        continue;
+                    }
+
+                    if (!index.TryGetValue("key", out BsonValue keyVal) || !keyVal.IsBsonDocument)
+                    {
+                        continue;
+                    }
+
+                    BsonDocument key = keyVal.AsBsonDocument;
+                    if (key.ElementCount != 2)
+                    {
+                        continue;
+                    }
+
+                    if (key.Contains("IndexPrefix") && key.Contains("FileName") &&
+                        key["IndexPrefix"].AsInt32 == 1 && key["FileName"].AsInt32 == 1)
+                    {
+                        await collection.Indexes.DropOneAsync(index["name"].AsString, cancellationToken);
+                        await db.Index<SymbolsEntity>()
+                            .Key(a => a.IndexPrefix, KeyType.Ascending)
+                            .Key(a => a.FileName, KeyType.Ascending)
+                            .Option(o => o.Unique = true)
+                            .CreateAsync(cancellationToken);
+                        return;
+                    }
+                }
+            }
+
+            await db.Index<SymbolsEntity>()
+                .Key(a => a.IndexPrefix, KeyType.Ascending)
+                .Key(a => a.FileName, KeyType.Ascending)
+                .CreateAsync(cancellationToken);
+        }
+    }
+
+    /// <summary>
+    ///     Runs optional startup tasks (parser, 404 recheck) after DB is ready.
+    /// </summary>
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
         // run PDBSharp parsing for all DB entries, if enabled
         if (bool.TryParse(config.GetSection(nameof(RunParser)).Value, out bool runParser) && runParser)
         {
