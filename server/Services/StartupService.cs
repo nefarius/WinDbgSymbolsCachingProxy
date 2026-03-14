@@ -84,11 +84,26 @@ internal sealed class StartupService(
                         key["IndexPrefix"].AsInt32 == 1 && key["FileName"].AsInt32 == 1)
                     {
                         await collection.Indexes.DropOneAsync(index["name"].AsString, cancellationToken);
-                        await db.Index<SymbolsEntity>()
-                            .Key(a => a.IndexPrefix, KeyType.Ascending)
-                            .Key(a => a.FileName, KeyType.Ascending)
-                            .Option(o => o.Unique = true)
-                            .CreateAsync(cancellationToken);
+
+                        try
+                        {
+                            await db.Index<SymbolsEntity>()
+                                .Key(a => a.IndexPrefix, KeyType.Ascending)
+                                .Key(a => a.FileName, KeyType.Ascending)
+                                .Option(o => o.Unique = true)
+                                .CreateAsync(cancellationToken);
+                        }
+                        catch (MongoCommandException dupEx) when (dupEx.CodeName == "DuplicateKey" || dupEx.Code == 11000)
+                        {
+                            logger.LogWarning(dupEx,
+                                "Unique index creation failed after dropping conflicting index (duplicates remain); falling back to non-unique index");
+                            await db.Index<SymbolsEntity>()
+                                .Key(a => a.IndexPrefix, KeyType.Ascending)
+                                .Key(a => a.FileName, KeyType.Ascending)
+                                .Option(o => o.Unique = false)
+                                .CreateAsync(cancellationToken);
+                        }
+
                         return;
                     }
                 }

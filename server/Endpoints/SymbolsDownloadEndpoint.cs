@@ -6,6 +6,7 @@ using FastEndpoints;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 
+using MongoDB.Driver;
 using MongoDB.Entities;
 
 using WinDbgSymbolsCachingProxy.Core;
@@ -135,12 +136,11 @@ public sealed class SymbolsDownloadEndpoint(
                     await db.DeleteAsync<SymbolsEntity>(existingSymbol.ID, CancellationToken.None);
                     existingSymbol = null;
                 }
-                catch (Exception ex)
+                catch (MongoException ex)
                 {
                     logger.LogWarning(ex,
-                        "Cached metadata found but blob missing or unreadable, re-downloading from upstream");
-                    await db.DeleteAsync<SymbolsEntity>(existingSymbol.ID, CancellationToken.None);
-                    existingSymbol = null;
+                        "MongoDB error while reading cached blob, not evicting metadata; caller may retry");
+                    return;
                 }
 
                 if (existingSymbol is not null)
@@ -169,6 +169,9 @@ public sealed class SymbolsDownloadEndpoint(
                         else
                         {
                             logger.LogWarning(ex, "Error while streaming cached symbol to client");
+                            HttpContext.Response.StatusCode = 500;
+                            await HttpContext.Response.WriteAsync("Error while streaming cached symbol to client.", ct);
+                            return;
                         }
                     }
 
