@@ -57,6 +57,7 @@ internal sealed class StartupService(
         {
             logger.LogWarning(ex, "Index options conflict; dropping existing index and retrying unique index creation");
 
+            bool foundConflictingIndex = false;
             IMongoCollection<SymbolsEntity> collection = db.Collection<SymbolsEntity>();
             using IAsyncCursor<BsonDocument> cursor = await collection.Indexes.ListAsync(cancellationToken);
 
@@ -83,6 +84,7 @@ internal sealed class StartupService(
                     if (key.Contains("IndexPrefix") && key.Contains("FileName") &&
                         key["IndexPrefix"].AsInt32 == 1 && key["FileName"].AsInt32 == 1)
                     {
+                        foundConflictingIndex = true;
                         await collection.Indexes.DropOneAsync(index["name"].AsString, cancellationToken);
 
                         try
@@ -109,10 +111,11 @@ internal sealed class StartupService(
                 }
             }
 
-            await db.Index<SymbolsEntity>()
-                .Key(a => a.IndexPrefix, KeyType.Ascending)
-                .Key(a => a.FileName, KeyType.Ascending)
-                .CreateAsync(cancellationToken);
+            if (!foundConflictingIndex)
+            {
+                logger.LogError("IndexOptionsConflict reported but no matching (IndexPrefix, FileName) index found; refusing to downgrade to non-unique index");
+                throw;
+            }
         }
     }
 

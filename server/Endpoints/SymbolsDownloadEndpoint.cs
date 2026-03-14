@@ -150,7 +150,18 @@ public sealed class SymbolsDownloadEndpoint(
                     existingSymbol.LastAccessedAt = DateTime.UtcNow;
                     existingSymbol.AccessedCount = (existingSymbol.AccessedCount ?? 0) + 1;
                     CacheSymbolInMemory(req, existingSymbol, new MemoryStream(blob));
-                    await db.SaveAsync(existingSymbol, CancellationToken.None);
+
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await db.SaveAsync(existingSymbol, CancellationToken.None);
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogWarning(ex, "Failed to persist access metadata for {IndexPrefix}", existingSymbol.IndexPrefix);
+                        }
+                    });
 
                     try
                     {
