@@ -29,7 +29,8 @@ public class _008_DeduplicateEntries : IMigration
             new("$match", new BsonDocument("count", new BsonDocument("$gt", 1)))
         };
 
-        using IAsyncCursor<BsonDocument> cursor = await collection.AggregateAsync(pipeline);
+        AggregateOptions options = new() { AllowDiskUse = true };
+        using IAsyncCursor<BsonDocument> cursor = await collection.AggregateAsync(pipeline, options);
 
         while (await cursor.MoveNextAsync())
         {
