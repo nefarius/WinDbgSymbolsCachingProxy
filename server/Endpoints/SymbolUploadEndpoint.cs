@@ -23,6 +23,7 @@ internal sealed class SymbolUploadEndpoint(DB db, ILogger<SymbolUploadEndpoint> 
         Post("/api/uploads/symbol");
         AllowFileUploads(true);
         Options(x => x.WithTags("Symbols"));
+        Policy(p => p.RequireAuthenticatedUser());
     }
 
     /// <summary>

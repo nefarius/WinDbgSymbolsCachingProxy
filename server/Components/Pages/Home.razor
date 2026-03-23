@@ -1,0 +1,11 @@
+@page "/"
+@attribute [AllowAnonymous]
+@inject NavigationManager Navigation
+
+@code {
+
+    protected override void OnInitialized()
+    {
+        Navigation.NavigateTo("/status", replace: true);
+    }
+}
