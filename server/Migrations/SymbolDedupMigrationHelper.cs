@@ -20,7 +20,10 @@ internal static class SymbolDedupMigrationHelper
     /// <summary>
     ///     Finds groups with more than one row per (IndexPrefix, FileName) and deletes extras in batches via
     ///     <see cref="DB.DeleteAsync{T}(System.Collections.Generic.IEnumerable{object},System.Threading.CancellationToken)" />.
+    /// <summary>
+    /// Removes duplicate SymbolsEntity documents that share the same IndexPrefix and FileName, keeping the document with the most recent LastAccessedAt and deleting the others in batches.
     /// </summary>
+    /// <param name="migrationStepName">A label used in log entries to identify this migration step.</param>
     public static async Task DeduplicateSymbolsAsync(string migrationStepName)
     {
         IMongoCollection<SymbolsEntity> collection = DB.Default.Collection<SymbolsEntity>();

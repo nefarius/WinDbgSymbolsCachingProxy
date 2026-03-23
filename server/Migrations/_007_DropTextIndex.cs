@@ -12,6 +12,13 @@ namespace WinDbgSymbolsCachingProxy.Migrations;
 /// </summary>
 public class _007_DropTextIndex : IMigration
 {
+    /// <summary>
+    /// Drops the legacy "IndexPrefix_text_FileName_text" text index if it exists, then deduplicates SymbolsEntity records so a correct unique index can be recreated.
+    /// </summary>
+    /// <remarks>
+    /// Missing-index errors during the drop are ignored; deduplication is performed by SymbolDedupMigrationHelper using this migration's name.
+    /// </remarks>
+    /// <returns>A task that completes when the migration has finished.</returns>
     public async Task UpgradeAsync()
     {
         IMongoCollection<SymbolsEntity> collection = DB.Default.Collection<SymbolsEntity>();
