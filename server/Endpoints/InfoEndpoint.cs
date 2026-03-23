@@ -1,15 +1,11 @@
 using FastEndpoints;
 
-using Microsoft.Extensions.Caching.Memory;
-
-using MongoDB.Entities;
-
-using WinDbgSymbolsCachingProxy.Core;
 using WinDbgSymbolsCachingProxy.Models;
+using WinDbgSymbolsCachingProxy.Services;
 
 namespace WinDbgSymbolsCachingProxy.Endpoints;
 
-public sealed class InfoEndpoint(DB db, ILogger<InfoEndpoint> logger, IMemoryCache memoryCache)
+public sealed class InfoEndpoint(ICachedSymbolOverviewProvider overviewProvider)
     : EndpointWithoutRequest<RootResponse>
 {
     /// <summary>
@@ -29,39 +25,11 @@ public sealed class InfoEndpoint(DB db, ILogger<InfoEndpoint> logger, IMemoryCac
     /// Handles the /info request by sending a RootResponse containing the server version and cached symbol counts.
     /// </summary>
     /// <remarks>
-    /// If an in-memory cached response exists it is returned. Otherwise the endpoint resolves the server version from assembly metadata (and PE resources as a fallback), stores the response in memory for one hour, and sends it. If no version string is available, counts are still returned and a warning is logged.
+    /// Delegates to <see cref="ICachedSymbolOverviewProvider" />, which applies the same one-hour in-memory cache used for Open Graph image generation.
     /// </remarks>
     public override async Task HandleAsync(CancellationToken ct)
     {
-        if (memoryCache.TryGetValue(nameof(InfoEndpoint), out RootResponse? response) && response is not null)
-        {
-            await Send.OkAsync(response, ct);
-            return;
-        }
-
-        string? serverVersion = ApplicationVersionHelper.TryGetServerVersion();
-
-        if (serverVersion is null)
-            logger.LogWarning("Could not determine server version; returning counts only");
-
-        response = new RootResponse
-        {
-            ServerVersion = serverVersion,
-            CachedSymbolsTotal = await db.CountAsync<SymbolsEntity>(cancellation: ct),
-            CachedSymbols404 = await db.CountAsync<SymbolsEntity>(
-                s => s.NotFoundAt != null,
-                cancellation: ct),
-            CachedSymbolsFound = await db.CountAsync<SymbolsEntity>(
-                s => s.NotFoundAt == null,
-                cancellation: ct)
-        };
-
-        memoryCache.Set(nameof(InfoEndpoint), response, new MemoryCacheEntryOptions
-        {
-            AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1),
-            Size = 1
-        });
-
+        RootResponse response = await overviewProvider.GetAsync(ct);
         await Send.OkAsync(response, ct);
     }
 }
