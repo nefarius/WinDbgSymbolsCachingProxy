@@ -73,6 +73,9 @@ If you like this idea and want to keep my public instance happy and running,
     - `/api/uploads/symbol`
         - `POST` one or more supported symbol (currently `.exe`, `.dll`, `.sys` and `.pdb`) files using your own
           REST client or the provided [harvesting agent](./agent).
+    - Web UI (`/upload`)
+        - Upload symbols through the browser: multi-file selection, drag-and-drop, and the same supported extensions as
+          the API (requires the same Basic authentication as other protected routes).
 
 ## Projects
 
