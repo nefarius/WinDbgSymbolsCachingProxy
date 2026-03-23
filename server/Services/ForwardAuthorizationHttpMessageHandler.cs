@@ -22,6 +22,7 @@ internal sealed class ForwardAuthorizationHttpMessageHandler : DelegatingHandler
     /// Copies the current inbound HTTP context's Authorization header (if present) onto the outgoing <paramref name="request"/> before forwarding it to the next handler.
     /// </summary>
     /// <param name="request">The outgoing HTTP request which may be modified to include the inbound Authorization header.</param>
+    /// <param name="cancellationToken">The cancellation token used to cancel the operation.</param>
     /// <returns>A task whose result is the <see cref="HttpResponseMessage"/> produced by the next handler in the pipeline.</returns>
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
         CancellationToken cancellationToken)
