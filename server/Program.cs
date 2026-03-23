@@ -11,6 +11,7 @@ using FastEndpoints.Swagger;
 using idunno.Authentication.Basic;
 
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Extensions.Options;
 using Microsoft.SymbolStore;
 
@@ -102,6 +103,8 @@ builder.Services.AddScheduler();
 #region MudBlazor
 
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddScoped<AuthenticationStateProvider, HttpContextAuthenticationStateProvider>();
 builder.Services.AddTransient<ForwardAuthorizationHttpMessageHandler>();
 builder.Services.AddHttpClient("SymbolUploadApi")
     .AddHttpMessageHandler<ForwardAuthorizationHttpMessageHandler>();
@@ -182,8 +185,10 @@ builder.Services.AddAuthentication(BasicAuthenticationDefaults.AuthenticationSch
         };
     });
 
-builder.Services.AddAuthorizationBuilder()
-    .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
+// Do not use a global fallback RequireAuthenticatedUser: it also applies to Blazor's interactive
+// server endpoints (circuit/negotiate), which cannot all be opted out via MapRazorComponents.
+// FastEndpoints are secure by default unless AllowAnonymous() is called; Blazor uses [Authorize] / [AllowAnonymous] on pages.
+builder.Services.AddAuthorization();
 
 #region Database
 
@@ -224,6 +229,7 @@ app.UseFastEndpoints();
 app.UseAntiforgery();
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode();
+    .AddInteractiveServerRenderMode()
+    .AllowAnonymous();
 
 await app.RunAsync();

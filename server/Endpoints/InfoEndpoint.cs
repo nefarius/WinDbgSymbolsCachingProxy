@@ -29,7 +29,7 @@ public sealed class InfoEndpoint(DB db, ILogger<InfoEndpoint> logger, IMemoryCac
     /// Handles the /info request by sending a RootResponse containing the server version and cached symbol counts.
     /// </summary>
     /// <remarks>
-    /// If an in-memory cached response exists it is returned. Otherwise the endpoint reads the entry assembly's PE resources to construct the response, stores it in memory for one hour, and sends it. If PE resources cannot be obtained, an error is logged and an HTTP 500 response is sent.
+    /// If an in-memory cached response exists it is returned. Otherwise the endpoint resolves the server version from assembly metadata (and PE resources as a fallback), stores the response in memory for one hour, and sends it. If no version string is available, counts are still returned and a warning is logged.
     /// </remarks>
     public override async Task HandleAsync(CancellationToken ct)
     {
@@ -39,14 +39,10 @@ public sealed class InfoEndpoint(DB db, ILogger<InfoEndpoint> logger, IMemoryCac
             return;
         }
 
-        string? serverVersion = ApplicationVersionHelper.TryGetEntryAssemblyFileVersion();
+        string? serverVersion = ApplicationVersionHelper.TryGetServerVersion();
 
         if (serverVersion is null)
-        {
-            logger.LogError("Couldn't determine server version (missing PE resources or helper failure)");
-            await Send.ErrorsAsync(500, ct);
-            return;
-        }
+            logger.LogWarning("Could not determine server version; returning counts only");
 
         response = new RootResponse
         {

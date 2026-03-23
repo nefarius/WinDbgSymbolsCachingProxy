@@ -22,7 +22,7 @@
 **/values.dev.yaml
 LICENSE
 README.md
-.git
+# .git is required in the image build so MinVer can derive AssemblyInformationalVersion from tags.
 agent/
 tests/
 lib/
