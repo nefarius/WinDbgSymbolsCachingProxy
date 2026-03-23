@@ -32,6 +32,15 @@ public partial class Upload
     private bool _force;
     private bool _uploading;
 
+    /// <summary>
+    /// Validates the currently selected files, uploads supported symbol files to the symbol upload API, and shows success, warning, or error notifications.
+    /// </summary>
+    /// <remarks>
+    /// - Shows a warning if no files are selected or if all selected files are unsupported.
+    /// - Skips unsupported file types and warns which files were skipped.
+    /// - Honors the component's force flag when invoking the upload endpoint.
+    /// - Clears the file selection and resets internal state on successful upload.
+    /// </remarks>
     private async Task UploadAsync()
     {
         if (_files is null || _files.Count == 0)
@@ -112,6 +121,11 @@ public partial class Upload
         }
     }
 
+    /// <summary>
+    /// Converts an HTTP error response body into a user-facing error message.
+    /// </summary>
+    /// <param name="body">Raw response body returned by the server.</param>
+    /// <returns>`"Upload failed."` if <paramref name="body"/> is null or whitespace; otherwise a parsed message extracted from JSON `errors` (aggregated), or from `detail`, `message`, or `title` fields in that order; if no recognized JSON fields are present or parsing fails, returns the original <paramref name="body"/>.</returns>
     private static string TryParseErrorBody(string body)
     {
         if (string.IsNullOrWhiteSpace(body))
