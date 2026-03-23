@@ -15,12 +15,34 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
 
     steps:
     - uses: actions/checkout@v4
       with:
         fetch-depth: 0
         submodules: true
-    
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Compute MinVer version override
+      id: minver
+      run: |
+        VERSION=$(git describe --tags --always --long 2>/dev/null || echo "0.0.0-ci+${GITHUB_SHA:0:7}")
+        echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+        echo "Using MINVERVERSIONOVERRIDE=$VERSION"
+
     - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag wdscp:$(date +%s)
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        file: Dockerfile
+        push: false
+        tags: wdscp:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        build-args: |
+          MINVERVERSIONOVERRIDE=${{ steps.minver.outputs.version }}
