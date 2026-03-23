@@ -15,12 +15,40 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
 
     steps:
     - uses: actions/checkout@v4
       with:
         fetch-depth: 0
         submodules: true
-    
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Compute MinVer version override
+      id: minver
+      run: |
+        # git describe --long emits e.g. v1.14.0-pre022-387-g9d5866f, which is not valid SemVer for MinVer.
+        # Map -<commits>-g<hash> suffix to +<commits>.<hash> and strip a leading v.
+        if RAW=$(git describe --tags --long 2>/dev/null); then
+          VERSION=$(printf '%s\n' "$RAW" | sed -E 's/^v//; s/-([0-9]+)-g([0-9a-fA-F]+)$/+\1.\2/')
+        else
+          VERSION="0.0.0-ci+${GITHUB_SHA:0:7}"
+        fi
+        echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+        echo "Using MINVERVERSIONOVERRIDE=$VERSION"
+
     - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag wdscp:$(date +%s)
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        file: Dockerfile
+        push: false
+        tags: wdscp:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        build-args: |
+          MINVERVERSIONOVERRIDE=${{ steps.minver.outputs.version }}
