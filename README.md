@@ -13,7 +13,7 @@ and [MongoDB](https://mongodb-entities.com/).
 When working frequently
 with [WinDbg](https://learn.microsoft.com/en-us/windows-hardware/drivers/debugger/debugging-using-windbg-preview) to
 analyze kernel memory dumps, symbol (down)loading is a widespread occurrence. What's also quite common is the abysmal
-performance of the official Microsoft Symbol Servers, taking easily **between two to three seconds** for every request!
+performance of the official Microsoft Symbol Servers, taking easily **between two and three seconds** for every request!
 Being fed up with wasting precious lifetime I made this little caching proxy you can put in between your WinDbg
 instances and use it in conjunction with an offline caching directory. The proxy server will store a copy of the
 requested symbol in a MongoDB database, including information if the symbol even exists upstream.
@@ -42,7 +42,7 @@ size of 186 Megabytes** with three different strategies outlined below. Let's go
 ![Cached Symbols Count](https://symbols.nefarius.at/api/badges/cachedSymbolsTotal) ![Cached Symbols 404](https://symbols.nefarius.at/api/badges/cachedSymbolsNotFound) ![Cached Symbols Found](https://symbols.nefarius.at/api/badges/cachedSymbolsFound)
 
 I'm hosting an instance of this project at [`https://symbols.nefarius.at/`](https://symbols.nefarius.at/) which you can
-consume and help grow by adjusting your symbol source settings like so:
+use and help grow by adjusting your symbol source settings like so:
 
 ```text
 .sympath cache*D:\symbols;srv*https://symbols.nefarius.at/download/symbols
@@ -50,16 +50,16 @@ consume and help grow by adjusting your symbol source settings like so:
 
 This means my local symbol cache resides at `D:\symbols`, adjust to your own preferences.
 
-Like any other of my public web services, it only logs an absolute minimal amount required for debugging purposes, and
+Like any other of my public web services, it only logs the absolute minimum required for debugging purposes, and
 I'll never sell your data out to the big bois 😉
 
-If you like this idea and want to keep my public instance happy, up and
-running [consider making a donation](https://docs.nefarius.at/Community-Support/) 💸
+If you like this idea and want to keep my public instance happy and running,
+[consider making a donation](https://docs.nefarius.at/Community-Support/) 💸
 
 ## Features
 
 - Caching! Pretty much the main purpose 😁
-    - `/download/symbols/{Symbol}/{SignaturePlusAge}/{File}`
+    - `/download/symbols/{Symbol}/{SymbolKey}/{FileName}`
         - Serves the typical download request which the debugger issues.
 - Badges! Embed server statistics anywhere via generated SVGs 🖼️
     - `/api/badges/cachedSymbolsTotal`
@@ -76,7 +76,7 @@ running [consider making a donation](https://docs.nefarius.at/Community-Support/
 ## Projects
 
 - [`WinDbgSymbolsCachingProxy`](./server)  
-  The symbols caching/hosting server backend that provides the REST API to the database.
+  The symbol caching/hosting server backend that provides the REST API to the database.
 - [`HarvestingAgent`](./agent)  
   A worker service that watches over filesystem directories for new symbols and uploads them to your servers.
 - [`Nefarius.Utilities.ExceptionEnricher`](./lib)  
@@ -86,7 +86,7 @@ running [consider making a donation](https://docs.nefarius.at/Community-Support/
 ## Limitations
 
 - Regarding non-native PDBs like those produced by .NET applications, currently only `full` (a.k.a. Windows-native)
-  debug symbols are supported, since the `portable` can not be parsed server-side.
+  debug symbols are supported, since `portable` symbols cannot be parsed server-side.
 
 ## How to publish
 
