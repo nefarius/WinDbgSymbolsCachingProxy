@@ -1,3 +1,4 @@
+using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -81,10 +82,22 @@ public partial class Upload
             using MultipartFormDataContent form = new();
             foreach (IBrowserFile file in valid)
             {
-                Stream stream = file.OpenReadStream(SymbolUploadConstants.MaxUploadBytesPerFile);
-                StreamContent content = new(stream);
-                content.Headers.ContentType = MediaTypeHeaderValue.Parse("application/octet-stream");
-                form.Add(content, "symbol", file.Name);
+                Stream? stream = null;
+                StreamContent? content = null;
+                try
+                {
+                    stream = file.OpenReadStream(SymbolUploadConstants.MaxUploadBytesPerFile);
+                    content = new StreamContent(stream);
+                    stream = null;
+                    content.Headers.ContentType = MediaTypeHeaderValue.Parse("application/octet-stream");
+                    form.Add(content, "symbol", file.Name);
+                    content = null;
+                }
+                finally
+                {
+                    content?.Dispose();
+                    stream?.Dispose();
+                }
             }
 
             HttpClient client = HttpClientFactory.CreateClient(SymbolUploadHttpClientName);
