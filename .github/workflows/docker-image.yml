@@ -31,7 +31,13 @@ jobs:
     - name: Compute MinVer version override
       id: minver
       run: |
-        VERSION=$(git describe --tags --long 2>/dev/null || echo "0.0.0-ci+${GITHUB_SHA:0:7}")
+        # git describe --long emits e.g. v1.14.0-pre022-387-g9d5866f, which is not valid SemVer for MinVer.
+        # Map -<commits>-g<hash> suffix to +<commits>.<hash> and strip a leading v.
+        if RAW=$(git describe --tags --long 2>/dev/null); then
+          VERSION=$(printf '%s\n' "$RAW" | sed -E 's/^v//; s/-([0-9]+)-g([0-9a-fA-F]+)$/+\1.\2/')
+        else
+          VERSION="0.0.0-ci+${GITHUB_SHA:0:7}"
+        fi
         echo "version=$VERSION" >> "$GITHUB_OUTPUT"
         echo "Using MINVERVERSIONOVERRIDE=$VERSION"
 
