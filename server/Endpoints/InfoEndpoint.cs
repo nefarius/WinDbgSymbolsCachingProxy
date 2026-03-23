@@ -1,14 +1,10 @@
-using System.Reflection;
-
 using FastEndpoints;
 
 using Microsoft.Extensions.Caching.Memory;
 
 using MongoDB.Entities;
 
-using PeNet;
-using PeNet.Header.Resource;
-
+using WinDbgSymbolsCachingProxy.Core;
 using WinDbgSymbolsCachingProxy.Models;
 
 namespace WinDbgSymbolsCachingProxy.Endpoints;
@@ -43,20 +39,18 @@ public sealed class InfoEndpoint(DB db, ILogger<InfoEndpoint> logger, IMemoryCac
             return;
         }
 
-        PeFile peFile = new(Assembly.GetEntryAssembly()!.Location);
+        string? serverVersion = ApplicationVersionHelper.TryGetEntryAssemblyFileVersion();
 
-        if (peFile.Resources is null)
+        if (serverVersion is null)
         {
             logger.LogError("Couldn't get PE file resources");
             await Send.ErrorsAsync(500, ct);
             return;
         }
 
-        StringTable stringTable = peFile.Resources.VsVersionInfo!.StringFileInfo.StringTable.First();
-
         response = new RootResponse
         {
-            ServerVersion = stringTable.FileVersion,
+            ServerVersion = serverVersion,
             CachedSymbolsTotal = await db.CountAsync<SymbolsEntity>(cancellation: ct),
             CachedSymbols404 = await db.CountAsync<SymbolsEntity>(
                 s => s.NotFoundAt != null,

@@ -1,0 +1,45 @@
+@page "/status"
+@implements IDisposable
+
+<PageTitle>Status</PageTitle>
+
+<MudStack Spacing="4">
+    <MudText Typo="Typo.h5">Database status</MudText>
+
+    @if (_loading)
+    {
+        <MudProgressLinear Indeterminate="true"/>
+    }
+    else if (_loadFailed)
+    {
+        <MudAlert Severity="Severity.Error">Failed to load statistics. Please try again.</MudAlert>
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(_serverVersion))
+        {
+            <MudText Typo="Typo.body2" Class="mb-2">Server version: <strong>@_serverVersion</strong></MudText>
+        }
+
+        <MudGrid Spacing="3">
+            <MudItem xs="12" sm="6" md="4">
+                <MudPaper Class="pa-4" Elevation="2">
+                    <MudText Typo="Typo.subtitle2" Color="Color.Info">Cached Symbols Total</MudText>
+                    <MudText Typo="Typo.h4">@_cachedTotal</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="4">
+                <MudPaper Class="pa-4" Elevation="2">
+                    <MudText Typo="Typo.subtitle2" Color="Color.Success">Cached Symbols Found</MudText>
+                    <MudText Typo="Typo.h4">@_cachedFound</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="4">
+                <MudPaper Class="pa-4" Elevation="2">
+                    <MudText Typo="Typo.subtitle2" Color="Color.Warning">Cached Symbols 404</MudText>
+                    <MudText Typo="Typo.h4">@_cachedNotFound</MudText>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    }
+</MudStack>
