@@ -43,7 +43,7 @@ public sealed class InfoEndpoint(DB db, ILogger<InfoEndpoint> logger, IMemoryCac
 
         if (serverVersion is null)
         {
-            logger.LogError("Couldn't get PE file resources");
+            logger.LogError("Couldn't determine server version (missing PE resources or helper failure)");
             await Send.ErrorsAsync(500, ct);
             return;
         }

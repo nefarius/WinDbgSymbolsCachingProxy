@@ -1,6 +1,7 @@
 using JetBrains.Annotations;
 
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Logging;
 
 using MongoDB.Entities;
 
@@ -14,6 +15,9 @@ public partial class Status : IDisposable
 {
     [Inject]
     private DB Db { get; set; } = null!;
+
+    [Inject]
+    private ILogger<Status> Logger { get; set; } = null!;
 
     private CancellationTokenSource? _cts;
     private bool _loading = true;
@@ -50,8 +54,9 @@ public partial class Status : IDisposable
         {
             // Component disposed during load
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            Logger.LogError(ex, "Failed loading status");
             _loadFailed = true;
         }
         finally

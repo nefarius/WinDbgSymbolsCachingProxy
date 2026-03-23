@@ -19,11 +19,18 @@ public static class ApplicationVersionHelper
         if (string.IsNullOrEmpty(asm?.Location))
             return null;
 
-        PeFile peFile = new(asm.Location);
-        if (peFile.Resources is null)
-            return null;
+        try
+        {
+            PeFile peFile = new(asm.Location);
+            if (peFile.Resources is null)
+                return null;
 
-        StringTable? stringTable = peFile.Resources.VsVersionInfo?.StringFileInfo.StringTable.FirstOrDefault();
-        return stringTable?.FileVersion;
+            StringTable? stringTable = peFile.Resources.VsVersionInfo?.StringFileInfo.StringTable.FirstOrDefault();
+            return stringTable?.FileVersion;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
     }
 }
