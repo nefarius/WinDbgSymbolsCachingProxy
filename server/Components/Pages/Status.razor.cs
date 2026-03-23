@@ -13,11 +13,29 @@ namespace WinDbgSymbolsCachingProxy.Components.Pages;
 [UsedImplicitly]
 public partial class Status : IDisposable
 {
+    private const string OgImageWidthPx = "1200";
+    private const string OgImageHeightPx = "630";
+    private const string OgTitleText = "Symbols Server — Status";
+
     [Inject]
     private DB Db { get; set; } = null!;
 
     [Inject]
     private ILogger<Status> Logger { get; set; } = null!;
+
+    [Inject]
+    private NavigationManager NavigationManager { get; set; } = null!;
+
+    private string OgAbsoluteBase => NavigationManager.BaseUri.TrimEnd('/');
+
+    private string CanonicalStatusUrl => $"{OgAbsoluteBase}/status";
+
+    private string OpenGraphImageUrl => $"{OgAbsoluteBase}/og/status.png";
+
+    private string OgDescription =>
+        _loadFailed
+            ? "Live database status for this WinDbg symbols caching proxy."
+            : $"Cached symbols: {_cachedTotal:N0} total · {_cachedFound:N0} found · {_cachedNotFound:N0} recorded as not found upstream.";
 
     private CancellationTokenSource? _cts;
     private bool _loading = true;
