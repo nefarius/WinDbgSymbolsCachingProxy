@@ -1,4 +1,4 @@
-﻿**/.dockerignore
+**/.dockerignore
 **/.env
 **/.gitignore
 **/.project
@@ -22,3 +22,11 @@
 **/values.dev.yaml
 LICENSE
 README.md
+.git
+agent/
+tests/
+lib/
+build/
+.github/
+*.sln
+00_*.cmd
