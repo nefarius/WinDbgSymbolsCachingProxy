@@ -42,7 +42,8 @@ public static class ApplicationVersionHelper
             try
             {
                 PeFile peFile = new(asm.Location);
-                StringTable? stringTable = peFile.Resources?.VsVersionInfo?.StringFileInfo.StringTable.FirstOrDefault();
+                StringTable? stringTable =
+                    peFile.Resources?.VsVersionInfo?.StringFileInfo?.StringTable?.FirstOrDefault();
                 string? peFileVersion = stringTable?.FileVersion;
                 if (!string.IsNullOrWhiteSpace(peFileVersion) && !IsTrivialFourPartVersion(peFileVersion))
                     return peFileVersion.Trim();
