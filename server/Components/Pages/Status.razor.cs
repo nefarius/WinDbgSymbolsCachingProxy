@@ -34,7 +34,7 @@ public partial class Status : IDisposable
 
         try
         {
-            _serverVersion = ApplicationVersionHelper.TryGetEntryAssemblyFileVersion();
+            _serverVersion = ApplicationVersionHelper.TryGetServerVersion();
 
             Task<long> totalTask = Db.CountAsync<SymbolsEntity>(cancellation: ct);
             Task<long> notFoundTask = Db.CountAsync<SymbolsEntity>(
