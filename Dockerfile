@@ -6,17 +6,23 @@ EXPOSE 80
 EXPOSE 443
 
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
-ARG MINVERVERSIONOVERRIDE=0.0.0-local
-ENV MINVERVERSIONOVERRIDE=${MINVERVERSIONOVERRIDE}
+# Optional: set when the build context has no .git (e.g. tarball). Otherwise MinVer uses tags from .git.
+ARG MINVERVERSIONOVERRIDE
 WORKDIR /src
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git \
+    && git config --global --add safe.directory /src \
+    && rm -rf /var/lib/apt/lists/*
 COPY nuget.config .
+COPY .git ./.git
 COPY server/WinDbgSymbolsCachingProxy.csproj server/
 RUN --mount=type=cache,target=/root/.nuget/packages \
     dotnet restore "server/WinDbgSymbolsCachingProxy.csproj"
 COPY server/ ./server/
 WORKDIR /src/server
 RUN --mount=type=cache,target=/root/.nuget/packages \
-    dotnet publish "WinDbgSymbolsCachingProxy.csproj" -c Release -o /app/publish /p:UseAppHost=false
+    if [ -n "${MINVERVERSIONOVERRIDE}" ]; then export MINVERVERSIONOVERRIDE="${MINVERVERSIONOVERRIDE}"; fi \
+    && dotnet publish "WinDbgSymbolsCachingProxy.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
 FROM base AS final
 ENV DEBIAN_FRONTEND=noninteractive
