@@ -38,7 +38,10 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     ; \
     curl -sSL "https://github.com/fullstorydev/grpcurl/releases/download/v1.9.2/grpcurl_1.9.2_linux_x86_64.tar.gz" | tar -xz -C /usr/local/bin; \
     rm -rf /var/lib/apt/lists/*
+RUN groupadd --system appgroup && useradd --system --gid appgroup --no-create-home appuser
 WORKDIR /app
 COPY --from=build /app/publish .
-
+RUN chown -R appuser:appgroup /app
+USER appuser
+ENV HOME=/app
 ENTRYPOINT ["dotnet", "WinDbgSymbolsCachingProxy.dll"]
