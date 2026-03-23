@@ -1,8 +1,4 @@
-using MongoDB.Bson;
-using MongoDB.Driver;
 using MongoDB.Entities;
-
-using WinDbgSymbolsCachingProxy.Models;
 
 namespace WinDbgSymbolsCachingProxy.Migrations;
 
@@ -12,41 +8,12 @@ namespace WinDbgSymbolsCachingProxy.Migrations;
 /// </summary>
 public class _008_DeduplicateEntries : IMigration
 {
-    public async Task UpgradeAsync()
+    /// <summary>
+    /// Executes the migration that removes duplicate symbol records grouped by (IndexPrefix, FileName), keeping the most recently accessed record for each group.
+    /// </summary>
+    /// <returns>A Task that completes when the deduplication migration has finished.</returns>
+    public Task UpgradeAsync()
     {
-        IMongoCollection<SymbolsEntity> collection = DB.Default.Collection<SymbolsEntity>();
-
-        PipelineDefinition<SymbolsEntity, BsonDocument> pipeline = new BsonDocument[]
-        {
-            new("$sort", new BsonDocument("LastAccessedAt", -1)),
-            new("$group", new BsonDocument
-            {
-                { "_id", new BsonDocument { { "IndexPrefix", "$IndexPrefix" }, { "FileName", "$FileName" } } },
-                { "keepId", new BsonDocument("$first", "$_id") },
-                { "allIds", new BsonDocument("$push", "$_id") },
-                { "count", new BsonDocument("$sum", 1) }
-            }),
-            new("$match", new BsonDocument("count", new BsonDocument("$gt", 1)))
-        };
-
-        AggregateOptions options = new() { AllowDiskUse = true };
-        using IAsyncCursor<BsonDocument> cursor = await collection.AggregateAsync(pipeline, options);
-
-        while (await cursor.MoveNextAsync())
-        {
-            foreach (BsonDocument group in cursor.Current)
-            {
-                string keepId = group["keepId"].ToString()!;
-                List<string> idsToDelete = group["allIds"].AsBsonArray
-                    .Select(id => id.ToString()!)
-                    .Where(id => id != keepId)
-                    .ToList();
-
-                foreach (string id in idsToDelete)
-                {
-                    await DB.Default.DeleteAsync<SymbolsEntity>(id);
-                }
-            }
-        }
+        return SymbolDedupMigrationHelper.DeduplicateSymbolsAsync(nameof(_008_DeduplicateEntries));
     }
 }

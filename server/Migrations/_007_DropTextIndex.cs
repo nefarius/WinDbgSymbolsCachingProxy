@@ -1,5 +1,5 @@
-using MongoDB.Bson;
 using MongoDB.Driver;
+
 using MongoDB.Entities;
 
 using WinDbgSymbolsCachingProxy.Models;
@@ -7,45 +7,21 @@ using WinDbgSymbolsCachingProxy.Models;
 namespace WinDbgSymbolsCachingProxy.Migrations;
 
 /// <summary>
-///     Deduplicates SymbolsEntity on (IndexPrefix, FileName), then drops the old text index so the app can recreate it as a proper ascending unique index.
+///     Drops the old text index before deduplication (cheaper deletes), then deduplicates SymbolsEntity on (IndexPrefix, FileName)
+///     so the app can recreate a proper ascending unique index.
 /// </summary>
 public class _007_DropTextIndex : IMigration
 {
+    /// <summary>
+    /// Drops the legacy "IndexPrefix_text_FileName_text" text index if it exists, then deduplicates SymbolsEntity records so a correct unique index can be recreated.
+    /// </summary>
+    /// <remarks>
+    /// Missing-index errors during the drop are ignored; deduplication is performed by SymbolDedupMigrationHelper using this migration's name.
+    /// </remarks>
+    /// <returns>A task that completes when the migration has finished.</returns>
     public async Task UpgradeAsync()
     {
         IMongoCollection<SymbolsEntity> collection = DB.Default.Collection<SymbolsEntity>();
-
-        PipelineDefinition<SymbolsEntity, BsonDocument> pipeline = new BsonDocument[]
-        {
-            new("$sort", new BsonDocument("LastAccessedAt", -1)),
-            new("$group", new BsonDocument
-            {
-                { "_id", new BsonDocument { { "IndexPrefix", "$IndexPrefix" }, { "FileName", "$FileName" } } },
-                { "keepId", new BsonDocument("$first", "$_id") },
-                { "allIds", new BsonDocument("$push", "$_id") },
-                { "count", new BsonDocument("$sum", 1) }
-            }),
-            new("$match", new BsonDocument("count", new BsonDocument("$gt", 1)))
-        };
-
-        AggregateOptions options = new() { AllowDiskUse = true };
-        using IAsyncCursor<BsonDocument> cursor = await collection.AggregateAsync(pipeline, options);
-
-        while (await cursor.MoveNextAsync())
-        {
-            foreach (BsonDocument group in cursor.Current)
-            {
-                string keepId = group["keepId"].ToString()!;
-                foreach (BsonValue idVal in group["allIds"].AsBsonArray)
-                {
-                    string id = idVal.ToString()!;
-                    if (id != keepId)
-                    {
-                        await DB.Default.DeleteAsync<SymbolsEntity>(id);
-                    }
-                }
-            }
-        }
 
         try
         {
@@ -55,5 +31,7 @@ public class _007_DropTextIndex : IMigration
         {
             // Index may not exist if this is a fresh database
         }
+
+        await SymbolDedupMigrationHelper.DeduplicateSymbolsAsync(nameof(_007_DropTextIndex));
     }
 }
