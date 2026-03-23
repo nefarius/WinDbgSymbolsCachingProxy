@@ -101,6 +101,11 @@ builder.Services.AddScheduler();
 
 #region MudBlazor
 
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddTransient<ForwardAuthorizationHttpMessageHandler>();
+builder.Services.AddHttpClient("SymbolUploadApi")
+    .AddHttpMessageHandler<ForwardAuthorizationHttpMessageHandler>();
+
 builder.Services.AddMudServices();
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();

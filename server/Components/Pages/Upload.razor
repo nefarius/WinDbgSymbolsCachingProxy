@@ -1,0 +1,35 @@
+@page "/upload"
+@using WinDbgSymbolsCachingProxy.Core
+
+<PageTitle>Upload symbols</PageTitle>
+
+<MudStack Spacing="3">
+    <MudText Typo="Typo.h5">Upload symbols</MudText>
+    <MudText Typo="Typo.body2">
+        Supported types: .exe, .dll, .sys, .pdb. Maximum size per file: @(SymbolUploadConstants.MaxUploadBytesPerFile / 1_000_000) MB.
+    </MudText>
+
+    <MudFileUpload T="IReadOnlyList<IBrowserFile>"
+                   @ref="_fileUpload"
+                   @bind-Files="_files"
+                   Accept="@SymbolUploadConstants.AcceptAttribute"
+                   DragAndDrop="true"
+                   AppendMultipleFiles="true"
+                   MaximumFileCount="100"
+                   MaxFileSize="@SymbolUploadConstants.MaxUploadBytesPerFile"
+                   Disabled="_uploading"/>
+
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+        <MudSwitch @bind-Value="_force" Color="Color.Primary" Disabled="_uploading"
+                   Label="Overwrite existing symbols (force)"/>
+    </MudStack>
+
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.CloudUpload"
+               Disabled="_uploading || _files is null || _files.Count == 0" OnClick="UploadAsync">
+        @if (_uploading)
+        {
+            <MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true"/>
+        }
+        @(_uploading ? "Uploading…" : "Upload")
+    </MudButton>
+</MudStack>
