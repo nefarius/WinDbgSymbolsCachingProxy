@@ -3,7 +3,16 @@
         <Found Context="routeData">
             <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
                 <NotAuthorized>
-                    <MudText Typo="Typo.body1">This page requires sign-in. Use the browser prompt when you open Search or Upload, or reload after entering credentials.</MudText>
+                    <MudStack Spacing="2">
+                        <MudText Typo="Typo.body1">This page requires sign-in. Use the browser prompt when you open Search or Upload, or reload after entering credentials.</MudText>
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   OnClick="RetryCurrentRouteWithFullLoad"
+                                   title="Reload this page so the browser can send your credentials"
+                                   aria-label="Retry / Open protected page">
+                            Retry / Open protected page
+                        </MudButton>
+                    </MudStack>
                 </NotAuthorized>
             </AuthorizeRouteView>
             <FocusOnNavigate RouteData="routeData" Selector="h1" />
