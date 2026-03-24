@@ -6,7 +6,7 @@ Windows service that watches configured folders for new symbol files and uploads
 
 - Bound to **127.0.0.1 only** (no authentication). Default port **5088** unless you change it in Settings.
 - Open `http://127.0.0.1:5088/` after starting the agent.
-- **Dashboard** — start/stop harvesting, upload counters, last error, watcher list.
+- **Dashboard** — start/stop harvesting, upload counters, last error, watcher list, and recent file activity history (detected/uploaded/failed).
 - **Configuration** — upload servers (URL, basic auth), watcher paths (each with an **Include subdirectories** checkbox), upload file filters (`*.exe`, `*.dll`, …), delete-after-upload and deletion glob rules.
 - **Settings** — listen port (requires **service restart** to take effect).
 
@@ -24,6 +24,7 @@ The agent watches directories you configure. Supported upload patterns default t
 Enable **Include subdirectories** on a watcher row when you want the entire directory tree monitored. That pairs well with **Delete after successful upload** turned off so builds are not disturbed. Older settings files that used a trailing `*` on the path are still loaded and converted automatically.
 
 Logging is still configured via `appsettings.json` / `appsettings.Development.json` (Serilog); harvester options are **not** read from those files.
+Dashboard file activity history is in-memory only and resets when the process/service restarts.
 
 ## Sources & 3rd-party credits
 
