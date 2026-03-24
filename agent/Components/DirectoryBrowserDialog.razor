@@ -1,0 +1,128 @@
+@inject DirectoryBrowserService BrowserService
+
+<MudDialog>
+    <TitleContent>
+        Select watcher directory
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="2">
+            <MudText Typo="Typo.body2">
+                Current: <code>@(_currentPath == string.Empty ? "<roots>" : _currentPath)</code>
+            </MudText>
+
+            @if (!string.IsNullOrWhiteSpace(_error))
+            {
+                <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">@_error</MudAlert>
+            }
+
+            <MudStack Row="true" Spacing="1">
+                <MudButton Variant="Variant.Outlined" OnClick="LoadRoots">Roots</MudButton>
+                <MudButton Variant="Variant.Outlined" Disabled="@(_currentPath == string.Empty)" OnClick="GoUp">Up</MudButton>
+                <MudSpacer />
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_currentPath == string.Empty)" OnClick="SelectCurrent">
+                    Select this folder
+                </MudButton>
+            </MudStack>
+
+            <MudPaper Class="pa-2" Outlined="true">
+                <MudTable Items="_items" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm">
+                    <HeaderContent>
+                        <MudTh>Name</MudTh>
+                        <MudTh>Path</MudTh>
+                        <MudTh>Actions</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Name">@context.DisplayName</MudTd>
+                        <MudTd DataLabel="Path">@context.FullPath</MudTd>
+                        <MudTd DataLabel="Actions">
+                            <MudStack Row="true" Spacing="1">
+                                <MudButton Variant="Variant.Text" Size="Size.Small" Disabled="@(!string.IsNullOrEmpty(context.Error))"
+                                           OnClick="@(() => Navigate(context.FullPath))">
+                                    Open
+                                </MudButton>
+                                <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Success"
+                                           OnClick="@(() => Select(context.FullPath))">
+                                    Select
+                                </MudButton>
+                            </MudStack>
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </MudPaper>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Text" OnClick="Cancel">Cancel</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter]
+    public string? InitialPath { get; set; }
+
+    private string _currentPath = string.Empty;
+    private string? _error;
+    private List<DirectoryBrowserNode> _items = [];
+
+    protected override void OnInitialized()
+    {
+        if (!string.IsNullOrWhiteSpace(InitialPath))
+        {
+            Navigate(PathNormalization.NormalizeDirectoryPath(InitialPath));
+            return;
+        }
+
+        LoadRoots();
+    }
+
+    private void LoadRoots()
+    {
+        DirectoryBrowserListResult roots = BrowserService.ListRoots();
+        _currentPath = roots.CurrentPath;
+        _items = roots.Items.ToList();
+        _error = roots.Error;
+    }
+
+    private void Navigate(string path)
+    {
+        DirectoryBrowserListResult result = BrowserService.ListChildren(path);
+        _currentPath = result.CurrentPath;
+        _items = result.Items.ToList();
+        _error = result.Error;
+    }
+
+    private void GoUp()
+    {
+        string? parent = BrowserService.GetParentPath(_currentPath);
+        if (string.IsNullOrEmpty(parent))
+        {
+            LoadRoots();
+            return;
+        }
+
+        Navigate(parent);
+    }
+
+    private void SelectCurrent()
+    {
+        if (_currentPath == string.Empty)
+        {
+            return;
+        }
+
+        MudDialog.Close(DialogResult.Ok(_currentPath));
+    }
+
+    private void Select(string path)
+    {
+        MudDialog.Close(DialogResult.Ok(PathNormalization.NormalizeDirectoryPath(path)));
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+}

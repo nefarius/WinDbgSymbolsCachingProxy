@@ -135,7 +135,7 @@ public sealed class HarvesterRuntime : IDisposable
                     {
                         cancellationToken.ThrowIfCancellationRequested();
 
-                        string path = (watch.Path ?? string.Empty).Trim();
+                        string path = PathNormalization.NormalizeDirectoryPath(watch.Path);
                         if (string.IsNullOrEmpty(path))
                         {
                             continue;
