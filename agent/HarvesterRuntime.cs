@@ -96,6 +96,17 @@ public sealed class HarvesterRuntime : IDisposable
         }
     }
 
+    /// <summary>
+    /// Rebuilds the set of file system watchers from the current configuration and publishes their runtime state.
+    /// </summary>
+    /// <remarks>
+    /// Creates one watcher per unique normalized directory path and recursion setting, registers configured file filters
+    /// and servers for each watcher, attaches Created event handlers, replaces any existing watchers atomically, updates
+    /// the runtime health state, and disposes old watchers.
+    /// </remarks>
+    /// <param name="cancellationToken">Cancellation token to abort the rebuild operation.</param>
+    /// <exception cref="OperationCanceledException">Thrown if <paramref name="cancellationToken"/> is canceled.</exception>
+    /// <exception cref="ObjectDisposedException">Thrown if the runtime has been disposed.</exception>
     public async Task RebuildWatchersAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();

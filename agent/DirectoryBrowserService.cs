@@ -22,6 +22,14 @@ public sealed class DirectoryBrowserListResult
 
 public sealed class DirectoryBrowserService
 {
+    /// <summary>
+    /// Builds a list of filesystem root directories (drive roots) as DirectoryBrowserNode entries.
+    /// </summary>
+    /// <returns>
+    /// A DirectoryBrowserListResult with CurrentPath set to an empty string and Items containing a node for each discovered root drive. 
+    /// Each node's HasChildren is true when at least one immediate subdirectory exists; per-drive errors leave HasChildren false and do not abort listing.
+    /// If enumerating drives fails, Items contains a single node for the current working directory's root with HasChildren set to true.
+    /// </returns>
     public DirectoryBrowserListResult ListRoots()
     {
         List<DirectoryBrowserNode> items = [];
@@ -67,6 +75,15 @@ public sealed class DirectoryBrowserService
         };
     }
 
+    /// <summary>
+    /// Lists immediate subdirectories of the given path as directory nodes for browsing.
+    /// </summary>
+    /// <param name="path">The directory path to list; the path is normalized before enumeration.</param>
+    /// <returns>
+    /// A DirectoryBrowserListResult whose CurrentPath is the normalized input and Items contains a node for each immediate child directory.
+    /// If enumerating the input path fails, Items will be empty and the result's Error will contain the exception message.
+    /// Each DirectoryBrowserNode's Error, if present, contains the exception message that occurred while probing that child's children.
+    /// </returns>
     public DirectoryBrowserListResult ListChildren(string path)
     {
         string normalized = PathNormalization.NormalizeDirectoryPath(path);
@@ -120,6 +137,10 @@ public sealed class DirectoryBrowserService
         }
     }
 
+    /// <summary>
+    /// Get the normalized parent directory path for the given path.
+    /// </summary>
+    /// <returns>The normalized parent directory path, or `null` if the input is empty or no parent exists.</returns>
     public string? GetParentPath(string path)
     {
         string normalized = PathNormalization.NormalizeDirectoryPath(path);

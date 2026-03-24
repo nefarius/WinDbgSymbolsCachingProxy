@@ -2,6 +2,13 @@ namespace HarvestingAgent;
 
 public static class PathNormalization
 {
+    /// <summary>
+    /// Normalize a directory path into a canonical, platform-specific full path.
+    /// </summary>
+    /// <param name="raw">The input path to normalize. If null, empty, or whitespace only, the method returns an empty string.</param>
+    /// <returns>
+    /// A normalized path that uses the platform directory separator, collapses repeated separators, removes trailing separators except for root paths, and preserves a Windows UNC prefix when present; or an empty string if <paramref name="raw"/> is null/empty/whitespace.
+    /// </returns>
     public static string NormalizeDirectoryPath(string? raw)
     {
         if (string.IsNullOrWhiteSpace(raw))
