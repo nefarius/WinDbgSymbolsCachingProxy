@@ -9,6 +9,17 @@ namespace HarvestingAgent;
 
 public sealed class HarvesterRuntime : IDisposable
 {
+    private sealed class WatcherBinding
+    {
+        public required IReadOnlyList<ServerConfig> Servers { get; init; }
+    }
+
+    private sealed class UploadAttemptResult
+    {
+        public bool Success { get; init; }
+        public bool ShouldDeleteAfterAllSuccess { get; init; }
+    }
+
     public static readonly string[] DefaultUploadFilters = ["*.exe", "*.dll", "*.sys", "*.pdb"];
 
     private readonly IHttpClientFactory _httpClientFactory;
@@ -18,7 +29,7 @@ public sealed class HarvesterRuntime : IDisposable
     private readonly IHostApplicationLifetime _lifetime;
 
     private readonly object _gate = new();
-    private Dictionary<FileSystemWatcher, ServerConfig>? _maps;
+    private Dictionary<FileSystemWatcher, WatcherBinding>? _maps;
     private bool _disposed;
 
     public HarvesterRuntime(
@@ -33,7 +44,7 @@ public sealed class HarvesterRuntime : IDisposable
         _store = store;
         _health = health;
         _lifetime = lifetime;
-        _maps = new Dictionary<FileSystemWatcher, ServerConfig>();
+        _maps = new Dictionary<FileSystemWatcher, WatcherBinding>();
     }
 
     /// <summary>
@@ -93,14 +104,17 @@ public sealed class HarvesterRuntime : IDisposable
         {
             cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
-            DisposeWatchersLocked();
 
             AgentSettingsDocument doc = _store.GetSnapshot();
             ServiceConfig serviceConfig = doc.ToServiceConfig();
-            Dictionary<FileSystemWatcher, ServerConfig>? maps = new Dictionary<FileSystemWatcher, ServerConfig>();
+            Dictionary<FileSystemWatcher, WatcherBinding> newMaps = new();
+            Dictionary<FileSystemWatcher, WatcherBinding> oldMaps = _maps ?? new Dictionary<FileSystemWatcher, WatcherBinding>();
 
             try
             {
+                // Group servers by watcher path, then create one watcher per unique path.
+                Dictionary<(string Path, bool Recursive), (HashSet<string> Filters, List<ServerConfig> Servers)> watcherGroups = new();
+
                 foreach (ServerConfig serverConfig in serviceConfig.Servers)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
@@ -111,7 +125,7 @@ public sealed class HarvesterRuntime : IDisposable
                         continue;
                     }
 
-                    IReadOnlyList<string> filters = serverConfig.UploadFileFilters.Count > 0
+                    IReadOnlyList<string> effectiveFilters = serverConfig.UploadFileFilters.Count > 0
                         ? serverConfig.UploadFileFilters
                         : DefaultUploadFilters;
 
@@ -126,52 +140,74 @@ public sealed class HarvesterRuntime : IDisposable
                         }
 
                         bool recursive = watch.IncludeSubdirectories;
-                        FileSystemWatcher? watcher = null;
-                        try
+                        (string Path, bool Recursive) key = (path, recursive);
+
+                        if (!watcherGroups.TryGetValue(key, out var group))
                         {
-                            watcher = new FileSystemWatcher(path)
-                            {
-                                NotifyFilter = NotifyFilters.Attributes
-                                               | NotifyFilters.CreationTime
-                                               | NotifyFilters.DirectoryName
-                                               | NotifyFilters.FileName
-                                               | NotifyFilters.LastWrite
-                                               | NotifyFilters.Size,
-                                IncludeSubdirectories = recursive
-                            };
-
-                            foreach (string pattern in filters)
-                            {
-                                watcher.Filters.Add(pattern);
-                            }
-
-                            _logger.LogInformation(
-                                watcher.IncludeSubdirectories
-                                    ? "Watching over path {Path} ({@Filters}) and its subdirectories"
-                                    : "Watching over path {Path} ({@Filters})", watcher.Path,
-                                watcher.Filters);
-
-                            maps.Add(watcher, serverConfig);
-                            watcher = null;
+                            group = (new HashSet<string>(StringComparer.OrdinalIgnoreCase), []);
+                            watcherGroups[key] = group;
                         }
-                        catch (Exception ex)
+
+                        foreach (string pattern in effectiveFilters)
                         {
-                            _logger.LogWarning(ex, "Skipping invalid watcher path {Path}", path);
-                            watcher?.Dispose();
+                            group.Filters.Add(pattern);
                         }
+
+                        group.Servers.Add(serverConfig);
                     }
                 }
 
-                _maps = maps;
-                maps = null;
+                foreach (KeyValuePair<(string Path, bool Recursive), (HashSet<string> Filters, List<ServerConfig> Servers)> item in watcherGroups)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    FileSystemWatcher? watcher = null;
+                    try
+                    {
+                        watcher = new FileSystemWatcher(item.Key.Path)
+                        {
+                            NotifyFilter = NotifyFilters.Attributes
+                                           | NotifyFilters.CreationTime
+                                           | NotifyFilters.DirectoryName
+                                           | NotifyFilters.FileName
+                                           | NotifyFilters.LastWrite
+                                           | NotifyFilters.Size,
+                            IncludeSubdirectories = item.Key.Recursive
+                        };
+
+                        foreach (string pattern in item.Value.Filters)
+                        {
+                            watcher.Filters.Add(pattern);
+                        }
+
+                        _logger.LogInformation(
+                            watcher.IncludeSubdirectories
+                                ? "Watching over path {Path} ({@Filters}) and its subdirectories"
+                                : "Watching over path {Path} ({@Filters})", watcher.Path,
+                            watcher.Filters);
+
+                        newMaps.Add(watcher, new WatcherBinding
+                        {
+                            Servers = item.Value.Servers.ToArray()
+                        });
+                        watcher = null;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Skipping invalid watcher path {Path}", item.Key.Path);
+                        watcher?.Dispose();
+                    }
+                }
 
                 cancellationToken.ThrowIfCancellationRequested();
 
                 bool enable = doc.HarvestingEnabled;
                 List<WatcherStatusEntry> status = [];
 
-                foreach (KeyValuePair<FileSystemWatcher, ServerConfig> map in _maps)
+                foreach (KeyValuePair<FileSystemWatcher, WatcherBinding> map in newMaps)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
+
                     FileSystemWatcher w = map.Key;
                     w.Created += WatcherOnCreated;
                     w.EnableRaisingEvents = enable;
@@ -183,6 +219,9 @@ public sealed class HarvesterRuntime : IDisposable
                     });
                 }
 
+                // Publish only after the new collection is fully initialized.
+                _maps = newMaps;
+                DisposeWatchersLocked(oldMaps);
                 _health.SetRuntimeState(enable, status.AsReadOnly());
 
                 if (enable)
@@ -194,24 +233,10 @@ public sealed class HarvesterRuntime : IDisposable
                     _logger.LogInformation("Watchers created but harvesting is disabled");
                 }
             }
-            finally
+            catch
             {
-                if (maps is not null)
-                {
-                    foreach (FileSystemWatcher w in maps.Keys)
-                    {
-                        try
-                        {
-                            w.Dispose();
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogDebug(ex, "Error disposing watcher during failed rebuild");
-                        }
-                    }
-
-                    maps.Clear();
-                }
+                DisposeWatchersLocked(newMaps);
+                throw;
             }
         }
     }
@@ -221,6 +246,7 @@ public sealed class HarvesterRuntime : IDisposable
         lock (_gate)
         {
             ThrowIfDisposed();
+            cancellationToken.ThrowIfCancellationRequested();
             _store.UpdateHarvestingEnabled(enabled);
 
             if (_maps is null)
@@ -230,8 +256,9 @@ public sealed class HarvesterRuntime : IDisposable
 
             List<WatcherStatusEntry> status = [];
 
-            foreach (KeyValuePair<FileSystemWatcher, ServerConfig> map in _maps)
+            foreach (KeyValuePair<FileSystemWatcher, WatcherBinding> map in _maps)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 FileSystemWatcher w = map.Key;
                 w.EnableRaisingEvents = enabled;
                 status.Add(new WatcherStatusEntry
@@ -242,8 +269,10 @@ public sealed class HarvesterRuntime : IDisposable
                 });
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             _health.SetRuntimeState(enabled, status.AsReadOnly());
 
+            cancellationToken.ThrowIfCancellationRequested();
             _logger.LogInformation(enabled ? "Watchers enabled" : "Watchers disabled");
         }
 
@@ -277,15 +306,20 @@ public sealed class HarvesterRuntime : IDisposable
             return;
         }
 
-        int count = _maps.Count;
-        foreach (KeyValuePair<FileSystemWatcher, ServerConfig> map in _maps)
+        DisposeWatchersLocked(_maps);
+    }
+
+    private void DisposeWatchersLocked(Dictionary<FileSystemWatcher, WatcherBinding> maps)
+    {
+        int count = maps.Count;
+        foreach (KeyValuePair<FileSystemWatcher, WatcherBinding> map in maps)
         {
             map.Key.Created -= WatcherOnCreated;
             map.Key.EnableRaisingEvents = false;
             map.Key.Dispose();
         }
 
-        _maps.Clear();
+        maps.Clear();
         if (count > 0)
         {
             _logger.LogInformation("Watchers stopped");
@@ -303,77 +337,41 @@ public sealed class HarvesterRuntime : IDisposable
         {
             try
             {
-                ServerConfig? serverConfig;
+                WatcherBinding? binding;
                 lock (_gate)
                 {
-                    if (_maps is null || !_maps.TryGetValue(watcher, out serverConfig))
+                    if (_maps is null || !_maps.TryGetValue(watcher, out binding))
                     {
                         return;
                     }
                 }
 
-                if (serverConfig.ServerUrl is null)
+                if (binding.Servers.Count == 0)
                 {
                     return;
                 }
 
-                using HttpClient client = _httpClientFactory.CreateClient("Server");
-
-                client.BaseAddress = serverConfig.ServerUrl;
-                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-                    "Basic",
-                    Convert.ToBase64String(
-                        Encoding.UTF8.GetBytes(
-                            $"{serverConfig.Authentication.Username}:{serverConfig.Authentication.Password}")));
-
-                using MultipartFormDataContent form = new();
                 string path = e.FullPath;
+                string fileName = Path.GetFileName(path);
 
                 await WaitForFileReadyAsync(path, stopping);
 
-                ByteArrayContent fileContent = new(await File.ReadAllBytesAsync(path, stopping));
                 string? mimeType = MimeTypeMap.GetMimeType(Path.GetExtension(path));
-
                 ArgumentException.ThrowIfNullOrEmpty(mimeType);
 
-                fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse(mimeType);
-                form.Add(fileContent, "symbol", Path.GetFileName(path));
+                Task<UploadAttemptResult>[] uploads = binding.Servers
+                    .Select(serverConfig => UploadToServerAsync(serverConfig, path, fileName, mimeType, stopping))
+                    .ToArray();
 
-                using HttpResponseMessage response = await client.PostAsync(
-                    "/api/uploads/symbol?force=true",
-                    form,
-                    stopping);
+                UploadAttemptResult[] results = await Task.WhenAll(uploads);
 
-                if (response.IsSuccessStatusCode)
+                bool allSucceeded = results.All(r => r.Success);
+                bool shouldDelete = results.Any(r => r.ShouldDeleteAfterAllSuccess);
+
+                if (allSucceeded && shouldDelete)
                 {
-                    _logger.LogInformation("Symbol upload successful");
-                    _health.RecordUploadSuccess();
-
-                    if (serverConfig.DeleteAfterUpload)
-                    {
-                        Matcher matcher = new();
-                        matcher.AddIncludePatterns(serverConfig.DeletionInclusionFilter);
-                        matcher.AddExcludePatterns(serverConfig.DeletionExclusionFilter);
-
-                        PatternMatchingResult match = matcher.Match(Path.GetFileName(path));
-
-                        if (match.HasMatches)
-                        {
-                            File.Delete(path);
-                            _logger.LogInformation("Symbol file {Symbol} deleted", path);
-                        }
-                        else
-                        {
-                            _logger.LogInformation("Symbol file {Symbol} excluded from deletion", path);
-                        }
-                    }
-                }
-                else
-                {
-                    _logger.LogInformation("Symbol upload failed");
-                    string body = await response.Content.ReadAsStringAsync(stopping);
-                    _health.RecordUploadFailure($"HTTP {(int)response.StatusCode}: {body}");
-                    await File.WriteAllTextAsync($"{path}.upload-error.txt", body, stopping);
+                    File.Delete(path);
+                    _logger.LogInformation("Symbol file {Symbol} deleted", path);
                 }
             }
             catch (OperationCanceledException)
@@ -386,5 +384,72 @@ public sealed class HarvesterRuntime : IDisposable
                 _health.RecordError(ex.Message);
             }
         }, stopping);
+    }
+
+    private async Task<UploadAttemptResult> UploadToServerAsync(
+        ServerConfig serverConfig,
+        string path,
+        string fileName,
+        string mimeType,
+        CancellationToken cancellationToken)
+    {
+        if (serverConfig.ServerUrl is null)
+        {
+            return new UploadAttemptResult { Success = false, ShouldDeleteAfterAllSuccess = false };
+        }
+
+        using HttpClient client = _httpClientFactory.CreateClient("Server");
+        client.BaseAddress = serverConfig.ServerUrl;
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Basic",
+            Convert.ToBase64String(
+                Encoding.UTF8.GetBytes(
+                    $"{serverConfig.Authentication.Username}:{serverConfig.Authentication.Password}")));
+
+        using MultipartFormDataContent form = new();
+        await using FileStream fileStream = new(
+            path,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            bufferSize: 1024 * 64,
+            options: FileOptions.Asynchronous | FileOptions.SequentialScan);
+        using StreamContent fileContent = new(fileStream);
+        fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse(mimeType);
+        form.Add(fileContent, "symbol", fileName);
+
+        using HttpResponseMessage response = await client.PostAsync(
+            "/api/uploads/symbol?force=true",
+            form,
+            cancellationToken);
+
+        if (response.IsSuccessStatusCode)
+        {
+            _logger.LogInformation("Symbol upload successful");
+            _health.RecordUploadSuccess();
+
+            bool shouldDelete = false;
+            if (serverConfig.DeleteAfterUpload)
+            {
+                Matcher matcher = new();
+                matcher.AddIncludePatterns(serverConfig.DeletionInclusionFilter);
+                matcher.AddExcludePatterns(serverConfig.DeletionExclusionFilter);
+
+                PatternMatchingResult match = matcher.Match(fileName);
+                shouldDelete = match.HasMatches;
+            }
+
+            return new UploadAttemptResult
+            {
+                Success = true,
+                ShouldDeleteAfterAllSuccess = shouldDelete
+            };
+        }
+
+        _logger.LogInformation("Symbol upload failed");
+        string body = await response.Content.ReadAsStringAsync(cancellationToken);
+        _health.RecordUploadFailure($"HTTP {(int)response.StatusCode}: {body}");
+        await File.WriteAllTextAsync($"{path}.upload-error.txt", body, cancellationToken);
+        return new UploadAttemptResult { Success = false, ShouldDeleteAfterAllSuccess = false };
     }
 }
