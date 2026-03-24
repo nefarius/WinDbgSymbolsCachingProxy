@@ -148,6 +148,8 @@ Then the Nuke target **`BuildInstaller`** publishes both applications and produc
 
 If you change the legal text in `LICENSE`, update `installer\License.rtf` so the setup UI stays in sync.
 
+GitHub Actions **`build-installer`** uploads the MSI as a workflow artifact on every run; pushes of version tags matching `v*` also POST the artifact to Buildbot when the **`WEBHOOK_URL`** repository secret is set (same pattern as other Nefarius projects).
+
 <details><summary>Docker build</summary>
 
 Use your own registry, of course 😉
