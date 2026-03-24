@@ -1,3 +1,5 @@
+using System.Linq;
+
 namespace HarvestingAgent;
 
 public sealed class WatcherStatusEntry
@@ -37,7 +39,7 @@ public sealed class HarvesterHealthState
         {
             HarvestingEnabled = harvestingEnabled;
             Watchers = watchers;
-            ActiveWatcherCount = watchers.Count;
+            ActiveWatcherCount = watchers.Count(w => w.EventsEnabled);
         }
 
         RaiseChanged();

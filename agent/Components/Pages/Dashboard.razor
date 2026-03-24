@@ -24,9 +24,11 @@
                 </MudText>
                 <MudText Class="mb-4">Active watchers: @Health.ActiveWatcherCount</MudText>
                 <MudStack Row="true" Spacing="2">
-                    <MudButton Variant="Variant.Filled" Color="Color.Success" Disabled="@Health.HarvestingEnabled"
+                    <MudButton Variant="Variant.Filled" Color="Color.Success"
+                               Disabled="@(_isTogglingHarvesting || Health.HarvestingEnabled)"
                                OnClick="StartAsync">Start</MudButton>
-                    <MudButton Variant="Variant.Filled" Color="Color.Error" Disabled="@(!Health.HarvestingEnabled)"
+                    <MudButton Variant="Variant.Filled" Color="Color.Error"
+                               Disabled="@(_isTogglingHarvesting || !Health.HarvestingEnabled)"
                                OnClick="StopAsync">Stop</MudButton>
                 </MudStack>
             </MudCardContent>
@@ -85,6 +87,9 @@
 </MudGrid>
 
 @code {
+    private bool _disposed;
+    private bool _isTogglingHarvesting;
+
     protected override void OnInitialized()
     {
         Health.Changed += OnHealthChanged;
@@ -92,13 +97,32 @@
 
     private void OnHealthChanged()
     {
-        _ = InvokeAsync(StateHasChanged);
+        if (_disposed)
+        {
+            return;
+        }
+
+        _ = InvokeAsync(() =>
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            StateHasChanged();
+        });
     }
 
     private async Task StartAsync()
     {
+        if (_isTogglingHarvesting)
+        {
+            return;
+        }
+
         try
         {
+            _isTogglingHarvesting = true;
             await Runtime.SetHarvestingEnabledAsync(true);
             Snackbar.Add("Harvesting started.", Severity.Success);
         }
@@ -106,12 +130,22 @@
         {
             Snackbar.Add(ex.Message, Severity.Error);
         }
+        finally
+        {
+            _isTogglingHarvesting = false;
+        }
     }
 
     private async Task StopAsync()
     {
+        if (_isTogglingHarvesting)
+        {
+            return;
+        }
+
         try
         {
+            _isTogglingHarvesting = true;
             await Runtime.SetHarvestingEnabledAsync(false);
             Snackbar.Add("Harvesting stopped.", Severity.Info);
         }
@@ -119,11 +153,16 @@
         {
             Snackbar.Add(ex.Message, Severity.Error);
         }
+        finally
+        {
+            _isTogglingHarvesting = false;
+        }
     }
 
     public ValueTask DisposeAsync()
     {
         Health.Changed -= OnHealthChanged;
+        _disposed = true;
         return ValueTask.CompletedTask;
     }
 }

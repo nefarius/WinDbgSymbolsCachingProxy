@@ -24,7 +24,7 @@
                  Class="mb-4" Style="max-width: 16rem;" />
 
 <MudStack Row="true" Spacing="2">
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SavePortAsync">Save</MudButton>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SavePort">Save</MudButton>
     <MudButton Variant="Variant.Outlined" OnClick="Reload">Reload from disk</MudButton>
 </MudStack>
 
@@ -45,7 +45,7 @@
         _doc = Store.GetSnapshot();
     }
 
-    private Task SavePortAsync()
+    private void SavePort()
     {
         try
         {
@@ -59,7 +59,5 @@
         {
             Snackbar.Add(ex.Message, Severity.Error);
         }
-
-        return Task.CompletedTask;
     }
 }

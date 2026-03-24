@@ -25,7 +25,7 @@ Enable **Include subdirectories** on a watcher row when you want the entire dire
 
 Logging is still configured via `appsettings.json` / `appsettings.Development.json` (Serilog); harvester options are **not** read from those files.
 
-## Sources & 3rd party credits
+## Sources & 3rd-party credits
 
 - [MinVer](https://github.com/adamralph/minver)
 - [MimeTypeMap](https://github.com/samuelneff/MimeTypeMap)

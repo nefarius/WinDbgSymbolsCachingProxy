@@ -37,109 +37,175 @@ public sealed class HarvesterRuntime : IDisposable
     }
 
     /// <summary>
-    ///     Probes the file for read access indefinitely.
+    ///     Waits until the file can be opened for exclusive read or cancellation is requested.
     /// </summary>
-    private static void WaitForFile(string fullPath)
+    private static async Task WaitForFileReadyAsync(string fullPath, CancellationToken cancellationToken)
     {
         while (true)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                using StreamReader stream = new(fullPath);
+                await using FileStream stream = new(
+                    fullPath,
+                    FileMode.Open,
+                    FileAccess.Read,
+                    FileShare.None,
+                    bufferSize: 1,
+                    options: FileOptions.Asynchronous | FileOptions.SequentialScan);
+
                 break;
             }
-            catch
+            catch (OperationCanceledException)
             {
-                Thread.Sleep(1000);
+                throw;
+            }
+            catch (FileNotFoundException)
+            {
+                throw;
+            }
+            catch (DirectoryNotFoundException)
+            {
+                throw;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                throw;
+            }
+            catch (IOException)
+            {
+                await Task.Delay(500, cancellationToken);
+            }
+            catch (Exception)
+            {
+                await Task.Delay(500, cancellationToken);
             }
         }
     }
 
     public Task RebuildWatchersAsync(CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         lock (_gate)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
             DisposeWatchersLocked();
 
             AgentSettingsDocument doc = _store.GetSnapshot();
             ServiceConfig serviceConfig = doc.ToServiceConfig();
-            Dictionary<FileSystemWatcher, ServerConfig> maps = new();
+            Dictionary<FileSystemWatcher, ServerConfig>? maps = new Dictionary<FileSystemWatcher, ServerConfig>();
 
-            foreach (ServerConfig serverConfig in serviceConfig.Servers)
+            try
             {
-                if (serverConfig.ServerUrl is null)
+                foreach (ServerConfig serverConfig in serviceConfig.Servers)
                 {
-                    _logger.LogWarning("Skipping server entry with no ServerUrl");
-                    continue;
-                }
+                    cancellationToken.ThrowIfCancellationRequested();
 
-                IReadOnlyList<string> filters = serverConfig.UploadFileFilters.Count > 0
-                    ? serverConfig.UploadFileFilters
-                    : DefaultUploadFilters;
-
-                foreach (WatcherPathEntry watch in serverConfig.WatcherPaths)
-                {
-                    string path = watch.Path.Trim();
-                    if (string.IsNullOrEmpty(path))
+                    if (serverConfig.ServerUrl is null)
                     {
+                        _logger.LogWarning("Skipping server entry with no ServerUrl");
                         continue;
                     }
 
-                    bool recursive = watch.IncludeSubdirectories;
-                    FileSystemWatcher watcher = new(path)
-                    {
-                        NotifyFilter = NotifyFilters.Attributes
-                                       | NotifyFilters.CreationTime
-                                       | NotifyFilters.DirectoryName
-                                       | NotifyFilters.FileName
-                                       | NotifyFilters.LastWrite
-                                       | NotifyFilters.Size,
-                        IncludeSubdirectories = recursive
-                    };
+                    IReadOnlyList<string> filters = serverConfig.UploadFileFilters.Count > 0
+                        ? serverConfig.UploadFileFilters
+                        : DefaultUploadFilters;
 
-                    foreach (string pattern in filters)
+                    foreach (WatcherPathEntry watch in serverConfig.WatcherPaths)
                     {
-                        watcher.Filters.Add(pattern);
+                        string path = (watch.Path ?? string.Empty).Trim();
+                        if (string.IsNullOrEmpty(path))
+                        {
+                            continue;
+                        }
+
+                        bool recursive = watch.IncludeSubdirectories;
+                        FileSystemWatcher? watcher = null;
+                        try
+                        {
+                            watcher = new FileSystemWatcher(path)
+                            {
+                                NotifyFilter = NotifyFilters.Attributes
+                                               | NotifyFilters.CreationTime
+                                               | NotifyFilters.DirectoryName
+                                               | NotifyFilters.FileName
+                                               | NotifyFilters.LastWrite
+                                               | NotifyFilters.Size,
+                                IncludeSubdirectories = recursive
+                            };
+
+                            foreach (string pattern in filters)
+                            {
+                                watcher.Filters.Add(pattern);
+                            }
+
+                            _logger.LogInformation(
+                                watcher.IncludeSubdirectories
+                                    ? "Watching over path {Path} ({@Filters}) and its subdirectories"
+                                    : "Watching over path {Path} ({@Filters})", watcher.Path,
+                                watcher.Filters);
+
+                            maps.Add(watcher, serverConfig);
+                            watcher = null;
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Skipping invalid watcher path {Path}", path);
+                            watcher?.Dispose();
+                        }
                     }
+                }
 
-                    _logger.LogInformation(
-                        watcher.IncludeSubdirectories
-                            ? "Watching over path {Path} ({@Filters}) and its subdirectories"
-                            : "Watching over path {Path} ({@Filters})", watcher.Path,
-                        watcher.Filters);
+                _maps = maps;
+                maps = null;
 
-                    maps.Add(watcher, serverConfig);
+                bool enable = doc.HarvestingEnabled;
+                List<WatcherStatusEntry> status = [];
+
+                foreach (KeyValuePair<FileSystemWatcher, ServerConfig> map in _maps)
+                {
+                    FileSystemWatcher w = map.Key;
+                    w.Created += WatcherOnCreated;
+                    w.EnableRaisingEvents = enable;
+                    status.Add(new WatcherStatusEntry
+                    {
+                        Path = w.Path,
+                        Recursive = w.IncludeSubdirectories,
+                        EventsEnabled = w.EnableRaisingEvents
+                    });
+                }
+
+                _health.SetRuntimeState(enable, status.AsReadOnly());
+
+                if (enable)
+                {
+                    _logger.LogInformation("Watchers started");
+                }
+                else
+                {
+                    _logger.LogInformation("Watchers created but harvesting is disabled");
                 }
             }
-
-            _maps = maps;
-
-            bool enable = doc.HarvestingEnabled;
-            List<WatcherStatusEntry> status = [];
-
-            foreach (KeyValuePair<FileSystemWatcher, ServerConfig> map in maps)
+            finally
             {
-                FileSystemWatcher w = map.Key;
-                w.Created += WatcherOnCreated;
-                w.EnableRaisingEvents = enable;
-                status.Add(new WatcherStatusEntry
+                if (maps is not null)
                 {
-                    Path = w.Path,
-                    Recursive = w.IncludeSubdirectories,
-                    EventsEnabled = w.EnableRaisingEvents
-                });
-            }
+                    foreach (FileSystemWatcher w in maps.Keys)
+                    {
+                        try
+                        {
+                            w.Dispose();
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogDebug(ex, "Error disposing watcher during failed rebuild");
+                        }
+                    }
 
-            _health.SetRuntimeState(enable, status.AsReadOnly());
-
-            if (enable)
-            {
-                _logger.LogInformation("Watchers started");
-            }
-            else
-            {
-                _logger.LogInformation("Watchers created but harvesting is disabled");
+                    maps.Clear();
+                }
             }
         }
 
@@ -233,15 +299,13 @@ public sealed class HarvesterRuntime : IDisposable
         {
             try
             {
-                Dictionary<FileSystemWatcher, ServerConfig>? mapsSnapshot;
+                ServerConfig? serverConfig;
                 lock (_gate)
                 {
-                    mapsSnapshot = _maps;
-                }
-
-                if (mapsSnapshot is null || !mapsSnapshot.TryGetValue(watcher, out ServerConfig? serverConfig))
-                {
-                    return;
+                    if (_maps is null || !_maps.TryGetValue(watcher, out serverConfig))
+                    {
+                        return;
+                    }
                 }
 
                 if (serverConfig.ServerUrl is null)
@@ -261,7 +325,7 @@ public sealed class HarvesterRuntime : IDisposable
                 using MultipartFormDataContent form = new();
                 string path = e.FullPath;
 
-                WaitForFile(path);
+                await WaitForFileReadyAsync(path, stopping);
 
                 ByteArrayContent fileContent = new(await File.ReadAllBytesAsync(path, stopping));
                 string? mimeType = MimeTypeMap.GetMimeType(Path.GetExtension(path));
@@ -271,11 +335,10 @@ public sealed class HarvesterRuntime : IDisposable
                 fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse(mimeType);
                 form.Add(fileContent, "symbol", Path.GetFileName(path));
 
-                HttpResponseMessage response = await client.PostAsync(
+                using HttpResponseMessage response = await client.PostAsync(
                     "/api/uploads/symbol?force=true",
                     form,
-                    stopping
-                );
+                    stopping);
 
                 if (response.IsSuccessStatusCode)
                 {

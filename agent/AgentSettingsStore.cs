@@ -42,8 +42,10 @@ public sealed class AgentSettingsStore
             AgentSettingsDocument? loaded = JsonSerializer.Deserialize<AgentSettingsDocument>(json, JsonOptions);
             return loaded ?? AgentSettingsDocument.CreateDefault();
         }
-        catch
+        catch (Exception ex)
         {
+            Console.Error.WriteLine(
+                $"[HarvestingAgent] Failed to load settings from {filePath}: {ex.GetType().Name}: {ex.Message}");
             return AgentSettingsDocument.CreateDefault();
         }
     }

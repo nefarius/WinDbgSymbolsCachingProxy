@@ -8,7 +8,7 @@ namespace HarvestingAgent;
 [UsedImplicitly]
 public sealed class WatcherPathEntry
 {
-    public string Path { get; set; } = "";
+    public string? Path { get; set; }
 
     /// <summary>
     ///     When true, <see cref="FileSystemWatcher.IncludeSubdirectories" /> is enabled for this path.
@@ -96,8 +96,13 @@ public sealed class WatcherPathEntryListJsonConverter : JsonConverter<List<Watch
     /// </summary>
     private static WatcherPathEntry NormalizeLegacyTrailingStar(WatcherPathEntry entry)
     {
-        string p = entry.Path;
-        if (p.Length > 0 && p.EndsWith('*'))
+        string? p = entry.Path;
+        if (string.IsNullOrEmpty(p))
+        {
+            return entry;
+        }
+
+        if (p.EndsWith('*'))
         {
             return new WatcherPathEntry
             {
