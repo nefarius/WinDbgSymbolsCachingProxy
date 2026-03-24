@@ -353,6 +353,7 @@ public sealed class HarvesterRuntime : IDisposable
 
                 string path = e.FullPath;
                 string fileName = Path.GetFileName(path);
+                _health.RecordFileDetected(path);
 
                 await WaitForFileReadyAsync(path, stopping);
 
@@ -427,6 +428,7 @@ public sealed class HarvesterRuntime : IDisposable
         {
             _logger.LogInformation("Symbol upload successful");
             _health.RecordUploadSuccess();
+            _health.RecordFileUploadSuccess(path, serverConfig.ServerUrl?.ToString());
 
             bool shouldDelete = false;
             if (serverConfig.DeleteAfterUpload)
@@ -449,6 +451,7 @@ public sealed class HarvesterRuntime : IDisposable
         _logger.LogInformation("Symbol upload failed");
         string body = await response.Content.ReadAsStringAsync(cancellationToken);
         _health.RecordUploadFailure($"HTTP {(int)response.StatusCode}: {body}");
+        _health.RecordFileUploadFailure(path, serverConfig.ServerUrl?.ToString(), $"HTTP {(int)response.StatusCode}");
         await File.WriteAllTextAsync($"{path}.upload-error.txt", body, cancellationToken);
         return new UploadAttemptResult { Success = false, ShouldDeleteAfterAllSuccess = false };
     }

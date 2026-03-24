@@ -84,6 +84,40 @@
             </MudCardContent>
         </MudCard>
     </MudItem>
+    <MudItem xs="12">
+        <MudCard>
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h6">Recent file activity</MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+                @if (Health.FileActivityHistory.Count == 0)
+                {
+                    <MudText Typo="Typo.body2">No watcher activity yet.</MudText>
+                }
+                else
+                {
+                    <MudTable Items="@Health.FileActivityHistory" Hover="true" Dense="true" Breakpoint="Breakpoint.Sm">
+                        <HeaderContent>
+                            <MudTh>Time (UTC)</MudTh>
+                            <MudTh>File</MudTh>
+                            <MudTh>Event</MudTh>
+                            <MudTh>Server</MudTh>
+                            <MudTh>Details</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Time (UTC)">@context.TimestampUtc.ToString("u")</MudTd>
+                            <MudTd DataLabel="File">@context.FileName</MudTd>
+                            <MudTd DataLabel="Event">@GetStatusLabel(context.Status)</MudTd>
+                            <MudTd DataLabel="Server">@(context.ServerUrl ?? "—")</MudTd>
+                            <MudTd DataLabel="Details">@(context.Details ?? "—")</MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                }
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
 </MudGrid>
 
 @code {
@@ -165,4 +199,12 @@
         _disposed = true;
         return ValueTask.CompletedTask;
     }
+
+    private static string GetStatusLabel(FileActivityStatus status) => status switch
+    {
+        FileActivityStatus.Detected => "Detected",
+        FileActivityStatus.UploadSucceeded => "Uploaded",
+        FileActivityStatus.UploadFailed => "Upload failed",
+        _ => status.ToString()
+    };
 }

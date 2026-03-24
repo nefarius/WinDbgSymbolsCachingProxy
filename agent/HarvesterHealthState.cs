@@ -11,8 +11,31 @@ public sealed class WatcherStatusEntry
     public bool EventsEnabled { get; init; }
 }
 
+public enum FileActivityStatus
+{
+    Detected,
+    UploadSucceeded,
+    UploadFailed
+}
+
+public sealed class HarvestedFileHistoryEntry
+{
+    public required DateTimeOffset TimestampUtc { get; init; }
+
+    public required string FilePath { get; init; }
+
+    public required string FileName { get; init; }
+
+    public required FileActivityStatus Status { get; init; }
+
+    public string? ServerUrl { get; init; }
+
+    public string? Details { get; init; }
+}
+
 public sealed class HarvesterHealthState
 {
+    private const int MaxHistoryEntries = 300;
     private readonly object _lock = new();
 
     public event Action? Changed;
@@ -22,6 +45,8 @@ public sealed class HarvesterHealthState
     public int ActiveWatcherCount { get; private set; }
 
     public IReadOnlyList<WatcherStatusEntry> Watchers { get; private set; } = [];
+
+    public IReadOnlyList<HarvestedFileHistoryEntry> FileActivityHistory { get; private set; } = [];
 
     public long UploadSuccessCount { get; private set; }
 
@@ -77,6 +102,69 @@ public sealed class HarvesterHealthState
         }
 
         RaiseChanged();
+    }
+
+    public void RecordFileDetected(string filePath)
+    {
+        lock (_lock)
+        {
+            AddHistoryEntry(new HarvestedFileHistoryEntry
+            {
+                TimestampUtc = DateTimeOffset.UtcNow,
+                FilePath = filePath,
+                FileName = Path.GetFileName(filePath),
+                Status = FileActivityStatus.Detected
+            });
+        }
+
+        RaiseChanged();
+    }
+
+    public void RecordFileUploadSuccess(string filePath, string? serverUrl)
+    {
+        lock (_lock)
+        {
+            AddHistoryEntry(new HarvestedFileHistoryEntry
+            {
+                TimestampUtc = DateTimeOffset.UtcNow,
+                FilePath = filePath,
+                FileName = Path.GetFileName(filePath),
+                Status = FileActivityStatus.UploadSucceeded,
+                ServerUrl = serverUrl
+            });
+        }
+
+        RaiseChanged();
+    }
+
+    public void RecordFileUploadFailure(string filePath, string? serverUrl, string details)
+    {
+        lock (_lock)
+        {
+            AddHistoryEntry(new HarvestedFileHistoryEntry
+            {
+                TimestampUtc = DateTimeOffset.UtcNow,
+                FilePath = filePath,
+                FileName = Path.GetFileName(filePath),
+                Status = FileActivityStatus.UploadFailed,
+                ServerUrl = serverUrl,
+                Details = details
+            });
+        }
+
+        RaiseChanged();
+    }
+
+    private void AddHistoryEntry(HarvestedFileHistoryEntry entry)
+    {
+        List<HarvestedFileHistoryEntry> list = [.. FileActivityHistory];
+        list.Insert(0, entry);
+        if (list.Count > MaxHistoryEntries)
+        {
+            list.RemoveRange(MaxHistoryEntries, list.Count - MaxHistoryEntries);
+        }
+
+        FileActivityHistory = list.AsReadOnly();
     }
 
     private void RaiseChanged()
