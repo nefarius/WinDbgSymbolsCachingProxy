@@ -94,6 +94,10 @@ If you like this idea and want to keep my public instance happy and running,
 - [`HarvestingAgent`](./agent)  
   A Windows service with a localhost MudBlazor UI that watches configured directories and uploads new symbols to your
   servers; settings are stored under ProgramData.
+- [`WinDbgSymbolsCachingProxy.Installer`](./installer)  
+  WixSharp (WiX 4) project that builds an x64 MSI with optional **Server** and **Agent** features (both selected by
+  default). The license dialog uses [installer/License.rtf](./installer/License.rtf), which mirrors the repository
+  [LICENSE](./LICENSE).
 - [`Nefarius.Utilities.ExceptionEnricher`](./lib)  
   A class library that makes use of the symbol server infrastructure to on-demand download debug symbols whenever an
   exception happens.
@@ -124,6 +128,25 @@ dotnet publish -c Release -r win-x64 -o publish-x64\agent `
   -p:DebugType=none -p:GenerateDocumentationFile=false -p:AllowedReferenceRelatedFileExtensions=none `
   .\agent\HarvestingAgent.csproj
 ```
+
+### Windows installer (MSI)
+
+On **Windows**, install the **WiX 5.0.2** .NET global tool and the matching UI extension (newer `wix` v6 defaults
+are not compatible with the WixSharp + `WixUI_FeatureTree` stack without version tweaks):
+
+```PowerShell
+dotnet tool install --global wix --version 5.0.2
+wix extension add -g WixToolset.UI.wixext/5.0.2
+```
+
+Then the Nuke target **`BuildInstaller`** publishes both applications and produces
+`publish-x64\installer\WinDbgSymbolsCachingProxy.msi` (per-machine x64 install under Program Files, feature tree UI).
+
+```PowerShell
+.\build.ps1 BuildInstaller
+```
+
+If you change the legal text in `LICENSE`, update `installer\License.rtf` so the setup UI stays in sync.
 
 <details><summary>Docker build</summary>
 

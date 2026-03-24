@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 
 using JetBrains.Annotations;
@@ -26,6 +27,12 @@ class Build : NukeBuild
 
     const string PublishRuntime = "win-x64";
 
+    static AbsolutePath PublishRoot => RootDirectory / "publish-x64";
+    static AbsolutePath PublishServerDir => PublishRoot / "server";
+    static AbsolutePath PublishAgentDir => PublishRoot / "agent";
+    static AbsolutePath InstallerOutputDir => PublishRoot / "installer";
+    static AbsolutePath InstallerProjectFile => RootDirectory / "installer" / "WinDbgSymbolsCachingProxy.Installer.csproj";
+
     [Solution] readonly Solution Solution;
 
     Target Clean => _ => _
@@ -52,11 +59,46 @@ class Build : NukeBuild
         {
             PublishProject(
                 Solution.GetAllProjects("WinDbgSymbolsCachingProxy").Single(),
-                RootDirectory / "publish-x64" / "server");
+                PublishServerDir);
 
             PublishProject(
                 Solution.GetAllProjects("HarvestingAgent").Single(),
-                RootDirectory / "publish-x64" / "agent");
+                PublishAgentDir);
+        });
+
+    [UsedImplicitly]
+    public Target BuildInstaller => _ => _
+        .Description(
+            "Publish server and agent (win-x64 Release), then build the x64 MSI via WixSharp. Requires Windows and WiX 4 (dotnet tool install --global wix).")
+        .DependsOn(PublishLocal)
+        .Executes(() =>
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                throw new InvalidOperationException(
+                    "BuildInstaller must run on Windows with the WiX 4 CLI available (for example: dotnet tool install --global wix).");
+            }
+
+            // dotnet run forwards SetApplicationArguments as a single argv; use env vars so the installer sees three paths.
+            const string envServer = "WDSCP_INSTALLER_SERVER";
+            const string envAgent = "WDSCP_INSTALLER_AGENT";
+            const string envOut = "WDSCP_INSTALLER_OUT";
+            try
+            {
+                Environment.SetEnvironmentVariable(envServer, PublishServerDir);
+                Environment.SetEnvironmentVariable(envAgent, PublishAgentDir);
+                Environment.SetEnvironmentVariable(envOut, InstallerOutputDir);
+
+                DotNetTasks.DotNetRun(s => s
+                    .SetProjectFile(InstallerProjectFile)
+                    .SetConfiguration(Configuration.Release));
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable(envServer, null);
+                Environment.SetEnvironmentVariable(envAgent, null);
+                Environment.SetEnvironmentVariable(envOut, null);
+            }
         });
 
     [UsedImplicitly]
