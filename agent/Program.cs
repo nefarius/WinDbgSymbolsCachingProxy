@@ -37,6 +37,7 @@ builder.WebHost.UseUrls($"http://127.0.0.1:{initialSettings.ListenPort}");
 
 builder.Services.AddSingleton(new AgentSettingsStore(settingsPath, initialSettings));
 builder.Services.AddSingleton(new AgentStartupContext { ListenPortAtStartup = initialSettings.ListenPort });
+builder.Services.AddSingleton<DirectoryBrowserService>();
 builder.Services.AddSingleton<HarvesterHealthState>();
 builder.Services.AddSingleton<HarvesterRuntime>();
 builder.Services.AddHostedService<HarvestingHostedService>();

@@ -1,0 +1,130 @@
+@inject DirectoryBrowserService BrowserService
+
+<MudDialog>
+    <TitleContent>
+        Select watcher directory
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="2">
+            <MudText Typo="Typo.body2">
+                Current: <code>@(_currentPath == string.Empty ? "<roots>" : _currentPath)</code>
+            </MudText>
+
+            @if (!string.IsNullOrWhiteSpace(_error))
+            {
+                <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">@_error</MudAlert>
+            }
+
+            <MudStack Row="true" Spacing="1">
+                <MudButton Variant="Variant.Outlined" OnClick="LoadRootsAsync">Roots</MudButton>
+                <MudButton Variant="Variant.Outlined" Disabled="@(_currentPath == string.Empty)" OnClick="GoUpAsync">Up</MudButton>
+                <MudSpacer />
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_currentPath == string.Empty)" OnClick="SelectCurrent">
+                    Select this folder
+                </MudButton>
+            </MudStack>
+
+            <MudPaper Class="pa-2" Outlined="true">
+                <MudTable Items="_items" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm">
+                    <HeaderContent>
+                        <MudTh>Name</MudTh>
+                        <MudTh>Path</MudTh>
+                        <MudTh>Actions</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Name">@context.DisplayName</MudTd>
+                        <MudTd DataLabel="Path">@context.FullPath</MudTd>
+                        <MudTd DataLabel="Actions">
+                            <MudStack Row="true" Spacing="1">
+                                <MudButton Variant="Variant.Text" Size="Size.Small" Disabled="@(!string.IsNullOrEmpty(context.Error))"
+                                           OnClick="@(() => NavigateAsync(context.FullPath))">
+                                    Open
+                                </MudButton>
+                                <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Success"
+                                           OnClick="@(() => Select(context.FullPath))">
+                                    Select
+                                </MudButton>
+                            </MudStack>
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </MudPaper>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Text" OnClick="Cancel">Cancel</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter]
+    public string? InitialPath { get; set; }
+
+    private string _currentPath = string.Empty;
+    private string? _error;
+    private List<DirectoryBrowserNode> _items = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(InitialPath))
+        {
+            await NavigateAsync(PathNormalization.NormalizeDirectoryPath(InitialPath));
+            return;
+        }
+
+        await LoadRootsAsync();
+    }
+
+    private async Task LoadRootsAsync()
+    {
+        DirectoryBrowserListResult roots = await Task.Run(BrowserService.ListRoots);
+        _currentPath = roots.CurrentPath;
+        _items = roots.Items.ToList();
+        _error = roots.Error;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task NavigateAsync(string path)
+    {
+        DirectoryBrowserListResult result = await Task.Run(() => BrowserService.ListChildren(path));
+        _currentPath = result.CurrentPath;
+        _items = result.Items.ToList();
+        _error = result.Error;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task GoUpAsync()
+    {
+        string? parent = BrowserService.GetParentPath(_currentPath);
+        if (string.IsNullOrEmpty(parent))
+        {
+            await LoadRootsAsync();
+            return;
+        }
+
+        await NavigateAsync(parent);
+    }
+
+    private void SelectCurrent()
+    {
+        if (_currentPath == string.Empty)
+        {
+            return;
+        }
+
+        MudDialog.Close(DialogResult.Ok(_currentPath));
+    }
+
+    private void Select(string path)
+    {
+        MudDialog.Close(DialogResult.Ok(PathNormalization.NormalizeDirectoryPath(path)));
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+}

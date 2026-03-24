@@ -3,6 +3,7 @@
 @inject AgentSettingsStore Store
 @inject HarvesterRuntime Runtime
 @inject ISnackbar Snackbar
+@inject IDialogService DialogService
 
 <PageTitle>Configuration</PageTitle>
 
@@ -33,6 +34,8 @@
                     <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="flex-wrap">
                         <MudTextField @bind-Value="server.WatcherPaths[wj].Path" Label="Directory" Variant="Variant.Outlined"
                                       Margin="Margin.Dense" Class="flex-grow-1" Style="min-width: 12rem;" />
+                        <MudIconButton Icon="@Icons.Material.Filled.FolderOpen" aria-label="Browse directory"
+                                       OnClick="@(() => BrowseWatcherPathAsync(server, wj))" />
                         <MudCheckBox T="bool" @bind-Value="server.WatcherPaths[wj].IncludeSubdirectories"
                                      Label="Include subdirectories" Color="Color.Primary" Dense="true" Class="mt-1" />
                         <MudIconButton Icon="@Icons.Material.Filled.Delete" aria-label="Remove path"
@@ -164,7 +167,26 @@
 
             foreach (ServerConfig s in _doc.Servers)
             {
+                List<string> removedWatcherPaths = [];
+                foreach (WatcherPathEntry e in s.WatcherPaths)
+                {
+                    string original = e.Path ?? string.Empty;
+                    e.Path = PathNormalization.NormalizeDirectoryPath(e.Path);
+                    if (!string.IsNullOrWhiteSpace(original) && string.IsNullOrWhiteSpace(e.Path))
+                    {
+                        removedWatcherPaths.Add(original);
+                    }
+                }
+
                 s.WatcherPaths = s.WatcherPaths.Where(e => !string.IsNullOrWhiteSpace(e.Path)).ToList();
+                if (removedWatcherPaths.Count > 0)
+                {
+                    string preview = string.Join(", ", removedWatcherPaths.Take(3));
+                    string suffix = removedWatcherPaths.Count > 3 ? ", ..." : string.Empty;
+                    Snackbar.Add(
+                        $"Removed {removedWatcherPaths.Count} invalid watcher path(s): {preview}{suffix}",
+                        Severity.Warning);
+                }
             }
 
             Store.Replace(_doc);
@@ -177,5 +199,37 @@
         {
             Snackbar.Add(ex.Message, Severity.Error);
         }
+    }
+
+    private async Task BrowseWatcherPathAsync(ServerConfig server, int watcherIndex)
+    {
+        if (watcherIndex < 0 || watcherIndex >= server.WatcherPaths.Count)
+        {
+            return;
+        }
+
+        DialogOptions options = new()
+        {
+            MaxWidth = MaxWidth.Medium,
+            FullWidth = true,
+            CloseOnEscapeKey = true
+        };
+
+        DialogParameters<DirectoryBrowserDialog> parameters = new()
+        {
+            { x => x.InitialPath, server.WatcherPaths[watcherIndex].Path }
+        };
+
+        IDialogReference dialog = await DialogService.ShowAsync<DirectoryBrowserDialog>(
+            "Browse directories",
+            parameters,
+            options);
+        DialogResult? result = await dialog.Result;
+        if (result is null || result.Canceled || result.Data is not string selected)
+        {
+            return;
+        }
+
+        server.WatcherPaths[watcherIndex].Path = selected;
     }
 }
