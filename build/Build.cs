@@ -79,11 +79,26 @@ class Build : NukeBuild
                     "BuildInstaller must run on Windows with the WiX 4 CLI available (for example: dotnet tool install --global wix).");
             }
 
-            DotNetTasks.DotNetRun(s => s
-                .SetProjectFile(InstallerProjectFile)
-                .SetConfiguration(Configuration.Release)
-                .SetApplicationArguments(
-                    $"--server \"{PublishServerDir}\" --agent \"{PublishAgentDir}\" --out \"{InstallerOutputDir}\""));
+            // dotnet run forwards SetApplicationArguments as a single argv; use env vars so the installer sees three paths.
+            const string envServer = "WDSCP_INSTALLER_SERVER";
+            const string envAgent = "WDSCP_INSTALLER_AGENT";
+            const string envOut = "WDSCP_INSTALLER_OUT";
+            try
+            {
+                Environment.SetEnvironmentVariable(envServer, PublishServerDir);
+                Environment.SetEnvironmentVariable(envAgent, PublishAgentDir);
+                Environment.SetEnvironmentVariable(envOut, InstallerOutputDir);
+
+                DotNetTasks.DotNetRun(s => s
+                    .SetProjectFile(InstallerProjectFile)
+                    .SetConfiguration(Configuration.Release));
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable(envServer, null);
+                Environment.SetEnvironmentVariable(envAgent, null);
+                Environment.SetEnvironmentVariable(envOut, null);
+            }
         });
 
     [UsedImplicitly]

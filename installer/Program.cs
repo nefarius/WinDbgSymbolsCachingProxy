@@ -11,6 +11,13 @@ static class Program
     const string DefaultServerRelative = "publish-x64/server";
     const string DefaultAgentRelative = "publish-x64/agent";
 
+    /// <summary>
+    ///     NUKE passes these so paths are not collapsed into a single <c>dotnet run</c> application argument.
+    /// </summary>
+    internal const string EnvServer = "WDSCP_INSTALLER_SERVER";
+    internal const string EnvAgent = "WDSCP_INSTALLER_AGENT";
+    internal const string EnvOut = "WDSCP_INSTALLER_OUT";
+
     static int Main(string[] args)
     {
         try
@@ -113,6 +120,8 @@ static class Program
             string agent = Path.GetFullPath(Path.Combine(cwd, DefaultAgentRelative));
             string output = Path.GetFullPath(Path.Combine(cwd, "publish-x64", "installer"));
 
+            ApplyEnvironmentOverrides(ref server, ref agent, ref output);
+
             for (var i = 0; i < args.Length; i++)
             {
                 string a = args[i];
@@ -136,6 +145,21 @@ static class Program
             };
         }
 
+        static void ApplyEnvironmentOverrides(ref string server, ref string agent, ref string output)
+        {
+            string? v = Environment.GetEnvironmentVariable(Program.EnvServer);
+            if (!string.IsNullOrWhiteSpace(v))
+                server = Path.GetFullPath(v);
+
+            v = Environment.GetEnvironmentVariable(Program.EnvAgent);
+            if (!string.IsNullOrWhiteSpace(v))
+                agent = Path.GetFullPath(v);
+
+            v = Environment.GetEnvironmentVariable(Program.EnvOut);
+            if (!string.IsNullOrWhiteSpace(v))
+                output = Path.GetFullPath(v);
+        }
+
         static string RequirePath(string[] args, ref int i, string name)
         {
             if (i + 1 >= args.Length)
@@ -155,6 +179,9 @@ static class Program
                   --out,    -o <dir>   MSI output directory (default: ./publish-x64/installer)
 
                 Requires Windows, the WiX 4 toolset (dotnet tool install --global wix), and prior dotnet publish of both apps.
+
+                Environment (optional; used by NUKE BuildInstaller):
+                  WDSCP_INSTALLER_SERVER, WDSCP_INSTALLER_AGENT, WDSCP_INSTALLER_OUT
                 """);
             Environment.Exit(0);
         }
