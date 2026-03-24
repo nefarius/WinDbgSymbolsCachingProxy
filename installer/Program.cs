@@ -11,6 +11,21 @@ static class Program
     const string DefaultServerRelative = "publish-x64/server";
     const string DefaultAgentRelative = "publish-x64/agent";
 
+    /// <summary>Must match <c>UseWindowsService</c> name in <c>agent/Program.cs</c>.</summary>
+    const string AgentWindowsServiceName = "Debug Symbols Harvesting Agent";
+
+    const string Manufacturer = "Nefarius Software Solutions";
+
+    static bool IncludeInPublishedFile(string path)
+    {
+        string leaf = Path.GetFileName(path);
+        if (string.Equals(leaf, "appsettings.Development.json", StringComparison.OrdinalIgnoreCase))
+            return false;
+        if (string.Equals(leaf, "appsettings.Production.json", StringComparison.OrdinalIgnoreCase))
+            return System.IO.File.Exists(path);
+        return true;
+    }
+
     /// <summary>
     ///     NUKE passes these so paths are not collapsed into a single <c>dotnet run</c> application argument.
     /// </summary>
@@ -39,12 +54,32 @@ static class Program
             string serverMask = Path.Combine(options.ServerPublishDir, "*.*");
             string agentMask = Path.Combine(options.AgentPublishDir, "*.*");
 
+            var agentFiles = new Files(featureAgent, agentMask, IncludeInPublishedFile)
+            {
+                OnProcess = file =>
+                {
+                    if (!string.Equals(Path.GetFileName(file.Name), "HarvestingAgent.exe", StringComparison.OrdinalIgnoreCase))
+                        return;
+
+                    file.ServiceInstaller = new ServiceInstaller(AgentWindowsServiceName)
+                    {
+                        DisplayName = AgentWindowsServiceName,
+                        Description =
+                            "Watches configured directories and uploads debug symbols to a WinDbg Symbols Caching Proxy server.",
+                        Start = SvcStartType.auto,
+                        StartOn = SvcEvent.Install,
+                        StopOn = SvcEvent.InstallUninstall_Wait,
+                        RemoveOn = SvcEvent.Uninstall_Wait,
+                    };
+                },
+            };
+
             var project = new Project(
                 "WinDbg Symbols Caching Proxy",
                 new Dir(
-                    @"%ProgramFiles64Folder%\Nefarius\WinDbg Symbols Caching Proxy",
-                    new Dir("Server", new Files(featureServer, serverMask)),
-                    new Dir("Agent", new Files(featureAgent, agentMask))))
+                    @"%ProgramFiles64Folder%\Nefarius Software Solutions\WinDbg Symbols Caching Proxy",
+                    new Dir("Server", new Files(featureServer, serverMask, IncludeInPublishedFile)),
+                    new Dir("Agent", agentFiles)))
             {
                 GUID = new Guid("a4f8b2c1-3d5e-4a7b-8c9d-0e1f2a3b4c5d"),
                 UpgradeCode = new Guid("e7a3c8f2-1b4d-4c9e-9f6a-0d2e8b5c7a91"),
@@ -56,6 +91,8 @@ static class Program
                 OutDir = options.OutputDir,
                 OutFileName = "WinDbgSymbolsCachingProxy"
             };
+
+            project.ControlPanelInfo.Manufacturer = Manufacturer;
 
             // Align with WiX 5.x + WixToolset.UI.wixext/5.0.x (see GitHub workflow); avoids WiX 6 / mismatched UI extension.
             WixExtension.UI.PreferredVersion = "5.0.2";
