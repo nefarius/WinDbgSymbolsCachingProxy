@@ -18,6 +18,8 @@ public sealed class HarvesterRuntime : IDisposable
     {
         public bool Success { get; init; }
         public bool ShouldDeleteAfterAllSuccess { get; init; }
+        public string? ServerUrl { get; init; }
+        public string? ErrorDetails { get; init; }
     }
 
     public static readonly string[] DefaultUploadFilters = ["*.exe", "*.dll", "*.sys", "*.pdb"];
@@ -366,6 +368,17 @@ public sealed class HarvesterRuntime : IDisposable
 
                 UploadAttemptResult[] results = await Task.WhenAll(uploads);
 
+                foreach (UploadAttemptResult result in results)
+                {
+                    if (!result.Success)
+                    {
+                        _health.RecordFileUploadFailure(
+                            path,
+                            result.ServerUrl,
+                            result.ErrorDetails ?? "Upload failed");
+                    }
+                }
+
                 bool allSucceeded = results.All(r => r.Success);
                 bool shouldDelete = results.Any(r => r.ShouldDeleteAfterAllSuccess);
 
@@ -382,6 +395,7 @@ public sealed class HarvesterRuntime : IDisposable
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to upload symbol {FullPath}", e.FullPath);
+                _health.RecordFileUploadFailure(e.FullPath, null, ex.Message);
                 _health.RecordError(ex.Message);
             }
         }, stopping);
@@ -394,65 +408,98 @@ public sealed class HarvesterRuntime : IDisposable
         string mimeType,
         CancellationToken cancellationToken)
     {
+        string? serverUrl = serverConfig.ServerUrl?.ToString();
+
         if (serverConfig.ServerUrl is null)
         {
-            return new UploadAttemptResult { Success = false, ShouldDeleteAfterAllSuccess = false };
-        }
-
-        using HttpClient client = _httpClientFactory.CreateClient("Server");
-        client.BaseAddress = serverConfig.ServerUrl;
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-            "Basic",
-            Convert.ToBase64String(
-                Encoding.UTF8.GetBytes(
-                    $"{serverConfig.Authentication.Username}:{serverConfig.Authentication.Password}")));
-
-        using MultipartFormDataContent form = new();
-        await using FileStream fileStream = new(
-            path,
-            FileMode.Open,
-            FileAccess.Read,
-            FileShare.Read,
-            bufferSize: 1024 * 64,
-            options: FileOptions.Asynchronous | FileOptions.SequentialScan);
-        using StreamContent fileContent = new(fileStream);
-        fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse(mimeType);
-        form.Add(fileContent, "symbol", fileName);
-
-        using HttpResponseMessage response = await client.PostAsync(
-            "/api/uploads/symbol?force=true",
-            form,
-            cancellationToken);
-
-        if (response.IsSuccessStatusCode)
-        {
-            _logger.LogInformation("Symbol upload successful");
-            _health.RecordUploadSuccess();
-            _health.RecordFileUploadSuccess(path, serverConfig.ServerUrl?.ToString());
-
-            bool shouldDelete = false;
-            if (serverConfig.DeleteAfterUpload)
-            {
-                Matcher matcher = new();
-                matcher.AddIncludePatterns(serverConfig.DeletionInclusionFilter);
-                matcher.AddExcludePatterns(serverConfig.DeletionExclusionFilter);
-
-                PatternMatchingResult match = matcher.Match(fileName);
-                shouldDelete = match.HasMatches;
-            }
-
             return new UploadAttemptResult
             {
-                Success = true,
-                ShouldDeleteAfterAllSuccess = shouldDelete
+                Success = false,
+                ShouldDeleteAfterAllSuccess = false,
+                ServerUrl = serverUrl,
+                ErrorDetails = "Missing server URL"
             };
         }
 
-        _logger.LogInformation("Symbol upload failed");
-        string body = await response.Content.ReadAsStringAsync(cancellationToken);
-        _health.RecordUploadFailure($"HTTP {(int)response.StatusCode}: {body}");
-        _health.RecordFileUploadFailure(path, serverConfig.ServerUrl?.ToString(), $"HTTP {(int)response.StatusCode}");
-        await File.WriteAllTextAsync($"{path}.upload-error.txt", body, cancellationToken);
-        return new UploadAttemptResult { Success = false, ShouldDeleteAfterAllSuccess = false };
+        try
+        {
+            using HttpClient client = _httpClientFactory.CreateClient("Server");
+            client.BaseAddress = serverConfig.ServerUrl;
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+                "Basic",
+                Convert.ToBase64String(
+                    Encoding.UTF8.GetBytes(
+                        $"{serverConfig.Authentication.Username}:{serverConfig.Authentication.Password}")));
+
+            using MultipartFormDataContent form = new();
+            await using FileStream fileStream = new(
+                path,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read,
+                bufferSize: 1024 * 64,
+                options: FileOptions.Asynchronous | FileOptions.SequentialScan);
+            using StreamContent fileContent = new(fileStream);
+            fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse(mimeType);
+            form.Add(fileContent, "symbol", fileName);
+
+            using HttpResponseMessage response = await client.PostAsync(
+                "/api/uploads/symbol?force=true",
+                form,
+                cancellationToken);
+
+            if (response.IsSuccessStatusCode)
+            {
+                _logger.LogInformation("Symbol upload successful");
+                _health.RecordUploadSuccess();
+                _health.RecordFileUploadSuccess(path, serverUrl);
+
+                bool shouldDelete = false;
+                if (serverConfig.DeleteAfterUpload)
+                {
+                    Matcher matcher = new();
+                    matcher.AddIncludePatterns(serverConfig.DeletionInclusionFilter);
+                    matcher.AddExcludePatterns(serverConfig.DeletionExclusionFilter);
+
+                    PatternMatchingResult match = matcher.Match(fileName);
+                    shouldDelete = match.HasMatches;
+                }
+
+                return new UploadAttemptResult
+                {
+                    Success = true,
+                    ShouldDeleteAfterAllSuccess = shouldDelete,
+                    ServerUrl = serverUrl
+                };
+            }
+
+            _logger.LogInformation("Symbol upload failed");
+            string body = await response.Content.ReadAsStringAsync(cancellationToken);
+            _health.RecordUploadFailure($"HTTP {(int)response.StatusCode}: {body}");
+            await File.WriteAllTextAsync($"{path}.upload-error.txt", body, cancellationToken);
+            return new UploadAttemptResult
+            {
+                Success = false,
+                ShouldDeleteAfterAllSuccess = false,
+                ServerUrl = serverUrl,
+                ErrorDetails = $"HTTP {(int)response.StatusCode}: {body}"
+            };
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Symbol upload exception for {ServerUrl}", serverUrl);
+            _health.RecordUploadFailure(ex.Message);
+            return new UploadAttemptResult
+            {
+                Success = false,
+                ShouldDeleteAfterAllSuccess = false,
+                ServerUrl = serverUrl,
+                ErrorDetails = ex.Message
+            };
+        }
     }
 }
