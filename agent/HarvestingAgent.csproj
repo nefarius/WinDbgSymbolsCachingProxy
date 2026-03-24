@@ -42,11 +42,6 @@
     </ItemGroup>
 
     <ItemGroup>
-      <None Update="Properties\PublishProfiles\release-win-x64.pubxml">
-        <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-        <CopyToPublishDirectory>Never</CopyToPublishDirectory>
-        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
-      </None>
       <None Remove="logs\**" />
     </ItemGroup>
 

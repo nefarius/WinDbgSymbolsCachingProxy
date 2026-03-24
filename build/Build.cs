@@ -1,6 +1,9 @@
 using System.Linq;
+
 using JetBrains.Annotations;
+
 using Nuke.Common;
+using Nuke.Common.IO;
 using Nuke.Common.ProjectModel;
 using Nuke.Common.Tools.Docker;
 using Nuke.Common.Tools.DotNet;
@@ -8,12 +11,12 @@ using Nuke.Common.Tools.DotNet;
 class Build : NukeBuild
 {
     /// Support plugins are available for:
-    ///   - JetBrains ReSharper        https://nuke.build/resharper
-    ///   - JetBrains Rider            https://nuke.build/rider
-    ///   - Microsoft VisualStudio     https://nuke.build/visualstudio
-    ///   - Microsoft VSCode           https://nuke.build/vscode
+    ///     - JetBrains ReSharper        https://nuke.build/resharper
+    ///     - JetBrains Rider            https://nuke.build/rider
+    ///     - Microsoft VisualStudio     https://nuke.build/visualstudio
+    ///     - Microsoft VSCode           https://nuke.build/vscode
 
-    public static int Main () => Execute<Build>(x => x.Compile);
+    public static int Main() => Execute<Build>(x => x.Compile);
 
     [Parameter("Configuration to build - Default is 'Debug' (local) or 'Release' (server)")]
     readonly Configuration Configuration = IsLocalBuild ? Configuration.Debug : Configuration.Release;
@@ -21,7 +24,6 @@ class Build : NukeBuild
     [Parameter("Docker image name to build and push")]
     readonly string DockerImage = "nefarius.azurecr.io/wdscp:latest";
 
-    const string PublishProfile = "Properties/PublishProfiles/release-win-x64.pubxml";
     const string PublishRuntime = "win-x64";
 
     [Solution] readonly Solution Solution;
@@ -48,8 +50,13 @@ class Build : NukeBuild
         .Description("Publish server and agent locally using the Release configuration and win-x64 runtime")
         .Executes(() =>
         {
-            PublishProject(Solution.GetAllProjects("WinDbgSymbolsCachingProxy").Single());
-            PublishProject(Solution.GetAllProjects("HarvestingAgent").Single());
+            PublishProject(
+                Solution.GetAllProjects("WinDbgSymbolsCachingProxy").Single(),
+                RootDirectory / "publish-x64" / "server");
+
+            PublishProject(
+                Solution.GetAllProjects("HarvestingAgent").Single(),
+                RootDirectory / "publish-x64" / "agent");
         });
 
     [UsedImplicitly]
@@ -65,13 +72,21 @@ class Build : NukeBuild
                 .SetName(DockerImage));
         });
 
-    void PublishProject(Project project)
+    /// <summary>
+    ///     Matches the former <c>release-win-x64.pubxml</c> settings (framework-dependent, R2R, trimmed publish output).
+    /// </summary>
+    void PublishProject(Project project, AbsolutePath publishDirectory)
     {
         DotNetTasks.DotNetPublish(s => s
             .SetProject(project)
             .SetConfiguration(Configuration.Release)
             .SetRuntime(PublishRuntime)
-            .SetPublishProfile(PublishProfile));
+            .SetOutput(publishDirectory)
+            .AddProperty("PublishReadyToRun", "true")
+            .AddProperty("PublishSingleFile", "false")
+            .AddProperty("SelfContained", "false")
+            .AddProperty("DebugType", "none")
+            .AddProperty("GenerateDocumentationFile", "false")
+            .AddProperty("AllowedReferenceRelatedFileExtensions", "none"));
     }
-
 }
