@@ -1,3 +1,5 @@
+using System.Security;
+
 namespace HarvestingAgent;
 
 public sealed class DirectoryBrowserNode
@@ -108,7 +110,11 @@ public sealed class DirectoryBrowserService
                 }
                 catch (Exception ex)
                 {
-                    error = ex.Message;
+                    Console.Error.WriteLine(
+                        $"[DirectoryBrowserService] Failed to probe children for '{fullPath}': {ex}");
+                    error = ex is UnauthorizedAccessException or SecurityException
+                        ? "Access denied"
+                        : "Unable to read directory";
                 }
 
                 items.Add(new DirectoryBrowserNode
@@ -128,11 +134,15 @@ public sealed class DirectoryBrowserService
         }
         catch (Exception ex)
         {
+            Console.Error.WriteLine(
+                $"[DirectoryBrowserService] Failed to list children for '{normalized}': {ex}");
             return new DirectoryBrowserListResult
             {
                 CurrentPath = normalized,
                 Items = [],
-                Error = ex.Message
+                Error = ex is UnauthorizedAccessException or SecurityException
+                    ? "Access denied"
+                    : "Unable to read directory"
             };
         }
     }

@@ -2,6 +2,32 @@ namespace HarvestingAgent;
 
 public static class PathNormalization
 {
+    private static string CollapseDuplicateSeparators(string input, char separator)
+    {
+        if (string.IsNullOrEmpty(input))
+        {
+            return input;
+        }
+
+        char[] buffer = new char[input.Length];
+        int index = 0;
+        bool lastWasSeparator = false;
+
+        foreach (char c in input)
+        {
+            bool isSeparator = c == separator;
+            if (isSeparator && lastWasSeparator)
+            {
+                continue;
+            }
+
+            buffer[index++] = c;
+            lastWasSeparator = isSeparator;
+        }
+
+        return new string(buffer, 0, index);
+    }
+
     /// <summary>
     /// Normalize a directory path into a canonical, platform-specific full path.
     /// </summary>
@@ -31,19 +57,13 @@ public static class PathNormalization
         if (!string.IsNullOrEmpty(root))
         {
             string rest = normalized[root.Length..];
-            while (rest.Contains(new string(ds, 2), StringComparison.Ordinal))
-            {
-                rest = rest.Replace(new string(ds, 2), ds.ToString(), StringComparison.Ordinal);
-            }
+            rest = CollapseDuplicateSeparators(rest, ds);
 
             normalized = root + rest;
         }
         else
         {
-            while (normalized.Contains(new string(ds, 2), StringComparison.Ordinal))
-            {
-                normalized = normalized.Replace(new string(ds, 2), ds.ToString(), StringComparison.Ordinal);
-            }
+            normalized = CollapseDuplicateSeparators(normalized, ds);
         }
 
         string fullPath;
@@ -51,8 +71,14 @@ public static class PathNormalization
         {
             fullPath = Path.GetFullPath(normalized);
         }
-        catch
+        catch (ArgumentException ex)
         {
+            Console.Error.WriteLine($"[PathNormalization] Invalid path '{normalized}': {ex.Message}");
+            fullPath = normalized;
+        }
+        catch (NotSupportedException ex)
+        {
+            Console.Error.WriteLine($"[PathNormalization] Unsupported path '{normalized}': {ex.Message}");
             fullPath = normalized;
         }
 

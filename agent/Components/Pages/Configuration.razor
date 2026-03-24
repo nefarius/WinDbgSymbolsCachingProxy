@@ -167,12 +167,26 @@
 
             foreach (ServerConfig s in _doc.Servers)
             {
+                List<string> removedWatcherPaths = [];
                 foreach (WatcherPathEntry e in s.WatcherPaths)
                 {
+                    string original = e.Path ?? string.Empty;
                     e.Path = PathNormalization.NormalizeDirectoryPath(e.Path);
+                    if (!string.IsNullOrWhiteSpace(original) && string.IsNullOrWhiteSpace(e.Path))
+                    {
+                        removedWatcherPaths.Add(original);
+                    }
                 }
 
                 s.WatcherPaths = s.WatcherPaths.Where(e => !string.IsNullOrWhiteSpace(e.Path)).ToList();
+                if (removedWatcherPaths.Count > 0)
+                {
+                    string preview = string.Join(", ", removedWatcherPaths.Take(3));
+                    string suffix = removedWatcherPaths.Count > 3 ? ", ..." : string.Empty;
+                    Snackbar.Add(
+                        $"Removed {removedWatcherPaths.Count} invalid watcher path(s): {preview}{suffix}",
+                        Severity.Warning);
+                }
             }
 
             Store.Replace(_doc);
@@ -216,6 +230,6 @@
             return;
         }
 
-        server.WatcherPaths[watcherIndex].Path = PathNormalization.NormalizeDirectoryPath(selected);
+        server.WatcherPaths[watcherIndex].Path = selected;
     }
 }

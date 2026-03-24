@@ -16,8 +16,8 @@
             }
 
             <MudStack Row="true" Spacing="1">
-                <MudButton Variant="Variant.Outlined" OnClick="LoadRoots">Roots</MudButton>
-                <MudButton Variant="Variant.Outlined" Disabled="@(_currentPath == string.Empty)" OnClick="GoUp">Up</MudButton>
+                <MudButton Variant="Variant.Outlined" OnClick="LoadRootsAsync">Roots</MudButton>
+                <MudButton Variant="Variant.Outlined" Disabled="@(_currentPath == string.Empty)" OnClick="GoUpAsync">Up</MudButton>
                 <MudSpacer />
                 <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_currentPath == string.Empty)" OnClick="SelectCurrent">
                     Select this folder
@@ -37,7 +37,7 @@
                         <MudTd DataLabel="Actions">
                             <MudStack Row="true" Spacing="1">
                                 <MudButton Variant="Variant.Text" Size="Size.Small" Disabled="@(!string.IsNullOrEmpty(context.Error))"
-                                           OnClick="@(() => Navigate(context.FullPath))">
+                                           OnClick="@(() => NavigateAsync(context.FullPath))">
                                     Open
                                 </MudButton>
                                 <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Success"
@@ -67,43 +67,45 @@
     private string? _error;
     private List<DirectoryBrowserNode> _items = [];
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         if (!string.IsNullOrWhiteSpace(InitialPath))
         {
-            Navigate(PathNormalization.NormalizeDirectoryPath(InitialPath));
+            await NavigateAsync(PathNormalization.NormalizeDirectoryPath(InitialPath));
             return;
         }
 
-        LoadRoots();
+        await LoadRootsAsync();
     }
 
-    private void LoadRoots()
+    private async Task LoadRootsAsync()
     {
-        DirectoryBrowserListResult roots = BrowserService.ListRoots();
+        DirectoryBrowserListResult roots = await Task.Run(BrowserService.ListRoots);
         _currentPath = roots.CurrentPath;
         _items = roots.Items.ToList();
         _error = roots.Error;
+        await InvokeAsync(StateHasChanged);
     }
 
-    private void Navigate(string path)
+    private async Task NavigateAsync(string path)
     {
-        DirectoryBrowserListResult result = BrowserService.ListChildren(path);
+        DirectoryBrowserListResult result = await Task.Run(() => BrowserService.ListChildren(path));
         _currentPath = result.CurrentPath;
         _items = result.Items.ToList();
         _error = result.Error;
+        await InvokeAsync(StateHasChanged);
     }
 
-    private void GoUp()
+    private async Task GoUpAsync()
     {
         string? parent = BrowserService.GetParentPath(_currentPath);
         if (string.IsNullOrEmpty(parent))
         {
-            LoadRoots();
+            await LoadRootsAsync();
             return;
         }
 
-        Navigate(parent);
+        await NavigateAsync(parent);
     }
 
     private void SelectCurrent()
