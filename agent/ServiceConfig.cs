@@ -1,13 +1,15 @@
-﻿using JetBrains.Annotations;
+using System.Text.Json.Serialization;
+
+using JetBrains.Annotations;
 
 namespace HarvestingAgent;
 
 [UsedImplicitly]
 public sealed class AuthenticationConfig
 {
-    public required string Username { get; set; }
+    public string Username { get; set; } = "";
 
-    public required string Password { get; set; }
+    public string Password { get; set; } = "";
 }
 
 [UsedImplicitly]
@@ -16,17 +18,23 @@ public sealed class ServerConfig
     /// <summary>
     ///     Upload server authentication details.
     /// </summary>
-    public required AuthenticationConfig Authentication { get; set; }
+    public AuthenticationConfig Authentication { get; set; } = new();
 
     /// <summary>
     ///     The upload server URL.
     /// </summary>
-    public required Uri ServerUrl { get; set; }
+    public Uri? ServerUrl { get; set; }
 
     /// <summary>
-    ///     A collection of filesystem paths to watch over for changes.
+    ///     Directories to watch. Use <see cref="WatcherPathEntry.IncludeSubdirectories" /> instead of a trailing <c>*</c> on the path.
     /// </summary>
-    public required List<string> WatcherPaths { get; set; }
+    [JsonConverter(typeof(WatcherPathEntryListJsonConverter))]
+    public List<WatcherPathEntry> WatcherPaths { get; set; } = [];
+
+    /// <summary>
+    ///     File name patterns to monitor (e.g. *.pdb). When empty, defaults to *.exe, *.dll, *.sys, *.pdb.
+    /// </summary>
+    public List<string> UploadFileFilters { get; set; } = [];
 
     /// <summary>
     ///     Gets whether the scraped and uploaded file should be deleted from disk on success.
@@ -50,5 +58,5 @@ public sealed class ServerConfig
 
 public sealed class ServiceConfig
 {
-    public required List<ServerConfig> Servers { get; set; } = [];
+    public List<ServerConfig> Servers { get; set; } = [];
 }

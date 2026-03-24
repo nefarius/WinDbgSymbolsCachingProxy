@@ -92,7 +92,8 @@ If you like this idea and want to keep my public instance happy and running,
   The symbol caching/hosting server backend that provides the REST API, Blazor UI, and MongoDB integration. See
   [server/README.md](./server/README.md) for a concise endpoint and setup summary.
 - [`HarvestingAgent`](./agent)  
-  A worker service that watches over filesystem directories for new symbols and uploads them to your servers.
+  A Windows service with a localhost MudBlazor UI that watches configured directories and uploads new symbols to your
+  servers; settings are stored under ProgramData.
 - [`Nefarius.Utilities.ExceptionEnricher`](./lib)  
   A class library that makes use of the symbol server infrastructure to on-demand download debug symbols whenever an
   exception happens.
@@ -104,8 +105,24 @@ If you like this idea and want to keep my public instance happy and running,
 
 ## How to publish
 
+Windows binaries (framework-dependent, ReadyToRun, `publish-x64\server` and `publish-x64\agent`) are produced by the Nuke target **`PublishLocal`** (same settings that previously lived in `release-win-x64.pubxml`):
+
 ```PowerShell
-dotnet publish -p:PublishProfile=Properties\PublishProfiles\release-win-x64.pubxml -c:Release .\WinDbgSymbolsCachingProxy.sln
+.\build.ps1 PublishLocal
+```
+
+To publish manually, mirror that target’s properties, for example:
+
+```PowerShell
+dotnet publish -c Release -r win-x64 -o publish-x64\server `
+  -p:PublishReadyToRun=true -p:PublishSingleFile=false -p:SelfContained=false `
+  -p:DebugType=none -p:GenerateDocumentationFile=false -p:AllowedReferenceRelatedFileExtensions=none `
+  .\server\WinDbgSymbolsCachingProxy.csproj
+
+dotnet publish -c Release -r win-x64 -o publish-x64\agent `
+  -p:PublishReadyToRun=true -p:PublishSingleFile=false -p:SelfContained=false `
+  -p:DebugType=none -p:GenerateDocumentationFile=false -p:AllowedReferenceRelatedFileExtensions=none `
+  .\agent\HarvestingAgent.csproj
 ```
 
 <details><summary>Docker build</summary>
