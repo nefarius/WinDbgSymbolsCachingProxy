@@ -1,4 +1,4 @@
-﻿using Kaitai;
+using Kaitai;
 
 using Microsoft.SymbolStore.KeyGenerators;
 
@@ -249,10 +249,32 @@ internal sealed class SymbolParsingService(ILogger<SymbolParsingService> logger,
     /// </summary>
     /// <param name="stream">The source stream.</param>
     /// <returns>The PDB name or null if not found.</returns>
-    private static string? GetOriginalPdbName(Stream stream)
+    private string? GetOriginalPdbName(Stream stream)
     {
-        MsPdb pdb = new(new KaitaiStream(stream));
-        return pdb.GetOriginalPdbName();
+        long originalPosition = stream.CanSeek ? stream.Position : 0;
+
+        try
+        {
+            if (stream.CanSeek)
+            {
+                stream.Position = 0;
+            }
+
+            MsPdb pdb = new(new KaitaiStream(stream));
+            return pdb.GetOriginalPdbName();
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to extract original PDB file name from stream. Falling back to upload name.");
+            return null;
+        }
+        finally
+        {
+            if (stream.CanSeek)
+            {
+                stream.Position = originalPosition;
+            }
+        }
     }
 
     private record PdbParsingResult(
