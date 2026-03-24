@@ -83,9 +83,11 @@ public sealed class HarvesterRuntime : IDisposable
         }
     }
 
-    public Task RebuildWatchersAsync(CancellationToken cancellationToken = default)
+    public async Task RebuildWatchersAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        // Yields so host startup cancellation is observed before taking the gate; Delay(0) honors the token.
+        await Task.Delay(0, cancellationToken).ConfigureAwait(false);
 
         lock (_gate)
         {
@@ -115,6 +117,8 @@ public sealed class HarvesterRuntime : IDisposable
 
                     foreach (WatcherPathEntry watch in serverConfig.WatcherPaths)
                     {
+                        cancellationToken.ThrowIfCancellationRequested();
+
                         string path = (watch.Path ?? string.Empty).Trim();
                         if (string.IsNullOrEmpty(path))
                         {
@@ -160,6 +164,8 @@ public sealed class HarvesterRuntime : IDisposable
 
                 _maps = maps;
                 maps = null;
+
+                cancellationToken.ThrowIfCancellationRequested();
 
                 bool enable = doc.HarvestingEnabled;
                 List<WatcherStatusEntry> status = [];
@@ -208,8 +214,6 @@ public sealed class HarvesterRuntime : IDisposable
                 }
             }
         }
-
-        return Task.CompletedTask;
     }
 
     public Task SetHarvestingEnabledAsync(bool enabled, CancellationToken cancellationToken = default)
