@@ -43,7 +43,8 @@ size of 186 Megabytes** with three different strategies outlined below. Let's go
 ![Cached Symbols Count](https://symbols.nefarius.at/api/badges/cachedSymbolsTotal) ![Cached Symbols 404](https://symbols.nefarius.at/api/badges/cachedSymbolsNotFound) ![Cached Symbols Found](https://symbols.nefarius.at/api/badges/cachedSymbolsFound)
 
 I'm hosting an instance of this project at [`https://symbols.nefarius.at/`](https://symbols.nefarius.at/) which you can
-use and help grow by adjusting your symbol source settings like so:
+use and help grow. Opening that URL in a browser sends you straight to the **status** dashboard; for WinDbg, point your
+symbol source at the download path below:
 
 ```text
 .sympath cache*D:\symbols;srv*https://symbols.nefarius.at/download/symbols
@@ -62,6 +63,17 @@ If you like this idea and want to keep my public instance happy and running,
 - Caching! Pretty much the main purpose 😁
     - `/download/symbols/{Symbol}/{SymbolKey}/{FileName}`
         - Serves the typical download request which the debugger issues.
+- Web UI ([MudBlazor](https://mudblazor.com/)) 🖥️
+    - `/` redirects to `/status`.
+    - `/status` — public overview: server version and cached symbol counts (total, found upstream, not-found upstream).
+    - `/search` — browse stored symbols in a data grid (Basic authentication, same credentials as the upload API).
+    - `/upload` — upload symbols in the browser (multi-file, drag-and-drop; same extensions as the API; Basic auth).
+    - App shell with a navigation drawer and light/dark theme. Search and Upload use a full page load so the browser
+      can attach Basic credentials when you open those routes.
+- Status and metrics (for dashboards, bots, and link previews) 📊
+    - `/info` — JSON with `serverVersion`, `cachedSymbolsTotal`, `cachedSymbolsFound`, `cachedSymbols404`, and
+      `projectUrl` (same figures as the status page, with a short in-memory cache).
+    - `/og/status.png` — PNG preview image for Open Graph / Twitter cards when sharing `/status` (Discord, Slack, etc.).
 - Badges! Embed server statistics anywhere via generated SVGs 🖼️
     - `/api/badges/cachedSymbolsTotal`
         - Returns the total number of cached records.
@@ -73,14 +85,12 @@ If you like this idea and want to keep my public instance happy and running,
     - `/api/uploads/symbol`
         - `POST` one or more supported symbol (currently `.exe`, `.dll`, `.sys` and `.pdb`) files using your own
           REST client or the provided [harvesting agent](./agent).
-    - Web UI (`/upload`)
-        - Upload symbols through the browser: multi-file selection, drag-and-drop, and the same supported extensions as
-          the API (requires the same Basic authentication as other protected routes).
 
 ## Projects
 
 - [`WinDbgSymbolsCachingProxy`](./server)  
-  The symbol caching/hosting server backend that provides the REST API to the database.
+  The symbol caching/hosting server backend that provides the REST API, Blazor UI, and MongoDB integration. See
+  [server/README.md](./server/README.md) for a concise endpoint and setup summary.
 - [`HarvestingAgent`](./agent)  
   A worker service that watches over filesystem directories for new symbols and uploads them to your servers.
 - [`Nefarius.Utilities.ExceptionEnricher`](./lib)  
@@ -106,6 +116,9 @@ Use your own registry, of course 😉
 docker build --push -t nefarius.azurecr.io/wdscp:latest .
 ```
 
+The GitHub Actions Docker workflow uses [Buildx](https://docs.docker.com/build/buildx/) with a GitHub Actions cache
+backend so repeated CI builds stay faster.
+
 </details>
 
 ## Sources & 3rd party credits
@@ -116,6 +129,7 @@ This application benefits from these awesome projects ❤ (appearance in no spec
 
 - [FastEndpoints](https://fast-endpoints.com/)
 - [MongoDB Entities](https://mongodb-entities.com/)
+- [MudBlazor](https://mudblazor.com/)
 
 ### PE, PDB, etc. parsing
 
