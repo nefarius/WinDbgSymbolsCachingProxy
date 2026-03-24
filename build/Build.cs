@@ -1,5 +1,5 @@
 using System.Linq;
-
+using JetBrains.Annotations;
 using Nuke.Common;
 using Nuke.Common.ProjectModel;
 using Nuke.Common.Tools.Docker;
@@ -43,7 +43,8 @@ class Build : NukeBuild
         {
         });
 
-    Target PublishLocal => _ => _
+    [UsedImplicitly]
+    public Target PublishLocal => _ => _
         .Description("Publish server and agent locally using the Release configuration and win-x64 runtime")
         .Executes(() =>
         {
@@ -51,7 +52,8 @@ class Build : NukeBuild
             PublishProject(Solution.GetAllProjects("HarvestingAgent").Single());
         });
 
-    Target PublishRemote => _ => _
+    [UsedImplicitly]
+    public Target PublishRemote => _ => _
         .Description("Build and push the Docker image")
         .Executes(() =>
         {

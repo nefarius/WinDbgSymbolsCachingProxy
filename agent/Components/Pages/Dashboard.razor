@@ -1,0 +1,129 @@
+@page "/"
+@rendermode InteractiveServer
+@implements IAsyncDisposable
+@inject HarvesterRuntime Runtime
+@inject AgentSettingsStore Store
+@inject HarvesterHealthState Health
+@inject ISnackbar Snackbar
+
+<PageTitle>Dashboard</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Dashboard</MudText>
+
+<MudGrid>
+    <MudItem xs="12" md="6">
+        <MudCard>
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h6">Harvesting</MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudText Class="mb-2">
+                    Status: <strong>@(Health.HarvestingEnabled ? "Running" : "Stopped")</strong>
+                </MudText>
+                <MudText Class="mb-4">Active watchers: @Health.ActiveWatcherCount</MudText>
+                <MudStack Row="true" Spacing="2">
+                    <MudButton Variant="Variant.Filled" Color="Color.Success" Disabled="@Health.HarvestingEnabled"
+                               OnClick="StartAsync">Start</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Error" Disabled="@(!Health.HarvestingEnabled)"
+                               OnClick="StopAsync">Stop</MudButton>
+                </MudStack>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+    <MudItem xs="12" md="6">
+        <MudCard>
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h6">Uploads</MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudText>Succeeded: @Health.UploadSuccessCount</MudText>
+                <MudText>Failed: @Health.UploadFailureCount</MudText>
+                <MudText Class="mt-2">Last upload (UTC): @(Health.LastUploadUtc?.ToString("u") ?? "—")</MudText>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+    <MudItem xs="12">
+        <MudCard>
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h6">Last error</MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudText Typo="Typo.body2">@(Health.LastErrorUtc?.ToString("u") ?? "—")</MudText>
+                <MudText Typo="Typo.body1" Class="mt-2">@(Health.LastErrorMessage ?? "None")</MudText>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+    <MudItem xs="12">
+        <MudCard>
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h6">Watchers</MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudTable Items="@Health.Watchers" Hover="true" Dense="true" Breakpoint="Breakpoint.Sm">
+                    <HeaderContent>
+                        <MudTh>Path</MudTh>
+                        <MudTh>Recursive</MudTh>
+                        <MudTh>Events</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Path">@context.Path</MudTd>
+                        <MudTd DataLabel="Recursive">@context.Recursive</MudTd>
+                        <MudTd DataLabel="Events">@context.EventsEnabled</MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+</MudGrid>
+
+@code {
+    protected override void OnInitialized()
+    {
+        Health.Changed += OnHealthChanged;
+    }
+
+    private void OnHealthChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private async Task StartAsync()
+    {
+        try
+        {
+            await Runtime.SetHarvestingEnabledAsync(true);
+            Snackbar.Add("Harvesting started.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task StopAsync()
+    {
+        try
+        {
+            await Runtime.SetHarvestingEnabledAsync(false);
+            Snackbar.Add("Harvesting stopped.", Severity.Info);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        Health.Changed -= OnHealthChanged;
+        return ValueTask.CompletedTask;
+    }
+}

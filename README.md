@@ -92,7 +92,8 @@ If you like this idea and want to keep my public instance happy and running,
   The symbol caching/hosting server backend that provides the REST API, Blazor UI, and MongoDB integration. See
   [server/README.md](./server/README.md) for a concise endpoint and setup summary.
 - [`HarvestingAgent`](./agent)  
-  A worker service that watches over filesystem directories for new symbols and uploads them to your servers.
+  A Windows service with a localhost MudBlazor UI that watches configured directories and uploads new symbols to your
+  servers; settings are stored under ProgramData.
 - [`Nefarius.Utilities.ExceptionEnricher`](./lib)  
   A class library that makes use of the symbol server infrastructure to on-demand download debug symbols whenever an
   exception happens.

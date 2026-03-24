@@ -1,0 +1,181 @@
+@page "/configuration"
+@rendermode InteractiveServer
+@inject AgentSettingsStore Store
+@inject HarvesterRuntime Runtime
+@inject ISnackbar Snackbar
+
+<PageTitle>Configuration</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Harvesting configuration</MudText>
+<MudText Typo="Typo.body2" Class="mb-4">
+    Add one or more upload targets. For each watcher path, use <strong>Include subdirectories</strong> when you want the whole tree monitored.
+    Leave upload file filters empty to use defaults (*.exe, *.dll, *.sys, *.pdb).
+</MudText>
+
+<MudStack Spacing="3">
+    @for (var i = 0; i < _doc.Servers.Count; i++)
+    {
+        var idx = i;
+        var server = _doc.Servers[idx];
+        <MudExpansionPanel Text="@($"Server {idx + 1}")">
+            <MudStack Spacing="2">
+                <MudTextField @bind-Value="_serverUrls[idx]" Label="Server URL" Variant="Variant.Outlined"
+                              HelperText="e.g. http://192.168.1.10:5000/" />
+                <MudTextField @bind-Value="server.Authentication.Username" Label="Username" Variant="Variant.Outlined" />
+                <MudTextField @bind-Value="server.Authentication.Password" Label="Password" Variant="Variant.Outlined"
+                              InputType="InputType.Password" />
+                <MudSwitch @bind-Value="server.DeleteAfterUpload" Color="Color.Primary" Label="Delete after successful upload" />
+
+                <MudText Typo="Typo.subtitle2">Watcher paths</MudText>
+                @for (var w = 0; w < server.WatcherPaths.Count; w++)
+                {
+                    var wj = w;
+                    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="flex-wrap">
+                        <MudTextField @bind-Value="server.WatcherPaths[wj].Path" Label="Directory" Variant="Variant.Outlined"
+                                      Margin="Margin.Dense" Class="flex-grow-1" Style="min-width: 12rem;" />
+                        <MudCheckBox T="bool" @bind-Value="server.WatcherPaths[wj].IncludeSubdirectories"
+                                     Label="Include subdirectories" Color="Color.Primary" Dense="true" Class="mt-1" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" aria-label="Remove path"
+                                       OnClick="@(() => RemoveAt(server.WatcherPaths, wj))" />
+                    </MudStack>
+                }
+                <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="@(() => server.WatcherPaths.Add(new WatcherPathEntry()))">
+                    Add watcher path
+                </MudButton>
+
+                <MudText Typo="Typo.subtitle2">Upload file filters</MudText>
+                @for (var f = 0; f < server.UploadFileFilters.Count; f++)
+                {
+                    var fj = f;
+                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                        <MudTextField @bind-Value="server.UploadFileFilters[fj]" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      Class="flex-grow-1" HelperText="e.g. *.pdb" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" aria-label="Remove filter"
+                                       OnClick="@(() => RemoveAt(server.UploadFileFilters, fj))" />
+                    </MudStack>
+                }
+                <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Add" OnClick="@(() => server.UploadFileFilters.Add("*.pdb"))">
+                    Add filter
+                </MudButton>
+
+                <MudText Typo="Typo.subtitle2">Deletion inclusion (globs)</MudText>
+                @for (var di = 0; di < server.DeletionInclusionFilter.Count; di++)
+                {
+                    var dj = di;
+                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                        <MudTextField @bind-Value="server.DeletionInclusionFilter[dj]" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      Class="flex-grow-1" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" aria-label="Remove pattern"
+                                       OnClick="@(() => RemoveAt(server.DeletionInclusionFilter, dj))" />
+                    </MudStack>
+                }
+                <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="@(() => server.DeletionInclusionFilter.Add("**/*.pdb"))">
+                    Add pattern
+                </MudButton>
+
+                <MudText Typo="Typo.subtitle2">Deletion exclusion (globs)</MudText>
+                @for (var ei = 0; ei < server.DeletionExclusionFilter.Count; ei++)
+                {
+                    var ej = ei;
+                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                        <MudTextField @bind-Value="server.DeletionExclusionFilter[ej]" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      Class="flex-grow-1" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" aria-label="Remove pattern"
+                                       OnClick="@(() => RemoveAt(server.DeletionExclusionFilter, ej))" />
+                    </MudStack>
+                }
+                <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="@(() => server.DeletionExclusionFilter.Add(""))">
+                    Add pattern
+                </MudButton>
+
+                <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.Delete"
+                           OnClick="@(() => RemoveServer(idx))">
+                    Remove this server
+                </MudButton>
+            </MudStack>
+        </MudExpansionPanel>
+    }
+
+    <MudButton Variant="Variant.Filled" Color="Color.Default" StartIcon="@Icons.Material.Filled.Add"
+               OnClick="AddServer">
+        Add server
+    </MudButton>
+
+    <MudStack Row="true" Spacing="2">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">Save and apply</MudButton>
+        <MudButton Variant="Variant.Outlined" OnClick="Reload">Reload from disk</MudButton>
+    </MudStack>
+</MudStack>
+
+@code {
+    private AgentSettingsDocument _doc = null!;
+    private List<string> _serverUrls = [];
+
+    protected override void OnInitialized()
+    {
+        Reload();
+    }
+
+    private void Reload()
+    {
+        _doc = Store.GetSnapshot();
+        _serverUrls = _doc.Servers.Select(s => s.ServerUrl?.ToString() ?? "").ToList();
+    }
+
+    private static void RemoveAt<T>(List<T> list, int index)
+    {
+        if (index >= 0 && index < list.Count)
+        {
+            list.RemoveAt(index);
+        }
+    }
+
+    private void AddServer()
+    {
+        _doc.Servers.Add(new ServerConfig
+        {
+            Authentication = new AuthenticationConfig(),
+            WatcherPaths = [new WatcherPathEntry()],
+            UploadFileFilters = [],
+            DeletionInclusionFilter = ["**/*.pdb"],
+            DeletionExclusionFilter = []
+        });
+        _serverUrls.Add("");
+    }
+
+    private void RemoveServer(int index)
+    {
+        _doc.Servers.RemoveAt(index);
+        _serverUrls.RemoveAt(index);
+    }
+
+    private async Task SaveAsync()
+    {
+        try
+        {
+            for (int i = 0; i < _doc.Servers.Count; i++)
+            {
+                string url = _serverUrls[i].Trim();
+                _doc.Servers[i].ServerUrl = string.IsNullOrEmpty(url) ? null : new Uri(url, UriKind.Absolute);
+            }
+
+            foreach (ServerConfig s in _doc.Servers)
+            {
+                s.WatcherPaths = s.WatcherPaths.Where(e => !string.IsNullOrWhiteSpace(e.Path)).ToList();
+            }
+
+            Store.Replace(_doc);
+            _doc = Store.GetSnapshot();
+            _serverUrls = _doc.Servers.Select(s => s.ServerUrl?.ToString() ?? "").ToList();
+            await Runtime.RebuildWatchersAsync();
+            Snackbar.Add("Configuration saved and watchers rebuilt.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+}

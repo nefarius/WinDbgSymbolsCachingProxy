@@ -1,0 +1,65 @@
+@page "/settings"
+@rendermode InteractiveServer
+@inject AgentSettingsStore Store
+@inject AgentStartupContext Startup
+@inject ISnackbar Snackbar
+
+<PageTitle>Settings</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Agent settings</MudText>
+
+<MudText Typo="Typo.body2" Class="mb-4">
+    Settings file: <code>@AgentSettingsPaths.SettingsFilePath</code>
+</MudText>
+
+@if (_doc.ListenPort != Startup.ListenPortAtStartup)
+{
+    <MudAlert Severity="Severity.Warning" Class="mb-4" Variant="Variant.Filled">
+        The saved listen port differs from the port this process is using (<strong>@Startup.ListenPortAtStartup</strong>).
+        Restart the service (or application) for a new port to take effect.
+    </MudAlert>
+}
+
+<MudNumericField @bind-Value="_doc.ListenPort" Label="Listen port (127.0.0.1)" Variant="Variant.Outlined" Min="1" Max="65535"
+                 Class="mb-4" Style="max-width: 16rem;" />
+
+<MudStack Row="true" Spacing="2">
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SavePortAsync">Save</MudButton>
+    <MudButton Variant="Variant.Outlined" OnClick="Reload">Reload from disk</MudButton>
+</MudStack>
+
+<MudText Typo="Typo.body2" Class="mt-4">
+    UI is only bound to <strong>127.0.0.1</strong>. After changing the port, open <code>http://127.0.0.1:@_doc.ListenPort/</code> following a restart.
+</MudText>
+
+@code {
+    private AgentSettingsDocument _doc = null!;
+
+    protected override void OnInitialized()
+    {
+        Reload();
+    }
+
+    private void Reload()
+    {
+        _doc = Store.GetSnapshot();
+    }
+
+    private Task SavePortAsync()
+    {
+        try
+        {
+            AgentSettingsDocument fresh = Store.GetSnapshot();
+            fresh.ListenPort = _doc.ListenPort;
+            Store.Replace(fresh);
+            _doc = Store.GetSnapshot();
+            Snackbar.Add("Listen port saved. Restart the agent if the port changed.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+
+        return Task.CompletedTask;
+    }
+}
