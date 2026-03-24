@@ -44,6 +44,13 @@ internal sealed class SymbolUploadEndpoint(DB db, ILogger<SymbolUploadEndpoint> 
 
             try
             {
+                if (string.IsNullOrWhiteSpace(section.FileName))
+                {
+                    logger.LogWarning("Encountered uploaded multipart section without a file name");
+                    AddError("Uploaded multipart section has no file name.");
+                    continue;
+                }
+
                 string filename = section.FileName.ToLowerInvariant();
                 using MemoryStream ms = new();
                 // keep copy in memory, so we can send it to parser and deliver copy to DB
