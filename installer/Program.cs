@@ -57,6 +57,9 @@ static class Program
                 OutFileName = "WinDbgSymbolsCachingProxy"
             };
 
+            // Align with WiX 5.x + WixToolset.UI.wixext/5.0.x (see GitHub workflow); avoids WiX 6 / mismatched UI extension.
+            WixExtension.UI.PreferredVersion = "5.0.2";
+
             string msiPath = project.BuildMsi();
             Console.WriteLine(msiPath);
             return 0;
@@ -178,7 +181,7 @@ static class Program
                   --agent,  -a <dir>   Published agent output (default: ./publish-x64/agent)
                   --out,    -o <dir>   MSI output directory (default: ./publish-x64/installer)
 
-                Requires Windows, the WiX 4 toolset (dotnet tool install --global wix), and prior dotnet publish of both apps.
+                Requires Windows, WiX 5.0.2 CLI + WixToolset.UI.wixext/5.0.2, and prior dotnet publish of both apps.
 
                 Environment (optional; used by NUKE BuildInstaller):
                   WDSCP_INSTALLER_SERVER, WDSCP_INSTALLER_AGENT, WDSCP_INSTALLER_OUT

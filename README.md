@@ -131,8 +131,15 @@ dotnet publish -c Release -r win-x64 -o publish-x64\agent `
 
 ### Windows installer (MSI)
 
-On **Windows**, with the [WiX 4 CLI](https://github.com/wixtoolset/wix) available (for example
-`dotnet tool install --global wix`), the Nuke target **`BuildInstaller`** publishes both applications and produces
+On **Windows**, install the **WiX 5.0.2** .NET global tool and the matching UI extension (newer `wix` v6 defaults
+are not compatible with the WixSharp + `WixUI_FeatureTree` stack without version tweaks):
+
+```PowerShell
+dotnet tool install --global wix --version 5.0.2
+wix extension add -g WixToolset.UI.wixext/5.0.2
+```
+
+Then the Nuke target **`BuildInstaller`** publishes both applications and produces
 `publish-x64\installer\WinDbgSymbolsCachingProxy.msi` (per-machine x64 install under Program Files, feature tree UI).
 
 ```PowerShell
