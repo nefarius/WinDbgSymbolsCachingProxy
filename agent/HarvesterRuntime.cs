@@ -428,6 +428,18 @@ public sealed class HarvesterRuntime : IDisposable
         }
     }
 
+    /// <summary>
+    /// Begins background processing for a newly created filesystem entry detected by a FileSystemWatcher.
+    /// </summary>
+    /// <remarks>
+    /// Processing records the detection, waits for the file to become readable, snapshots the file to a temporary path,
+    /// uploads the snapshot to the watcher’s configured servers, records per-server upload failures, and — if all uploads
+    /// succeed and deletion rules match — attempts to delete the original file after verifying the file version unchanged.
+    /// The temporary snapshot is removed when processing completes. Cancellation during application shutdown is honored
+    /// and errors are logged and reported to runtime health.
+    /// </remarks>
+    /// <param name="sender">The <see cref="FileSystemWatcher"/> that raised the event.</param>
+    /// <param name="e">The <see cref="FileSystemEventArgs"/> containing the detected file path.</param>
     private void WatcherOnCreated(object sender, FileSystemEventArgs e)
     {
         FileSystemWatcher? watcher = sender as FileSystemWatcher;
@@ -555,6 +567,24 @@ public sealed class HarvesterRuntime : IDisposable
         }, stopping);
     }
 
+    /// <summary>
+    /// Uploads a snapshotted symbol file to the specified server and reports the outcome.
+    /// </summary>
+    /// <param name="serverConfig">Destination server configuration.</param>
+    /// <param name="snapshotPath">File system path to the temporary snapshot of the symbol file to upload.</param>
+    /// <param name="detectedPath">Original detected file path (used for health reporting and writing any upload-error file).</param>
+    /// <param name="fileName">File name to include in the multipart upload.</param>
+    /// <param name="mimeType">MIME type to set for the uploaded file content.</param>
+    /// <param name="snapshottedSourceVersion">Captured source file version at snapshot time (used for logging and diagnostics).</param>
+    /// <param name="cancellationToken">Token to cancel the upload operation.</param>
+    /// <returns>
+    /// An UploadAttemptResult containing:
+    /// - Success: `true` if the server accepted the upload, `false` otherwise.
+    /// - ShouldDeleteAfterAllSuccess: whether the server's deletion rules matched the file name.
+    /// - ServerDisplayName and ServerUrl identifying the target server.
+    /// - ErrorDetails populated when the upload failed.
+    /// </returns>
+    /// <exception cref="OperationCanceledException">If the operation is canceled via the <paramref name="cancellationToken"/>.</exception>
     private async Task<UploadAttemptResult> UploadToServerAsync(
         ServerConfig serverConfig,
         string snapshotPath,
