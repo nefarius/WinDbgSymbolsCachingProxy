@@ -10,6 +10,10 @@
 
 <MudText Typo="Typo.h4" Class="mb-4">Dashboard</MudText>
 
+<MudText Typo="Typo.body2" Class="mb-3">
+    Server assembly version: <strong>@(_serverVersion ?? "—")</strong>
+</MudText>
+
 <MudGrid>
     <MudItem xs="12" md="6">
         <MudCard>
@@ -153,9 +157,11 @@
 @code {
     private bool _disposed;
     private bool _isTogglingHarvesting;
+    private string? _serverVersion;
 
     protected override void OnInitialized()
     {
+        _serverVersion = ApplicationVersionHelper.TryGetServerVersion();
         Health.Changed += OnHealthChanged;
     }
 
