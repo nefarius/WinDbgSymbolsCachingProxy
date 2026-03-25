@@ -23,6 +23,8 @@ The agent watches directories you configure. Supported upload patterns default t
 
 Enable **Include subdirectories** on a watcher row when you want the entire directory tree monitored. That pairs well with **Delete after successful upload** turned off so builds are not disturbed. Older settings files that used a trailing `*` on the path are still loaded and converted automatically.
 
+When watching **live** build output (e.g. MSBuild writing to the same folder), the agent opens files with **shared** read access, waits for a **stable file size**, then **copies each symbol to a temp file** and uploads from that snapshot so the original path is not held open for the duration of the HTTP request. That reduces contention with the toolchain; keeping **Delete after successful upload** off for build trees is still recommended.
+
 Logging is still configured via `appsettings.json` / `appsettings.Development.json` (Serilog); harvester options are **not** read from those files.
 Dashboard file activity history is in-memory only and resets when the process/service restarts.
 

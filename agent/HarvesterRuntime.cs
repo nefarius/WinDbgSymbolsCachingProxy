@@ -24,6 +24,11 @@ public sealed class HarvesterRuntime : IDisposable
 
     public static readonly string[] DefaultUploadFilters = ["*.exe", "*.dll", "*.sys", "*.pdb"];
 
+    /// <summary>
+    ///     Share flags for reading build outputs while MSBuild or the linker may still have the file open.
+    /// </summary>
+    private const FileShare SymbolFileShare = FileShare.Read | FileShare.Write | FileShare.Delete;
+
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<HarvesterRuntime> _logger;
     private readonly AgentSettingsStore _store;
@@ -50,7 +55,7 @@ public sealed class HarvesterRuntime : IDisposable
     }
 
     /// <summary>
-    ///     Waits until the file can be opened for exclusive read or cancellation is requested.
+    ///     Waits until the file size is stable and it can be opened for read with sharing compatible with live MSBuild output.
     /// </summary>
     private static async Task WaitForFileReadyAsync(string fullPath, CancellationToken cancellationToken)
     {
@@ -59,11 +64,20 @@ public sealed class HarvesterRuntime : IDisposable
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
+                long len1 = new FileInfo(fullPath).Length;
+                await Task.Delay(150, cancellationToken);
+                long len2 = new FileInfo(fullPath).Length;
+                if (len1 != len2)
+                {
+                    await Task.Delay(350, cancellationToken);
+                    continue;
+                }
+
                 await using FileStream stream = new(
                     fullPath,
                     FileMode.Open,
                     FileAccess.Read,
-                    FileShare.None,
+                    SymbolFileShare,
                     bufferSize: 1,
                     options: FileOptions.Asynchronous | FileOptions.SequentialScan);
 
@@ -94,6 +108,35 @@ public sealed class HarvesterRuntime : IDisposable
                 await Task.Delay(500, cancellationToken);
             }
         }
+    }
+
+    /// <summary>
+    ///     Copies the symbol to a temp file using a short-lived shared read on the source, so uploads do not hold handles on build outputs.
+    /// </summary>
+    private static async Task<string> CreateUploadSnapshotAsync(string sourcePath, CancellationToken cancellationToken)
+    {
+        string tempName = $"harvester-{Guid.NewGuid():N}-{Path.GetFileName(sourcePath)}";
+        string tempPath = Path.Combine(Path.GetTempPath(), tempName);
+
+        await using (FileStream source = new(
+                     sourcePath,
+                     FileMode.Open,
+                     FileAccess.Read,
+                     SymbolFileShare,
+                     bufferSize: 1024 * 64,
+                     options: FileOptions.Asynchronous | FileOptions.SequentialScan))
+        await using (FileStream dest = new(
+                     tempPath,
+                     FileMode.CreateNew,
+                     FileAccess.Write,
+                     FileShare.None,
+                     bufferSize: 1024 * 64,
+                     options: FileOptions.Asynchronous))
+        {
+            await source.CopyToAsync(dest, cancellationToken);
+        }
+
+        return tempPath;
     }
 
     /// <summary>
@@ -370,33 +413,54 @@ public sealed class HarvesterRuntime : IDisposable
 
                 await WaitForFileReadyAsync(path, stopping);
 
-                string? mimeType = MimeTypeMap.GetMimeType(Path.GetExtension(path));
-                ArgumentException.ThrowIfNullOrEmpty(mimeType);
-
-                Task<UploadAttemptResult>[] uploads = binding.Servers
-                    .Select(serverConfig => UploadToServerAsync(serverConfig, path, fileName, mimeType, stopping))
-                    .ToArray();
-
-                UploadAttemptResult[] results = await Task.WhenAll(uploads);
-
-                foreach (UploadAttemptResult result in results)
+                string? snapshotPath = null;
+                try
                 {
-                    if (!result.Success)
+                    snapshotPath = await CreateUploadSnapshotAsync(path, stopping);
+
+                    string? mimeType = MimeTypeMap.GetMimeType(Path.GetExtension(path));
+                    ArgumentException.ThrowIfNullOrEmpty(mimeType);
+
+                    Task<UploadAttemptResult>[] uploads = binding.Servers
+                        .Select(serverConfig =>
+                            UploadToServerAsync(serverConfig, snapshotPath, path, fileName, mimeType, stopping))
+                        .ToArray();
+
+                    UploadAttemptResult[] results = await Task.WhenAll(uploads);
+
+                    foreach (UploadAttemptResult result in results)
                     {
-                        _health.RecordFileUploadFailure(
-                            path,
-                            result.ServerUrl,
-                            result.ErrorDetails ?? "Upload failed");
+                        if (!result.Success)
+                        {
+                            _health.RecordFileUploadFailure(
+                                path,
+                                result.ServerUrl,
+                                result.ErrorDetails ?? "Upload failed");
+                        }
+                    }
+
+                    bool allSucceeded = results.All(r => r.Success);
+                    bool shouldDelete = results.Any(r => r.ShouldDeleteAfterAllSuccess);
+
+                    if (allSucceeded && shouldDelete)
+                    {
+                        File.Delete(path);
+                        _logger.LogInformation("Symbol file {Symbol} deleted", path);
                     }
                 }
-
-                bool allSucceeded = results.All(r => r.Success);
-                bool shouldDelete = results.Any(r => r.ShouldDeleteAfterAllSuccess);
-
-                if (allSucceeded && shouldDelete)
+                finally
                 {
-                    File.Delete(path);
-                    _logger.LogInformation("Symbol file {Symbol} deleted", path);
+                    if (snapshotPath is not null)
+                    {
+                        try
+                        {
+                            File.Delete(snapshotPath);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to delete temp upload snapshot {TempPath}", snapshotPath);
+                        }
+                    }
                 }
             }
             catch (OperationCanceledException)
@@ -414,7 +478,8 @@ public sealed class HarvesterRuntime : IDisposable
 
     private async Task<UploadAttemptResult> UploadToServerAsync(
         ServerConfig serverConfig,
-        string path,
+        string snapshotPath,
+        string detectedPath,
         string fileName,
         string mimeType,
         CancellationToken cancellationToken)
@@ -444,7 +509,7 @@ public sealed class HarvesterRuntime : IDisposable
 
             using MultipartFormDataContent form = new();
             await using FileStream fileStream = new(
-                path,
+                snapshotPath,
                 FileMode.Open,
                 FileAccess.Read,
                 FileShare.Read,
@@ -463,7 +528,7 @@ public sealed class HarvesterRuntime : IDisposable
             {
                 _logger.LogInformation("Symbol upload successful");
                 _health.RecordUploadSuccess();
-                _health.RecordFileUploadSuccess(path, serverUrl);
+                _health.RecordFileUploadSuccess(detectedPath, serverUrl);
 
                 bool shouldDelete = false;
                 if (serverConfig.DeleteAfterUpload)
@@ -487,7 +552,7 @@ public sealed class HarvesterRuntime : IDisposable
             _logger.LogInformation("Symbol upload failed");
             string body = await response.Content.ReadAsStringAsync(cancellationToken);
             _health.RecordUploadFailure($"HTTP {(int)response.StatusCode}: {body}");
-            await File.WriteAllTextAsync($"{path}.upload-error.txt", body, cancellationToken);
+            await File.WriteAllTextAsync($"{detectedPath}.upload-error.txt", body, cancellationToken);
             return new UploadAttemptResult
             {
                 Success = false,
