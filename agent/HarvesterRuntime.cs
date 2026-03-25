@@ -18,6 +18,7 @@ public sealed class HarvesterRuntime : IDisposable
     {
         public bool Success { get; init; }
         public bool ShouldDeleteAfterAllSuccess { get; init; }
+        public string? ServerDisplayName { get; init; }
         public string? ServerUrl { get; init; }
         public string? ErrorDetails { get; init; }
     }
@@ -488,6 +489,7 @@ public sealed class HarvesterRuntime : IDisposable
                         {
                             _health.RecordFileUploadFailure(
                                 path,
+                                result.ServerDisplayName,
                                 result.ServerUrl,
                                 result.ErrorDetails ?? "Upload failed");
                         }
@@ -547,7 +549,7 @@ public sealed class HarvesterRuntime : IDisposable
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to upload symbol {FullPath}", e.FullPath);
-                _health.RecordFileUploadFailure(e.FullPath, null, ex.Message);
+                _health.RecordFileUploadFailure(e.FullPath, null, null, ex.Message);
                 _health.RecordError(ex.Message);
             }
         }, stopping);
@@ -563,6 +565,9 @@ public sealed class HarvesterRuntime : IDisposable
         CancellationToken cancellationToken)
     {
         string? serverUrl = serverConfig.ServerUrl?.ToString();
+        string? serverDisplayName = string.IsNullOrWhiteSpace(serverConfig.DisplayName)
+            ? null
+            : serverConfig.DisplayName.Trim();
 
         if (serverConfig.ServerUrl is null)
         {
@@ -570,6 +575,7 @@ public sealed class HarvesterRuntime : IDisposable
             {
                 Success = false,
                 ShouldDeleteAfterAllSuccess = false,
+                ServerDisplayName = serverDisplayName,
                 ServerUrl = serverUrl,
                 ErrorDetails = "Missing server URL"
             };
@@ -612,7 +618,7 @@ public sealed class HarvesterRuntime : IDisposable
             {
                 _logger.LogInformation("Symbol upload successful");
                 _health.RecordUploadSuccess();
-                _health.RecordFileUploadSuccess(detectedPath, serverUrl);
+                _health.RecordFileUploadSuccess(detectedPath, serverDisplayName, serverUrl);
 
                 bool shouldDelete = false;
                 if (serverConfig.DeleteAfterUpload)
@@ -629,6 +635,7 @@ public sealed class HarvesterRuntime : IDisposable
                 {
                     Success = true,
                     ShouldDeleteAfterAllSuccess = shouldDelete,
+                    ServerDisplayName = serverDisplayName,
                     ServerUrl = serverUrl
                 };
             }
@@ -641,6 +648,7 @@ public sealed class HarvesterRuntime : IDisposable
             {
                 Success = false,
                 ShouldDeleteAfterAllSuccess = false,
+                ServerDisplayName = serverDisplayName,
                 ServerUrl = serverUrl,
                 ErrorDetails = $"HTTP {(int)response.StatusCode}: {body}"
             };
@@ -657,6 +665,7 @@ public sealed class HarvesterRuntime : IDisposable
             {
                 Success = false,
                 ShouldDeleteAfterAllSuccess = false,
+                ServerDisplayName = serverDisplayName,
                 ServerUrl = serverUrl,
                 ErrorDetails = ex.Message
             };

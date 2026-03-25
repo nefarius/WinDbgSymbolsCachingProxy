@@ -30,6 +30,8 @@ public sealed class HarvestedFileHistoryEntry
 
     public string? ServerUrl { get; init; }
 
+    public string? ServerDisplayName { get; init; }
+
     public string? Details { get; init; }
 }
 
@@ -120,7 +122,7 @@ public sealed class HarvesterHealthState
         RaiseChanged();
     }
 
-    public void RecordFileUploadSuccess(string filePath, string? serverUrl)
+    public void RecordFileUploadSuccess(string filePath, string? serverDisplayName, string? serverUrl)
     {
         lock (_lock)
         {
@@ -130,6 +132,7 @@ public sealed class HarvesterHealthState
                 FilePath = filePath,
                 FileName = Path.GetFileName(filePath),
                 Status = FileActivityStatus.UploadSucceeded,
+                ServerDisplayName = serverDisplayName,
                 ServerUrl = serverUrl
             });
         }
@@ -137,7 +140,7 @@ public sealed class HarvesterHealthState
         RaiseChanged();
     }
 
-    public void RecordFileUploadFailure(string filePath, string? serverUrl, string details)
+    public void RecordFileUploadFailure(string filePath, string? serverDisplayName, string? serverUrl, string details)
     {
         lock (_lock)
         {
@@ -147,6 +150,7 @@ public sealed class HarvesterHealthState
                 FilePath = filePath,
                 FileName = Path.GetFileName(filePath),
                 Status = FileActivityStatus.UploadFailed,
+                ServerDisplayName = serverDisplayName,
                 ServerUrl = serverUrl,
                 Details = details
             });

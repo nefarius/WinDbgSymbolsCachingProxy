@@ -18,8 +18,10 @@
     {
         var idx = i;
         var server = _doc.Servers[idx];
-        <MudExpansionPanel Text="@($"Server {idx + 1}")">
+        <MudExpansionPanel Text="@GetServerPanelTitle(idx, server)">
             <MudStack Spacing="2">
+                <MudTextField @bind-Value="server.DisplayName" Label="Display name" Variant="Variant.Outlined"
+                              HelperText="Optional; shown in Dashboard file activity instead of the URL." />
                 <MudTextField @bind-Value="_serverUrls[idx]" Label="Server URL" Variant="Variant.Outlined"
                               HelperText="e.g. http://192.168.1.10:5000/" />
                 <MudTextField @bind-Value="server.Authentication.Username" Label="Username" Variant="Variant.Outlined" />
@@ -126,6 +128,12 @@
     {
         _doc = Store.GetSnapshot();
         _serverUrls = _doc.Servers.Select(s => s.ServerUrl?.ToString() ?? "").ToList();
+    }
+
+    private static string GetServerPanelTitle(int index, ServerConfig server)
+    {
+        string trimmed = (server.DisplayName ?? string.Empty).Trim();
+        return string.IsNullOrEmpty(trimmed) ? $"Server {index + 1}" : trimmed;
     }
 
     private static void RemoveAt<T>(List<T> list, int index)
