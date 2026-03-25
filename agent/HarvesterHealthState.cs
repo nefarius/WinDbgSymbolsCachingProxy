@@ -30,6 +30,8 @@ public sealed class HarvestedFileHistoryEntry
 
     public string? ServerUrl { get; init; }
 
+    public string? ServerDisplayName { get; init; }
+
     public string? Details { get; init; }
 }
 
@@ -104,6 +106,13 @@ public sealed class HarvesterHealthState
         RaiseChanged();
     }
 
+    /// <summary>
+    /// Records that a file was detected and adds an entry to the file activity history.
+    /// </summary>
+    /// <param name="filePath">The full path of the detected file.</param>
+    /// <remarks>
+    /// The recorded history entry uses the current UTC timestamp, derives the file name from <paramref name="filePath"/>, and marks the status as detected. After updating history, the <c>Changed</c> event is raised.
+    /// </remarks>
     public void RecordFileDetected(string filePath)
     {
         lock (_lock)
@@ -120,7 +129,16 @@ public sealed class HarvesterHealthState
         RaiseChanged();
     }
 
-    public void RecordFileUploadSuccess(string filePath, string? serverUrl)
+    /// <summary>
+    /// Record a successful upload for the specified file and add a corresponding entry to the file activity history.
+    /// </summary>
+    /// <param name="filePath">The full path of the uploaded file; the entry's FileName is derived from this path.</param>
+    /// <param name="serverDisplayName">An optional human-friendly name for the upload destination.</param>
+    /// <param name="serverUrl">An optional URL of the upload destination.</param>
+    /// <remarks>
+    /// The history entry's timestamp is set to the current UTC time. This method updates internal counters/state and raises the <c>Changed</c> event after the update.
+    /// </remarks>
+    public void RecordFileUploadSuccess(string filePath, string? serverDisplayName, string? serverUrl)
     {
         lock (_lock)
         {
@@ -130,6 +148,7 @@ public sealed class HarvesterHealthState
                 FilePath = filePath,
                 FileName = Path.GetFileName(filePath),
                 Status = FileActivityStatus.UploadSucceeded,
+                ServerDisplayName = serverDisplayName,
                 ServerUrl = serverUrl
             });
         }
@@ -137,7 +156,17 @@ public sealed class HarvesterHealthState
         RaiseChanged();
     }
 
-    public void RecordFileUploadFailure(string filePath, string? serverUrl, string details)
+    /// <summary>
+    /// Record a failed upload for a harvested file and add a corresponding entry to the in-memory history.
+    /// </summary>
+    /// <param name="filePath">Full path of the file that failed to upload.</param>
+    /// <param name="serverDisplayName">Optional display name of the server/endpoint that was the upload target.</param>
+    /// <param name="serverUrl">Optional URL of the server/endpoint that was the upload target.</param>
+    /// <param name="details">Error or diagnostic details describing the failure.</param>
+    /// <remarks>
+    /// The method creates a history entry with the current UTC timestamp, derives <c>FileName</c> from <c>filePath</c>, and marks the entry with <see cref="FileActivityStatus.UploadFailed"/>. State mutation is performed under an internal lock and the <see cref="Changed"/> event is raised after the update. The new entry is inserted as the most recent history item and the history is trimmed to the configured maximum length.
+    /// </remarks>
+    public void RecordFileUploadFailure(string filePath, string? serverDisplayName, string? serverUrl, string details)
     {
         lock (_lock)
         {
@@ -147,6 +176,7 @@ public sealed class HarvesterHealthState
                 FilePath = filePath,
                 FileName = Path.GetFileName(filePath),
                 Status = FileActivityStatus.UploadFailed,
+                ServerDisplayName = serverDisplayName,
                 ServerUrl = serverUrl,
                 Details = details
             });

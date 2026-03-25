@@ -26,6 +26,11 @@ public sealed class ServerConfig
     public Uri? ServerUrl { get; set; }
 
     /// <summary>
+    ///     Optional label for UI; when set, shown instead of the URL in the dashboard file activity table.
+    /// </summary>
+    public string DisplayName { get; set; } = "";
+
+    /// <summary>
     ///     Directories to watch. Use <see cref="WatcherPathEntry.IncludeSubdirectories" /> instead of a trailing <c>*</c> on the path.
     /// </summary>
     [JsonConverter(typeof(WatcherPathEntryListJsonConverter))]

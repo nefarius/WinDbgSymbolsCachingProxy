@@ -10,6 +10,10 @@
 
 <MudText Typo="Typo.h4" Class="mb-4">Dashboard</MudText>
 
+<MudText Typo="Typo.body2" Class="mb-3">
+    Server assembly version: <strong>@(_serverVersion ?? "—")</strong>
+</MudText>
+
 <MudGrid>
     <MudItem xs="12" md="6">
         <MudCard>
@@ -98,20 +102,50 @@
                 }
                 else
                 {
-                    <MudTable Items="@Health.FileActivityHistory" Hover="true" Dense="true" Breakpoint="Breakpoint.Sm">
+                    <MudTable Items="@Health.FileActivityHistory" Hover="true" Dense="true" Breakpoint="Breakpoint.Sm"
+                              Style="width:100%; table-layout:fixed;">
+                        <ColGroup>
+                            <col style="width: 11.75rem;" />
+                            <col />
+                            <col style="width: 9rem;" />
+                            <col style="width: 11rem;" />
+                            <col style="width: 50%; max-width: 50%;" />
+                        </ColGroup>
                         <HeaderContent>
-                            <MudTh>Time (UTC)</MudTh>
+                            <MudTh Style="width: 11.75rem;">Time (UTC)</MudTh>
                             <MudTh>File</MudTh>
-                            <MudTh>Event</MudTh>
-                            <MudTh>Server</MudTh>
-                            <MudTh>Details</MudTh>
+                            <MudTh Style="width: 9rem;">Event</MudTh>
+                            <MudTh Style="width: 11rem;">Server</MudTh>
+                            <MudTh Style="max-width: 50%;">Details</MudTh>
                         </HeaderContent>
                         <RowTemplate>
-                            <MudTd DataLabel="Time (UTC)">@context.TimestampUtc.ToString("u")</MudTd>
-                            <MudTd DataLabel="File">@context.FileName</MudTd>
-                            <MudTd DataLabel="Event">@GetStatusLabel(context.Status)</MudTd>
-                            <MudTd DataLabel="Server">@(context.ServerUrl ?? "—")</MudTd>
-                            <MudTd DataLabel="Details">@(context.Details ?? "—")</MudTd>
+                            <MudTd DataLabel="Time (UTC)" Style="width: 11.75rem; white-space: nowrap;">@context.TimestampUtc.ToString("u")</MudTd>
+                            <MudTd DataLabel="File" Style="min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">@context.FileName</MudTd>
+                            <MudTd DataLabel="Event" Style="width: 9rem; white-space: nowrap;">@GetStatusLabel(context.Status)</MudTd>
+                            <MudTd DataLabel="Server" Style="width: 11rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                @if (!string.IsNullOrEmpty(context.ServerDisplayName) && !string.IsNullOrEmpty(context.ServerUrl))
+                                {
+                                    <MudTooltip Text="@context.ServerUrl">
+                                        <span style="display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">@context.ServerDisplayName</span>
+                                    </MudTooltip>
+                                }
+                                else
+                                {
+                                    @(context.ServerDisplayName ?? context.ServerUrl ?? "—")
+                                }
+                            </MudTd>
+                            <MudTd DataLabel="Details" Style="min-width: 0; max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                @if (!string.IsNullOrWhiteSpace(context.Details))
+                                {
+                                    <MudTooltip Text="@context.Details">
+                                        <span style="display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">@context.Details</span>
+                                    </MudTooltip>
+                                }
+                                else
+                                {
+                                    <text>—</text>
+                                }
+                            </MudTd>
                         </RowTemplate>
                     </MudTable>
                 }
@@ -123,9 +157,11 @@
 @code {
     private bool _disposed;
     private bool _isTogglingHarvesting;
+    private string? _serverVersion;
 
     protected override void OnInitialized()
     {
+        _serverVersion = ApplicationVersionHelper.TryGetServerVersion();
         Health.Changed += OnHealthChanged;
     }
 
