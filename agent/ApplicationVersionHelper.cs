@@ -36,7 +36,10 @@ public static class ApplicationVersionHelper
         if (!string.IsNullOrWhiteSpace(informational))
             return informational.Trim();
 
-        return nameVersion?.ToString();
+        if (nameVersion is null || IsAllZeros(nameVersion))
+            return null;
+
+        return nameVersion.ToString();
     }
 
     private static bool IsTrivialFourPartVersion(string value)
