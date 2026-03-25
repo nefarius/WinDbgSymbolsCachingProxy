@@ -22,6 +22,11 @@ public sealed class HarvesterRuntime : IDisposable
         public string? ErrorDetails { get; init; }
     }
 
+    /// <summary>
+    ///     Identifies a concrete on-disk revision of a symbol file (length + last write UTC).
+    /// </summary>
+    private readonly record struct SymbolFileVersion(long Length, DateTime LastWriteTimeUtc);
+
     public static readonly string[] DefaultUploadFilters = ["*.exe", "*.dll", "*.sys", "*.pdb"];
 
     /// <summary>
@@ -54,10 +59,18 @@ public sealed class HarvesterRuntime : IDisposable
         _maps = new Dictionary<FileSystemWatcher, WatcherBinding>();
     }
 
+    private static SymbolFileVersion GetSymbolFileVersion(string fullPath)
+    {
+        FileInfo fi = new(fullPath);
+        return new SymbolFileVersion(fi.Length, fi.LastWriteTimeUtc);
+    }
+
     /// <summary>
     ///     Waits until the file size is stable and it can be opened for read with sharing compatible with live MSBuild output.
+    ///     Returns the file version observed after that probe (length + last write time).
     /// </summary>
-    private static async Task WaitForFileReadyAsync(string fullPath, CancellationToken cancellationToken)
+    private static async Task<SymbolFileVersion> WaitForFileReadyAsync(string fullPath,
+        CancellationToken cancellationToken)
     {
         while (true)
         {
@@ -81,7 +94,7 @@ public sealed class HarvesterRuntime : IDisposable
                     bufferSize: 1,
                     options: FileOptions.Asynchronous | FileOptions.SequentialScan);
 
-                break;
+                return GetSymbolFileVersion(fullPath);
             }
             catch (OperationCanceledException)
             {
@@ -112,31 +125,63 @@ public sealed class HarvesterRuntime : IDisposable
 
     /// <summary>
     ///     Copies the symbol to a temp file using a short-lived shared read on the source, so uploads do not hold handles on build outputs.
+    ///     Returns the temp path and the source file version that was snapshotted (length + last write UTC at copy start).
     /// </summary>
-    private static async Task<string> CreateUploadSnapshotAsync(string sourcePath, CancellationToken cancellationToken)
+    private async Task<(string TempPath, SymbolFileVersion Version)> CreateUploadSnapshotAsync(string sourcePath,
+        SymbolFileVersion versionAfterWait,
+        CancellationToken cancellationToken)
     {
         string tempName = $"harvester-{Guid.NewGuid():N}-{Path.GetFileName(sourcePath)}";
         string tempPath = Path.Combine(Path.GetTempPath(), tempName);
 
-        await using (FileStream source = new(
-                     sourcePath,
-                     FileMode.Open,
-                     FileAccess.Read,
-                     SymbolFileShare,
-                     bufferSize: 1024 * 64,
-                     options: FileOptions.Asynchronous | FileOptions.SequentialScan))
-        await using (FileStream dest = new(
-                     tempPath,
-                     FileMode.CreateNew,
-                     FileAccess.Write,
-                     FileShare.None,
-                     bufferSize: 1024 * 64,
-                     options: FileOptions.Asynchronous))
+        SymbolFileVersion versionBeforeOpen = GetSymbolFileVersion(sourcePath);
+        if (versionBeforeOpen != versionAfterWait)
         {
-            await source.CopyToAsync(dest, cancellationToken);
+            _logger.LogWarning(
+                "Symbol file {Path} changed between ready check and snapshot start (wait token {WaitVersion}, now {CurrentVersion})",
+                sourcePath,
+                versionAfterWait,
+                versionBeforeOpen);
         }
 
-        return tempPath;
+        bool copySucceeded = false;
+        try
+        {
+            await using FileStream source = new(
+                sourcePath,
+                FileMode.Open,
+                FileAccess.Read,
+                SymbolFileShare,
+                bufferSize: 1024 * 64,
+                options: FileOptions.Asynchronous | FileOptions.SequentialScan);
+            SymbolFileVersion snapshottedVersion = GetSymbolFileVersion(sourcePath);
+
+            await using FileStream dest = new(
+                tempPath,
+                FileMode.CreateNew,
+                FileAccess.Write,
+                FileShare.None,
+                bufferSize: 1024 * 64,
+                options: FileOptions.Asynchronous);
+
+            await source.CopyToAsync(dest, cancellationToken);
+            copySucceeded = true;
+            return (tempPath, snapshottedVersion);
+        }
+        finally
+        {
+            if (!copySucceeded && File.Exists(tempPath))
+            {
+                try
+                {
+                    File.Delete(tempPath);
+                }
+                catch
+                {
+                    // best-effort cleanup of partial temp file
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -411,19 +456,28 @@ public sealed class HarvesterRuntime : IDisposable
                 string fileName = Path.GetFileName(path);
                 _health.RecordFileDetected(path);
 
-                await WaitForFileReadyAsync(path, stopping);
+                SymbolFileVersion versionAfterWait = await WaitForFileReadyAsync(path, stopping);
 
                 string? snapshotPath = null;
+                SymbolFileVersion snapshottedVersion = default;
                 try
                 {
-                    snapshotPath = await CreateUploadSnapshotAsync(path, stopping);
+                    (snapshotPath, snapshottedVersion) =
+                        await CreateUploadSnapshotAsync(path, versionAfterWait, stopping);
 
                     string? mimeType = MimeTypeMap.GetMimeType(Path.GetExtension(path));
                     ArgumentException.ThrowIfNullOrEmpty(mimeType);
 
                     Task<UploadAttemptResult>[] uploads = binding.Servers
                         .Select(serverConfig =>
-                            UploadToServerAsync(serverConfig, snapshotPath, path, fileName, mimeType, stopping))
+                            UploadToServerAsync(
+                                serverConfig,
+                                snapshotPath,
+                                path,
+                                fileName,
+                                mimeType,
+                                snapshottedVersion,
+                                stopping))
                         .ToArray();
 
                     UploadAttemptResult[] results = await Task.WhenAll(uploads);
@@ -444,8 +498,31 @@ public sealed class HarvesterRuntime : IDisposable
 
                     if (allSucceeded && shouldDelete)
                     {
-                        File.Delete(path);
-                        _logger.LogInformation("Symbol file {Symbol} deleted", path);
+                        try
+                        {
+                            SymbolFileVersion currentVersion = GetSymbolFileVersion(path);
+                            if (currentVersion != snapshottedVersion)
+                            {
+                                _logger.LogWarning(
+                                    "Not deleting {Path}: file changed after snapshot (snapshotted version {Snapshotted}, current {Current})",
+                                    path,
+                                    snapshottedVersion,
+                                    currentVersion);
+                            }
+                            else
+                            {
+                                File.Delete(path);
+                                _logger.LogInformation("Symbol file {Symbol} deleted", path);
+                            }
+                        }
+                        catch (FileNotFoundException)
+                        {
+                            _logger.LogWarning("Not deleting {Path}: file no longer exists", path);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Could not verify or delete {Path} after upload", path);
+                        }
                     }
                 }
                 finally
@@ -482,6 +559,7 @@ public sealed class HarvesterRuntime : IDisposable
         string detectedPath,
         string fileName,
         string mimeType,
+        SymbolFileVersion snapshottedSourceVersion,
         CancellationToken cancellationToken)
     {
         string? serverUrl = serverConfig.ServerUrl?.ToString();
@@ -499,6 +577,12 @@ public sealed class HarvesterRuntime : IDisposable
 
         try
         {
+            _logger.LogTrace(
+                "Upload {FileName} from snapshot for {Path} (snapshotted revision {Version})",
+                fileName,
+                detectedPath,
+                snapshottedSourceVersion);
+
             using HttpClient client = _httpClientFactory.CreateClient("Server");
             client.BaseAddress = serverConfig.ServerUrl;
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
