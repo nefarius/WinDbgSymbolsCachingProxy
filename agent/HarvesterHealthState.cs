@@ -226,6 +226,19 @@ public sealed class HarvesterHealthState
         RaiseChanged();
     }
 
+    /// <summary>
+    ///     Removes all entries from the recent file activity history. Does not reset upload counters or last-error fields.
+    /// </summary>
+    public void ClearFileActivityHistory()
+    {
+        lock (_lock)
+        {
+            FileActivityHistory = Array.Empty<HarvestedFileHistoryEntry>();
+        }
+
+        RaiseChanged();
+    }
+
     private void AddHistoryEntry(HarvestedFileHistoryEntry entry)
     {
         List<HarvestedFileHistoryEntry> list = [.. FileActivityHistory];
