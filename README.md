@@ -93,7 +93,8 @@ If you like this idea and want to keep my public instance happy and running,
   [server/README.md](./server/README.md) for a concise endpoint and setup summary.
 - [`HarvestingAgent`](./agent)  
   A Windows service with a localhost MudBlazor UI that watches configured directories and uploads new symbols to your
-  servers; settings are stored under ProgramData.
+  servers. Recent additions include server display names, a directory browser assisted watcher setup, and in-memory
+  upload history/activity diagnostics in the dashboard; settings are stored under ProgramData.
 - [`WinDbgSymbolsCachingProxy.Installer`](./installer)  
   WixSharp (WiX 4) project that builds an x64 MSI with optional **Server** and **Agent** features (both selected by
   default). The license dialog uses [installer/License.rtf](./installer/License.rtf), which mirrors the repository
