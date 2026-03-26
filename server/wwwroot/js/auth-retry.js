@@ -1,7 +1,7 @@
 window.symbolsAuthRetry = {
-    trigger: async function (returnUrl) {
+    trigger: async function () {
         try {
-            const response = await fetch("/api/auth/challenge", {
+            const response = await fetch("/auth-challenge", {
                 method: "GET",
                 credentials: "include",
                 cache: "no-store"
