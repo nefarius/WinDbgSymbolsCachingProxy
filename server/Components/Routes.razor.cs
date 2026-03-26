@@ -1,21 +1,27 @@
 using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
 
 namespace WinDbgSymbolsCachingProxy.Components;
 
 public partial class Routes
 {
-    private const string AuthChallengePath = "/api/auth/challenge";
-
     [Inject]
     private NavigationManager Navigation { get; set; } = null!;
+    
+    [Inject]
+    private IJSRuntime Js { get; set; } = null!;
 
     /// <summary>
     ///     Forces a request to a protected API route so the browser can re-run Basic Auth challenge, then returns to this page.
     /// </summary>
-    private void RetryCurrentRouteWithFullLoad()
+    private async Task RetryCurrentRouteWithFullLoad()
     {
         Uri uri = new(Navigation.Uri);
-        string challengeUrl = $"{AuthChallengePath}?returnUrl={Uri.EscapeDataString(uri.PathAndQuery)}";
-        Navigation.NavigateTo(challengeUrl, forceLoad: true);
+        bool authenticated = await Js.InvokeAsync<bool>("symbolsAuthRetry.trigger", uri.PathAndQuery);
+
+        if (authenticated)
+        {
+            Navigation.NavigateTo(uri.PathAndQuery, forceLoad: true);
+        }
     }
 }
