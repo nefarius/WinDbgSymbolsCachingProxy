@@ -691,6 +691,8 @@ public sealed class HarvesterRuntime : IDisposable
         }
     }
 
+    private static readonly string[] DefaultDeletionInclusionPatterns = ["**/*.pdb"];
+
     private static bool ShouldDeleteAfterAllSuccess(IReadOnlyList<WatcherPathEntry> watchRules, string fileName)
     {
         foreach (WatcherPathEntry rule in watchRules)
@@ -701,8 +703,11 @@ public sealed class HarvesterRuntime : IDisposable
             }
 
             Matcher matcher = new();
-            matcher.AddIncludePatterns(rule.DeletionInclusionFilter);
-            matcher.AddExcludePatterns(rule.DeletionExclusionFilter);
+            IReadOnlyList<string> includes = rule.DeletionInclusionFilter is { Count: > 0 }
+                ? rule.DeletionInclusionFilter
+                : DefaultDeletionInclusionPatterns;
+            matcher.AddIncludePatterns(includes);
+            matcher.AddExcludePatterns(rule.DeletionExclusionFilter ?? []);
 
             PatternMatchingResult match = matcher.Match(fileName);
             if (match.HasMatches)
