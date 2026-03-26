@@ -15,7 +15,10 @@ public enum FileActivityStatus
 {
     Detected,
     UploadSucceeded,
-    UploadFailed
+    UploadFailed,
+    Deleted,
+    DeleteSkipped,
+    DeleteFailed
 }
 
 public sealed class HarvestedFileHistoryEntry
@@ -180,6 +183,78 @@ public sealed class HarvesterHealthState
                 ServerUrl = serverUrl,
                 Details = details
             });
+        }
+
+        RaiseChanged();
+    }
+
+    /// <summary>
+    ///     Records that the local file was removed after a successful upload (delete-after-upload).
+    /// </summary>
+    public void RecordFileDeleted(string filePath)
+    {
+        lock (_lock)
+        {
+            AddHistoryEntry(new HarvestedFileHistoryEntry
+            {
+                TimestampUtc = DateTimeOffset.UtcNow,
+                FilePath = filePath,
+                FileName = Path.GetFileName(filePath),
+                Status = FileActivityStatus.Deleted
+            });
+        }
+
+        RaiseChanged();
+    }
+
+    /// <summary>
+    ///     Records that delete-after-upload was skipped (e.g. file changed after snapshot).
+    /// </summary>
+    public void RecordFileDeleteSkipped(string filePath, string details)
+    {
+        lock (_lock)
+        {
+            AddHistoryEntry(new HarvestedFileHistoryEntry
+            {
+                TimestampUtc = DateTimeOffset.UtcNow,
+                FilePath = filePath,
+                FileName = Path.GetFileName(filePath),
+                Status = FileActivityStatus.DeleteSkipped,
+                Details = details
+            });
+        }
+
+        RaiseChanged();
+    }
+
+    /// <summary>
+    ///     Records that delete-after-upload failed for the given path.
+    /// </summary>
+    public void RecordFileDeleteFailed(string filePath, string details)
+    {
+        lock (_lock)
+        {
+            AddHistoryEntry(new HarvestedFileHistoryEntry
+            {
+                TimestampUtc = DateTimeOffset.UtcNow,
+                FilePath = filePath,
+                FileName = Path.GetFileName(filePath),
+                Status = FileActivityStatus.DeleteFailed,
+                Details = details
+            });
+        }
+
+        RaiseChanged();
+    }
+
+    /// <summary>
+    ///     Removes all entries from the recent file activity history. Does not reset upload counters or last-error fields.
+    /// </summary>
+    public void ClearFileActivityHistory()
+    {
+        lock (_lock)
+        {
+            FileActivityHistory = Array.Empty<HarvestedFileHistoryEntry>();
         }
 
         RaiseChanged();

@@ -525,20 +525,26 @@ public sealed class HarvesterRuntime : IDisposable
                                     path,
                                     snapshottedVersion,
                                     currentVersion);
+                                _health.RecordFileDeleteSkipped(
+                                    path,
+                                    $"Version mismatch: snapshotted {snapshottedVersion}, current {currentVersion}");
                             }
                             else
                             {
                                 File.Delete(path);
                                 _logger.LogInformation("Symbol file {Symbol} deleted", path);
+                                _health.RecordFileDeleted(path);
                             }
                         }
                         catch (FileNotFoundException)
                         {
                             _logger.LogWarning("Not deleting {Path}: file no longer exists", path);
+                            _health.RecordFileDeleteFailed(path, "File not found");
                         }
                         catch (Exception ex)
                         {
                             _logger.LogWarning(ex, "Could not verify or delete {Path} after upload", path);
+                            _health.RecordFileDeleteFailed(path, ex.Message);
                         }
                     }
                 }

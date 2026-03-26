@@ -94,6 +94,13 @@
                 <CardHeaderContent>
                     <MudText Typo="Typo.h6">Recent file activity</MudText>
                 </CardHeaderContent>
+                <CardHeaderActions>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Default" Size="Size.Small"
+                               Disabled="@(Health.FileActivityHistory.Count == 0)"
+                               OnClick="ClearFileActivityHistoryAsync">
+                        Clear history
+                    </MudButton>
+                </CardHeaderActions>
             </MudCardHeader>
             <MudCardContent>
                 @if (Health.FileActivityHistory.Count == 0)
@@ -229,6 +236,13 @@
         }
     }
 
+    private Task ClearFileActivityHistoryAsync()
+    {
+        Health.ClearFileActivityHistory();
+        Snackbar.Add("File activity history cleared.", Severity.Success);
+        return Task.CompletedTask;
+    }
+
     public ValueTask DisposeAsync()
     {
         Health.Changed -= OnHealthChanged;
@@ -241,6 +255,9 @@
         FileActivityStatus.Detected => "Detected",
         FileActivityStatus.UploadSucceeded => "Uploaded",
         FileActivityStatus.UploadFailed => "Upload failed",
+        FileActivityStatus.Deleted => "Deleted",
+        FileActivityStatus.DeleteSkipped => "Delete skipped",
+        FileActivityStatus.DeleteFailed => "Failed to delete",
         _ => status.ToString()
     };
 }
