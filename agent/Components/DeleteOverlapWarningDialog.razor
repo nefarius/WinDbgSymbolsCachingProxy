@@ -26,6 +26,9 @@
                             <span>(non-recursive)</span>
                         }
                     </MudText>
+                    <MudText Typo="Typo.caption" Class="mt-1" Style="white-space: pre-wrap;">
+                        Upload filters (normalized): @g.FiltersKey
+                    </MudText>
 
                     <MudStack Spacing="1" Class="mt-2">
                         @foreach (DeleteOverlapWarningServerEntry s in g.Servers)

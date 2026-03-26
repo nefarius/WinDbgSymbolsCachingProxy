@@ -28,8 +28,6 @@ public sealed class HarvesterRuntime : IDisposable
     /// </summary>
     private readonly record struct SymbolFileVersion(long Length, DateTime LastWriteTimeUtc);
 
-    public static readonly string[] DefaultUploadFilters = ["*.exe", "*.dll", "*.sys", "*.pdb"];
-
     /// <summary>
     ///     Share flags for reading build outputs while MSBuild or the linker may still have the file open.
     /// </summary>
@@ -238,12 +236,10 @@ public sealed class HarvesterRuntime : IDisposable
                             continue;
                         }
 
-                        IReadOnlyList<string> effectiveFilters = watch.UploadFileFilters.Count > 0
-                            ? watch.UploadFileFilters
-                            : DefaultUploadFilters;
+                        IReadOnlyList<string> effectiveFilters = WatcherUploadFilterHelpers.GetEffectiveUploadFilters(watch);
 
                         bool recursive = watch.IncludeSubdirectories;
-                        string filtersKey = NormalizeFiltersKey(effectiveFilters);
+                        string filtersKey = WatcherUploadFilterHelpers.NormalizeFiltersKey(effectiveFilters);
                         (string Path, bool Recursive, string FiltersKey) key = (path, recursive, filtersKey);
 
                         if (!watcherGroups.TryGetValue(key, out var group))
@@ -692,17 +688,6 @@ public sealed class HarvesterRuntime : IDisposable
                 ErrorDetails = ex.Message
             };
         }
-    }
-
-    private static string NormalizeFiltersKey(IReadOnlyList<string> patterns)
-    {
-        return string.Join(
-            "\n",
-            patterns
-                .Where(p => !string.IsNullOrWhiteSpace(p))
-                .Select(p => p.Trim())
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(p => p, StringComparer.OrdinalIgnoreCase));
     }
 
     private static bool ShouldDeleteAfterAllSuccess(IReadOnlyList<WatcherPathEntry> watchRules, string fileName)

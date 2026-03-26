@@ -136,7 +136,11 @@ public sealed class WatcherPathEntryListJsonConverter : JsonConverter<List<Watch
             return new WatcherPathEntry
             {
                 Path = p.TrimEnd('*'),
-                IncludeSubdirectories = true
+                IncludeSubdirectories = true,
+                UploadFileFilters = [.. entry.UploadFileFilters],
+                DeleteAfterUpload = entry.DeleteAfterUpload,
+                DeletionInclusionFilter = [.. entry.DeletionInclusionFilter],
+                DeletionExclusionFilter = [.. entry.DeletionExclusionFilter]
             };
         }
 

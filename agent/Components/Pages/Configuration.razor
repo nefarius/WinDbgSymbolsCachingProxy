@@ -249,18 +249,23 @@
                 : (s.ServerUrl?.ToString() ?? "<no url>");
         }
 
-        Dictionary<(string Path, bool Recursive), Dictionary<ServerConfig, bool>> byKey = new();
+        Dictionary<(string Path, bool Recursive, string FiltersKey), Dictionary<ServerConfig, bool>> byKey = new();
 
         foreach (ServerConfig server in doc.Servers)
         {
             foreach (WatcherPathEntry watch in server.WatcherPaths)
             {
-                if (string.IsNullOrWhiteSpace(watch.Path))
+                string normalizedPath = PathNormalization.NormalizeDirectoryPath(watch.Path);
+                if (string.IsNullOrWhiteSpace(normalizedPath))
                 {
                     continue;
                 }
 
-                (string Path, bool Recursive) key = (watch.Path, watch.IncludeSubdirectories);
+                IReadOnlyList<string> effectiveFilters = WatcherUploadFilterHelpers.GetEffectiveUploadFilters(watch);
+                string filtersKey = WatcherUploadFilterHelpers.NormalizeFiltersKey(effectiveFilters);
+                (string Path, bool Recursive, string FiltersKey) key =
+                    (normalizedPath, watch.IncludeSubdirectories, filtersKey);
+
                 if (!byKey.TryGetValue(key, out Dictionary<ServerConfig, bool>? servers))
                 {
                     servers = new Dictionary<ServerConfig, bool>();
@@ -280,7 +285,7 @@
         }
 
         List<DeleteOverlapWarningGroup> groups = [];
-        foreach (KeyValuePair<(string Path, bool Recursive), Dictionary<ServerConfig, bool>> item in byKey)
+        foreach (KeyValuePair<(string Path, bool Recursive, string FiltersKey), Dictionary<ServerConfig, bool>> item in byKey)
         {
             if (item.Value.Count < 2)
             {
@@ -296,6 +301,7 @@
             {
                 Path = item.Key.Path,
                 Recursive = item.Key.Recursive,
+                FiltersKey = item.Key.FiltersKey,
                 Servers = item.Value
                     .Select(kv => new DeleteOverlapWarningServerEntry
                     {
@@ -311,6 +317,7 @@
         return groups
             .OrderBy(g => g.Path, StringComparer.OrdinalIgnoreCase)
             .ThenBy(g => g.Recursive ? 0 : 1)
+            .ThenBy(g => g.FiltersKey, StringComparer.Ordinal)
             .ToList();
     }
 
