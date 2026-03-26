@@ -17,11 +17,19 @@ public partial class Routes
     private async Task RetryCurrentRouteWithFullLoad()
     {
         Uri uri = new(Navigation.Uri);
-        bool authenticated = await Js.InvokeAsync<bool>("symbolsAuthRetry.trigger", uri.PathAndQuery);
 
-        if (authenticated)
+        try
         {
-            Navigation.NavigateTo(uri.PathAndQuery, forceLoad: true);
+            bool authenticated = await Js.InvokeAsync<bool>("symbolsAuthRetry.trigger");
+
+            if (authenticated)
+            {
+                Navigation.NavigateTo(uri.PathAndQuery, forceLoad: true);
+            }
+        }
+        catch (JSException)
+        {
+            // JSInterop failed - do not navigate
         }
     }
 }
