@@ -581,11 +581,12 @@ public sealed class HarvesterRuntime : IDisposable
     /// <param name="snapshottedSourceVersion">Captured source file version at snapshot time (used for logging and diagnostics).</param>
     /// <param name="cancellationToken">Token to cancel the upload operation.</param>
     /// <returns>
-    /// An UploadAttemptResult containing:
-    /// - Success: `true` if the server accepted the upload, `false` otherwise.
-    /// - ShouldDeleteAfterAllSuccess: whether the server's deletion rules matched the file name.
-    /// - ServerDisplayName and ServerUrl identifying the target server.
-    /// - ErrorDetails populated when the upload failed.
+    /// An <see cref="UploadAttemptResult"/> with:
+    /// - <see cref="UploadAttemptResult.Success"/>: whether the server accepted the upload.
+    /// - <see cref="UploadAttemptResult.ServerDisplayName"/> and <see cref="UploadAttemptResult.ServerUrl"/>: target server identity.
+    /// - <see cref="UploadAttemptResult.ErrorDetails"/>: populated when the upload failed.
+    /// Whether to delete the original file after uploads is not part of <see cref="UploadAttemptResult"/>; it is decided at the watcher level
+    /// (see <see cref="ShouldDeleteAfterAllSuccess(IReadOnlyList{WatcherPathEntry}, string)"/>) after all per-server uploads for the event complete.
     /// </returns>
     /// <exception cref="OperationCanceledException">If the operation is canceled via the <paramref name="cancellationToken"/>.</exception>
     private async Task<UploadAttemptResult> UploadToServerAsync(
