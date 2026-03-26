@@ -525,6 +525,9 @@ public sealed class HarvesterRuntime : IDisposable
                                     path,
                                     snapshottedVersion,
                                     currentVersion);
+                                _health.RecordFileDeleteSkipped(
+                                    path,
+                                    $"Version mismatch: snapshotted {snapshottedVersion}, current {currentVersion}");
                             }
                             else
                             {

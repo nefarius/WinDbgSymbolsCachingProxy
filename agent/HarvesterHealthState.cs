@@ -17,6 +17,7 @@ public enum FileActivityStatus
     UploadSucceeded,
     UploadFailed,
     Deleted,
+    DeleteSkipped,
     DeleteFailed
 }
 
@@ -200,6 +201,26 @@ public sealed class HarvesterHealthState
                 FilePath = filePath,
                 FileName = Path.GetFileName(filePath),
                 Status = FileActivityStatus.Deleted
+            });
+        }
+
+        RaiseChanged();
+    }
+
+    /// <summary>
+    ///     Records that delete-after-upload was skipped (e.g. file changed after snapshot).
+    /// </summary>
+    public void RecordFileDeleteSkipped(string filePath, string details)
+    {
+        lock (_lock)
+        {
+            AddHistoryEntry(new HarvestedFileHistoryEntry
+            {
+                TimestampUtc = DateTimeOffset.UtcNow,
+                FilePath = filePath,
+                FileName = Path.GetFileName(filePath),
+                Status = FileActivityStatus.DeleteSkipped,
+                Details = details
             });
         }
 
