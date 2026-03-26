@@ -1,0 +1,62 @@
+<MudDialog>
+    <TitleContent>
+        Deletion may break other watchers
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="2">
+            <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">
+                You have enabled <strong>Delete after successful upload</strong> for at least one watched path that overlaps with
+                other server entries watching the same directory. Deleting the file after upload can race with other watcher pipelines,
+                causing upload faults or incomplete processing.
+                <br /><br />
+                Continue only if you understand the implications.
+            </MudAlert>
+
+            @foreach (DeleteOverlapWarningGroup g in Groups)
+            {
+                <MudPaper Class="pa-3" Outlined="true">
+                    <MudText Typo="Typo.subtitle2">
+                        <code>@g.Path</code>
+                        @if (g.Recursive)
+                        {
+                            <span>(recursive)</span>
+                        }
+                        else
+                        {
+                            <span>(non-recursive)</span>
+                        }
+                    </MudText>
+
+                    <MudStack Spacing="1" Class="mt-2">
+                        @foreach (DeleteOverlapWarningServerEntry s in g.Servers)
+                        {
+                            <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                                <MudChip T="string" Size="Size.Small" Color="@(s.DeleteEnabled ? Color.Warning : Color.Default)" Variant="Variant.Outlined">
+                                    @(s.DeleteEnabled ? "Delete enabled" : "Delete disabled")
+                                </MudChip>
+                                <MudText Typo="Typo.body2">@s.Display</MudText>
+                            </MudStack>
+                        }
+                    </MudStack>
+                </MudPaper>
+            }
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Text" OnClick="Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Warning" OnClick="Confirm">I understand, save anyway</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter]
+    public List<DeleteOverlapWarningGroup> Groups { get; set; } = [];
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private void Confirm() => MudDialog.Close(DialogResult.Ok(true));
+}
+

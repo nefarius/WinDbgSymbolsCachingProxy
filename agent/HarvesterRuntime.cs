@@ -12,12 +12,12 @@ public sealed class HarvesterRuntime : IDisposable
     private sealed class WatcherBinding
     {
         public required IReadOnlyList<ServerConfig> Servers { get; init; }
+        public required IReadOnlyList<WatcherPathEntry> WatchRules { get; init; }
     }
 
     private sealed class UploadAttemptResult
     {
         public bool Success { get; init; }
-        public bool ShouldDeleteAfterAllSuccess { get; init; }
         public string? ServerDisplayName { get; init; }
         public string? ServerUrl { get; init; }
         public string? ErrorDetails { get; init; }
@@ -215,7 +215,8 @@ public sealed class HarvesterRuntime : IDisposable
             try
             {
                 // Group servers by watcher path, then create one watcher per unique path.
-                Dictionary<(string Path, bool Recursive), (HashSet<string> Filters, List<ServerConfig> Servers)> watcherGroups = new();
+                Dictionary<(string Path, bool Recursive, string FiltersKey),
+                    (HashSet<string> Filters, List<ServerConfig> Servers, List<WatcherPathEntry> WatchRules)> watcherGroups = new();
 
                 foreach (ServerConfig serverConfig in serviceConfig.Servers)
                 {
@@ -227,10 +228,6 @@ public sealed class HarvesterRuntime : IDisposable
                         continue;
                     }
 
-                    IReadOnlyList<string> effectiveFilters = serverConfig.UploadFileFilters.Count > 0
-                        ? serverConfig.UploadFileFilters
-                        : DefaultUploadFilters;
-
                     foreach (WatcherPathEntry watch in serverConfig.WatcherPaths)
                     {
                         cancellationToken.ThrowIfCancellationRequested();
@@ -241,12 +238,17 @@ public sealed class HarvesterRuntime : IDisposable
                             continue;
                         }
 
+                        IReadOnlyList<string> effectiveFilters = watch.UploadFileFilters.Count > 0
+                            ? watch.UploadFileFilters
+                            : DefaultUploadFilters;
+
                         bool recursive = watch.IncludeSubdirectories;
-                        (string Path, bool Recursive) key = (path, recursive);
+                        string filtersKey = NormalizeFiltersKey(effectiveFilters);
+                        (string Path, bool Recursive, string FiltersKey) key = (path, recursive, filtersKey);
 
                         if (!watcherGroups.TryGetValue(key, out var group))
                         {
-                            group = (new HashSet<string>(StringComparer.OrdinalIgnoreCase), []);
+                            group = (new HashSet<string>(StringComparer.OrdinalIgnoreCase), [], []);
                             watcherGroups[key] = group;
                         }
 
@@ -256,10 +258,12 @@ public sealed class HarvesterRuntime : IDisposable
                         }
 
                         group.Servers.Add(serverConfig);
+                        group.WatchRules.Add(watch);
                     }
                 }
 
-                foreach (KeyValuePair<(string Path, bool Recursive), (HashSet<string> Filters, List<ServerConfig> Servers)> item in watcherGroups)
+                foreach (KeyValuePair<(string Path, bool Recursive, string FiltersKey),
+                             (HashSet<string> Filters, List<ServerConfig> Servers, List<WatcherPathEntry> WatchRules)> item in watcherGroups)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
@@ -290,7 +294,10 @@ public sealed class HarvesterRuntime : IDisposable
 
                         newMaps.Add(watcher, new WatcherBinding
                         {
-                            Servers = item.Value.Servers.ToArray()
+                            Servers = item.Value.Servers
+                                .Distinct()
+                                .ToArray(),
+                            WatchRules = item.Value.WatchRules.ToArray()
                         });
                         watcher = null;
                     }
@@ -508,7 +515,7 @@ public sealed class HarvesterRuntime : IDisposable
                     }
 
                     bool allSucceeded = results.All(r => r.Success);
-                    bool shouldDelete = results.Any(r => r.ShouldDeleteAfterAllSuccess);
+                    bool shouldDelete = ShouldDeleteAfterAllSuccess(binding.WatchRules, fileName);
 
                     if (allSucceeded && shouldDelete)
                     {
@@ -604,7 +611,6 @@ public sealed class HarvesterRuntime : IDisposable
             return new UploadAttemptResult
             {
                 Success = false,
-                ShouldDeleteAfterAllSuccess = false,
                 ServerDisplayName = serverDisplayName,
                 ServerUrl = serverUrl,
                 ErrorDetails = "Missing server URL"
@@ -650,21 +656,9 @@ public sealed class HarvesterRuntime : IDisposable
                 _health.RecordUploadSuccess();
                 _health.RecordFileUploadSuccess(detectedPath, serverDisplayName, serverUrl);
 
-                bool shouldDelete = false;
-                if (serverConfig.DeleteAfterUpload)
-                {
-                    Matcher matcher = new();
-                    matcher.AddIncludePatterns(serverConfig.DeletionInclusionFilter);
-                    matcher.AddExcludePatterns(serverConfig.DeletionExclusionFilter);
-
-                    PatternMatchingResult match = matcher.Match(fileName);
-                    shouldDelete = match.HasMatches;
-                }
-
                 return new UploadAttemptResult
                 {
                     Success = true,
-                    ShouldDeleteAfterAllSuccess = shouldDelete,
                     ServerDisplayName = serverDisplayName,
                     ServerUrl = serverUrl
                 };
@@ -677,7 +671,6 @@ public sealed class HarvesterRuntime : IDisposable
             return new UploadAttemptResult
             {
                 Success = false,
-                ShouldDeleteAfterAllSuccess = false,
                 ServerDisplayName = serverDisplayName,
                 ServerUrl = serverUrl,
                 ErrorDetails = $"HTTP {(int)response.StatusCode}: {body}"
@@ -694,11 +687,44 @@ public sealed class HarvesterRuntime : IDisposable
             return new UploadAttemptResult
             {
                 Success = false,
-                ShouldDeleteAfterAllSuccess = false,
                 ServerDisplayName = serverDisplayName,
                 ServerUrl = serverUrl,
                 ErrorDetails = ex.Message
             };
         }
+    }
+
+    private static string NormalizeFiltersKey(IReadOnlyList<string> patterns)
+    {
+        return string.Join(
+            "\n",
+            patterns
+                .Where(p => !string.IsNullOrWhiteSpace(p))
+                .Select(p => p.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(p => p, StringComparer.OrdinalIgnoreCase));
+    }
+
+    private static bool ShouldDeleteAfterAllSuccess(IReadOnlyList<WatcherPathEntry> watchRules, string fileName)
+    {
+        foreach (WatcherPathEntry rule in watchRules)
+        {
+            if (!rule.DeleteAfterUpload)
+            {
+                continue;
+            }
+
+            Matcher matcher = new();
+            matcher.AddIncludePatterns(rule.DeletionInclusionFilter);
+            matcher.AddExcludePatterns(rule.DeletionExclusionFilter);
+
+            PatternMatchingResult match = matcher.Match(fileName);
+            if (match.HasMatches)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

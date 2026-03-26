@@ -40,7 +40,14 @@ public sealed class AgentSettingsStore
         {
             string json = File.ReadAllText(filePath);
             AgentSettingsDocument? loaded = JsonSerializer.Deserialize<AgentSettingsDocument>(json, JsonOptions);
-            return loaded ?? AgentSettingsDocument.CreateDefault();
+            AgentSettingsDocument doc = loaded ?? AgentSettingsDocument.CreateDefault();
+            bool migrated = ApplyMigrations(doc);
+            if (migrated)
+            {
+                SaveToPath(filePath, doc);
+            }
+
+            return doc;
         }
         catch (Exception ex)
         {
@@ -62,7 +69,9 @@ public sealed class AgentSettingsStore
     {
         lock (_lock)
         {
-            _document = Clone(document);
+            AgentSettingsDocument cloned = Clone(document);
+            ApplyMigrations(cloned);
+            _document = cloned;
             SaveToPath(_filePath, _document);
         }
     }
@@ -111,5 +120,33 @@ public sealed class AgentSettingsStore
         string json = JsonSerializer.Serialize(source, JsonOptions);
         return JsonSerializer.Deserialize<AgentSettingsDocument>(json, JsonOptions)
                ?? AgentSettingsDocument.CreateDefault();
+    }
+
+    private static bool ApplyMigrations(AgentSettingsDocument doc)
+    {
+        bool changed = false;
+
+        foreach (ServerConfig server in doc.Servers)
+        {
+            if (server.WatcherPaths.Count == 0)
+            {
+                continue;
+            }
+
+            // Migrate server-level upload filters into per-watched-path settings when unset.
+            if (server.UploadFileFilters.Count > 0)
+            {
+                foreach (WatcherPathEntry watch in server.WatcherPaths)
+                {
+                    if (watch.UploadFileFilters.Count == 0)
+                    {
+                        watch.UploadFileFilters = server.UploadFileFilters.ToList();
+                        changed = true;
+                    }
+                }
+            }
+        }
+
+        return changed;
     }
 }
