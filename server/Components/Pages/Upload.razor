@@ -2,10 +2,10 @@
 @attribute [Authorize]
 @using WinDbgSymbolsCachingProxy.Core
 
-<PageTitle>Upload symbols</PageTitle>
+<PageTitle>@PageTitleText</PageTitle>
 
 <MudStack Spacing="3">
-    <MudText Typo="Typo.h5">Upload symbols</MudText>
+    <MudText Typo="Typo.h5">@PageHeadingText</MudText>
     <MudText Typo="Typo.body2">
         Supported types: .exe, .dll, .sys, .pdb. Maximum size per file: @(SymbolUploadConstants.MaxUploadBytesPerFile / 1_000_000) MB.
     </MudText>

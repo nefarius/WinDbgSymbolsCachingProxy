@@ -2,10 +2,10 @@
 @attribute [AllowAnonymous]
 @implements IDisposable
 
-<PageTitle>Symbols Server — Status</PageTitle>
+<PageTitle>@PageTitleText</PageTitle>
 
 <HeadContent>
-    <meta property="og:title" content="@OgTitleText" />
+    <meta property="og:title" content="@PageTitleText" />
     <meta property="og:description" content="@OgDescription" />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="@CanonicalStatusUrl" />
@@ -13,13 +13,13 @@
     <meta property="og:image:width" content="@OgImageWidthPx" />
     <meta property="og:image:height" content="@OgImageHeightPx" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="@OgTitleText" />
+    <meta name="twitter:title" content="@PageTitleText" />
     <meta name="twitter:description" content="@OgDescription" />
     <meta name="twitter:image" content="@OpenGraphImageUrl" />
 </HeadContent>
 
 <MudStack Spacing="4">
-    <MudText Typo="Typo.h5">Database status</MudText>
+    <MudText Typo="Typo.h5">@PageHeadingText</MudText>
 
     @if (_loading)
     {

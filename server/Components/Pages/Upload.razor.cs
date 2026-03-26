@@ -18,6 +18,8 @@ namespace WinDbgSymbolsCachingProxy.Components.Pages;
 public partial class Upload
 {
     private const string SymbolUploadHttpClientName = "SymbolUploadApi";
+    private const string PageTitleText = "Symbols Server — Upload symbols";
+    private const string PageHeadingText = "Upload symbols";
 
     [Inject]
     private IHttpClientFactory HttpClientFactory { get; set; } = null!;

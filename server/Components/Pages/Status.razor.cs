@@ -15,7 +15,8 @@ public partial class Status : IDisposable
 {
     private const string OgImageWidthPx = "1200";
     private const string OgImageHeightPx = "630";
-    private const string OgTitleText = "Symbols Server — Status";
+    private const string PageTitleText = "Symbols Server — Status";
+    private const string PageHeadingText = "Database status";
 
     [Inject]
     private DB Db { get; set; } = null!;
