@@ -24,7 +24,7 @@ take their sweet time to return a 404.
 ## Real-world example
 
 > [!NOTE]  
-> I performed these tests in a very early version of the project; recent builds have once more become even faster 😁
+> I performed these tests in a very early version of the project; recent builds have become even faster 😁
 
 Let's see if my efforts paid off, shall we! I've opened a kernel memory dump which requested **1090 files at a total
 size of 186 Megabytes** with three different strategies outlined below. Let's go!
