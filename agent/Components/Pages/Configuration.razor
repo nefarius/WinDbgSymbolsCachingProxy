@@ -10,7 +10,7 @@
 <MudText Typo="Typo.h4" Class="mb-4">Harvesting configuration</MudText>
 <MudText Typo="Typo.body2" Class="mb-4">
     Add one or more upload targets. For each watcher path, use <strong>Include subdirectories</strong> when you want the whole tree monitored.
-    Leave upload file filters empty to use defaults (*.exe, *.dll, *.sys, *.pdb).
+    Leave upload file filters empty to use defaults (*.exe, *.dll, *.sys, *.pdb). Deletion is configured per watched path.
 </MudText>
 
 <MudStack Spacing="3">
@@ -27,7 +27,6 @@
                 <MudTextField @bind-Value="server.Authentication.Username" Label="Username" Variant="Variant.Outlined" />
                 <MudTextField @bind-Value="server.Authentication.Password" Label="Password" Variant="Variant.Outlined"
                               InputType="InputType.Password" />
-                <MudSwitch @bind-Value="server.DeleteAfterUpload" Color="Color.Primary" Label="Delete after successful upload" />
 
                 <MudText Typo="Typo.subtitle2">Watcher paths</MudText>
                 @for (var w = 0; w < server.WatcherPaths.Count; w++)
@@ -40,60 +39,65 @@
                                        OnClick="@(() => BrowseWatcherPathAsync(server, wj))" />
                         <MudCheckBox T="bool" @bind-Value="server.WatcherPaths[wj].IncludeSubdirectories"
                                      Label="Include subdirectories" Color="Color.Primary" Dense="true" Class="mt-1" />
+                        <MudSwitch @bind-Value="server.WatcherPaths[wj].DeleteAfterUpload" Color="Color.Warning"
+                                   Label="Delete after successful upload" />
                         <MudIconButton Icon="@Icons.Material.Filled.Delete" aria-label="Remove path"
                                        OnClick="@(() => RemoveAt(server.WatcherPaths, wj))" />
+                    </MudStack>
+
+                    <MudStack Spacing="2" Class="ml-2 mb-4">
+                        <MudText Typo="Typo.subtitle2">Upload file filters (this watched path)</MudText>
+                        @for (var f = 0; f < server.WatcherPaths[wj].UploadFileFilters.Count; f++)
+                        {
+                            var fj = f;
+                            <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                                <MudTextField @bind-Value="server.WatcherPaths[wj].UploadFileFilters[fj]" Variant="Variant.Outlined"
+                                              Margin="Margin.Dense" Class="flex-grow-1" HelperText="e.g. *.pdb" />
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" aria-label="Remove filter"
+                                               OnClick="@(() => RemoveAt(server.WatcherPaths[wj].UploadFileFilters, fj))" />
+                            </MudStack>
+                        }
+                        <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Add"
+                                   OnClick='@(() => server.WatcherPaths[wj].UploadFileFilters.Add("*.pdb"))'>
+                            Add filter
+                        </MudButton>
+
+                        <MudText Typo="Typo.subtitle2">Deletion inclusion (globs)</MudText>
+                        @for (var di = 0; di < server.WatcherPaths[wj].DeletionInclusionFilter.Count; di++)
+                        {
+                            var dj = di;
+                            <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                                <MudTextField @bind-Value="server.WatcherPaths[wj].DeletionInclusionFilter[dj]" Variant="Variant.Outlined"
+                                              Margin="Margin.Dense" Class="flex-grow-1" />
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" aria-label="Remove pattern"
+                                               OnClick="@(() => RemoveAt(server.WatcherPaths[wj].DeletionInclusionFilter, dj))" />
+                            </MudStack>
+                        }
+                        <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Add"
+                                   OnClick='@(() => server.WatcherPaths[wj].DeletionInclusionFilter.Add("**/*.pdb"))'>
+                            Add pattern
+                        </MudButton>
+
+                        <MudText Typo="Typo.subtitle2">Deletion exclusion (globs)</MudText>
+                        @for (var ei = 0; ei < server.WatcherPaths[wj].DeletionExclusionFilter.Count; ei++)
+                        {
+                            var ej = ei;
+                            <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                                <MudTextField @bind-Value="server.WatcherPaths[wj].DeletionExclusionFilter[ej]" Variant="Variant.Outlined"
+                                              Margin="Margin.Dense" Class="flex-grow-1" />
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" aria-label="Remove pattern"
+                                               OnClick="@(() => RemoveAt(server.WatcherPaths[wj].DeletionExclusionFilter, ej))" />
+                            </MudStack>
+                        }
+                        <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Add"
+                                   OnClick='@(() => server.WatcherPaths[wj].DeletionExclusionFilter.Add(""))'>
+                            Add pattern
+                        </MudButton>
                     </MudStack>
                 }
                 <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Add"
                            OnClick="@(() => server.WatcherPaths.Add(new WatcherPathEntry()))">
                     Add watcher path
-                </MudButton>
-
-                <MudText Typo="Typo.subtitle2">Upload file filters</MudText>
-                @for (var f = 0; f < server.UploadFileFilters.Count; f++)
-                {
-                    var fj = f;
-                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
-                        <MudTextField @bind-Value="server.UploadFileFilters[fj]" Variant="Variant.Outlined" Margin="Margin.Dense"
-                                      Class="flex-grow-1" HelperText="e.g. *.pdb" />
-                        <MudIconButton Icon="@Icons.Material.Filled.Delete" aria-label="Remove filter"
-                                       OnClick="@(() => RemoveAt(server.UploadFileFilters, fj))" />
-                    </MudStack>
-                }
-                <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Add" OnClick="@(() => server.UploadFileFilters.Add("*.pdb"))">
-                    Add filter
-                </MudButton>
-
-                <MudText Typo="Typo.subtitle2">Deletion inclusion (globs)</MudText>
-                @for (var di = 0; di < server.DeletionInclusionFilter.Count; di++)
-                {
-                    var dj = di;
-                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
-                        <MudTextField @bind-Value="server.DeletionInclusionFilter[dj]" Variant="Variant.Outlined" Margin="Margin.Dense"
-                                      Class="flex-grow-1" />
-                        <MudIconButton Icon="@Icons.Material.Filled.Delete" aria-label="Remove pattern"
-                                       OnClick="@(() => RemoveAt(server.DeletionInclusionFilter, dj))" />
-                    </MudStack>
-                }
-                <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Add"
-                           OnClick="@(() => server.DeletionInclusionFilter.Add("**/*.pdb"))">
-                    Add pattern
-                </MudButton>
-
-                <MudText Typo="Typo.subtitle2">Deletion exclusion (globs)</MudText>
-                @for (var ei = 0; ei < server.DeletionExclusionFilter.Count; ei++)
-                {
-                    var ej = ei;
-                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
-                        <MudTextField @bind-Value="server.DeletionExclusionFilter[ej]" Variant="Variant.Outlined" Margin="Margin.Dense"
-                                      Class="flex-grow-1" />
-                        <MudIconButton Icon="@Icons.Material.Filled.Delete" aria-label="Remove pattern"
-                                       OnClick="@(() => RemoveAt(server.DeletionExclusionFilter, ej))" />
-                    </MudStack>
-                }
-                <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Add"
-                           OnClick="@(() => server.DeletionExclusionFilter.Add(""))">
-                    Add pattern
                 </MudButton>
 
                 <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.Delete"
@@ -149,10 +153,7 @@
         _doc.Servers.Add(new ServerConfig
         {
             Authentication = new AuthenticationConfig(),
-            WatcherPaths = [new WatcherPathEntry()],
-            UploadFileFilters = [],
-            DeletionInclusionFilter = ["**/*.pdb"],
-            DeletionExclusionFilter = []
+            WatcherPaths = [new WatcherPathEntry()]
         });
         _serverUrls.Add("");
     }
@@ -197,6 +198,34 @@
                 }
             }
 
+            List<DeleteOverlapWarningGroup> overlaps = FindDeleteOverlaps(_doc);
+            if (overlaps.Count > 0)
+            {
+                DialogOptions options = new()
+                {
+                    MaxWidth = MaxWidth.Medium,
+                    FullWidth = true,
+                    CloseOnEscapeKey = true
+                };
+
+                DialogParameters<DeleteOverlapWarningDialog> parameters = new()
+                {
+                    { x => x.Groups, overlaps }
+                };
+
+                IDialogReference dialog = await DialogService.ShowAsync<DeleteOverlapWarningDialog>(
+                    "Confirm deletion risk",
+                    parameters,
+                    options);
+
+                DialogResult? result = await dialog.Result;
+                if (result is null || result.Canceled)
+                {
+                    Snackbar.Add("Save canceled.", Severity.Info);
+                    return;
+                }
+            }
+
             Store.Replace(_doc);
             _doc = Store.GetSnapshot();
             _serverUrls = _doc.Servers.Select(s => s.ServerUrl?.ToString() ?? "").ToList();
@@ -207,6 +236,89 @@
         {
             Snackbar.Add(ex.Message, Severity.Error);
         }
+    }
+
+    private static List<DeleteOverlapWarningGroup> FindDeleteOverlaps(AgentSettingsDocument doc)
+    {
+        Dictionary<ServerConfig, string> serverDisplay = new();
+        foreach (ServerConfig s in doc.Servers)
+        {
+            string trimmed = (s.DisplayName ?? string.Empty).Trim();
+            serverDisplay[s] = !string.IsNullOrEmpty(trimmed)
+                ? trimmed
+                : (s.ServerUrl?.ToString() ?? "<no url>");
+        }
+
+        Dictionary<(string Path, bool Recursive, string FiltersKey), Dictionary<ServerConfig, bool>> byKey = new();
+
+        foreach (ServerConfig server in doc.Servers)
+        {
+            foreach (WatcherPathEntry watch in server.WatcherPaths)
+            {
+                string normalizedPath = PathNormalization.NormalizeDirectoryPath(watch.Path);
+                if (string.IsNullOrWhiteSpace(normalizedPath))
+                {
+                    continue;
+                }
+
+                IReadOnlyList<string> effectiveFilters = WatcherUploadFilterHelpers.GetEffectiveUploadFilters(watch);
+                string filtersKey = WatcherUploadFilterHelpers.NormalizeFiltersKey(effectiveFilters);
+                (string Path, bool Recursive, string FiltersKey) key =
+                    (normalizedPath, watch.IncludeSubdirectories, filtersKey);
+
+                if (!byKey.TryGetValue(key, out Dictionary<ServerConfig, bool>? servers))
+                {
+                    servers = new Dictionary<ServerConfig, bool>();
+                    byKey[key] = servers;
+                }
+
+                bool deleteEnabledForServer = watch.DeleteAfterUpload;
+                if (servers.TryGetValue(server, out bool existing))
+                {
+                    servers[server] = existing || deleteEnabledForServer;
+                }
+                else
+                {
+                    servers[server] = deleteEnabledForServer;
+                }
+            }
+        }
+
+        List<DeleteOverlapWarningGroup> groups = [];
+        foreach (KeyValuePair<(string Path, bool Recursive, string FiltersKey), Dictionary<ServerConfig, bool>> item in byKey)
+        {
+            if (item.Value.Count < 2)
+            {
+                continue;
+            }
+
+            if (!item.Value.Values.Any(v => v))
+            {
+                continue;
+            }
+
+            groups.Add(new DeleteOverlapWarningGroup
+            {
+                Path = item.Key.Path,
+                Recursive = item.Key.Recursive,
+                FiltersKey = item.Key.FiltersKey,
+                Servers = item.Value
+                    .Select(kv => new DeleteOverlapWarningServerEntry
+                    {
+                        Display = serverDisplay.TryGetValue(kv.Key, out string? display) ? display : "<unknown>",
+                        DeleteEnabled = kv.Value
+                    })
+                    .OrderByDescending(s => s.DeleteEnabled)
+                    .ThenBy(s => s.Display, StringComparer.OrdinalIgnoreCase)
+                    .ToList()
+            });
+        }
+
+        return groups
+            .OrderBy(g => g.Path, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(g => g.Recursive ? 0 : 1)
+            .ThenBy(g => g.FiltersKey, StringComparer.Ordinal)
+            .ToList();
     }
 
     private async Task BrowseWatcherPathAsync(ServerConfig server, int watcherIndex)
