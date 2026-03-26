@@ -4,15 +4,18 @@ namespace WinDbgSymbolsCachingProxy.Components;
 
 public partial class Routes
 {
+    private const string AuthChallengePath = "/api/auth/challenge";
+
     [Inject]
     private NavigationManager Navigation { get; set; } = null!;
 
     /// <summary>
-    ///     Full reload of the current URL so the browser can send Basic credentials (same idea as Search/Upload ForceLoad).
+    ///     Forces a request to a protected API route so the browser can re-run Basic Auth challenge, then returns to this page.
     /// </summary>
     private void RetryCurrentRouteWithFullLoad()
     {
         Uri uri = new(Navigation.Uri);
-        Navigation.NavigateTo(uri.PathAndQuery, forceLoad: true);
+        string challengeUrl = $"{AuthChallengePath}?returnUrl={Uri.EscapeDataString(uri.PathAndQuery)}";
+        Navigation.NavigateTo(challengeUrl, forceLoad: true);
     }
 }

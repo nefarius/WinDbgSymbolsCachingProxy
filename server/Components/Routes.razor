@@ -4,13 +4,13 @@
             <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
                 <NotAuthorized>
                     <MudStack Spacing="2">
-                        <MudText Typo="Typo.body1">This page requires sign-in. Use the browser prompt when you open Search or Upload, or reload after entering credentials.</MudText>
+                        <MudText Typo="Typo.body1">This page requires sign-in. Retry checks a protected API route to re-trigger the browser credential prompt, then returns you here.</MudText>
                         <MudButton Variant="Variant.Filled"
                                    Color="Color.Primary"
                                    OnClick="RetryCurrentRouteWithFullLoad"
-                                   title="Reload this page so the browser can send your credentials"
+                                   title="Call protected API to re-check auth and return to this page"
                                    aria-label="Retry / Open protected page">
-                            Retry / Open protected page
+                            Retry sign-in check
                         </MudButton>
                     </MudStack>
                 </NotAuthorized>
