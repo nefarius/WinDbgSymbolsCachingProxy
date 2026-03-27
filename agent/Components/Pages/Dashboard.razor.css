@@ -1,0 +1,12 @@
+@media (min-width: 960px) {
+    .dashboard-top-card-item {
+        display: flex;
+    }
+
+    .dashboard-top-card {
+        display: flex;
+        flex: 1 1 auto;
+        flex-direction: column;
+        width: 100%;
+    }
+}
