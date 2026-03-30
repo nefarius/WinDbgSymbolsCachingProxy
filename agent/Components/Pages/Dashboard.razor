@@ -141,11 +141,11 @@
                                     @(context.ServerDisplayName ?? context.ServerUrl ?? "—")
                                 }
                             </MudTd>
-                            <MudTd DataLabel="Details" Style="min-width: 0; max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                            <MudTd DataLabel="Details" Style="min-width: 0; max-width: 50%; vertical-align: top; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word;">
                                 @if (!string.IsNullOrWhiteSpace(context.Details))
                                 {
                                     <MudTooltip Text="@context.Details">
-                                        <span style="display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">@context.Details</span>
+                                        <span style="display: block; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word;">@context.Details</span>
                                     </MudTooltip>
                                 }
                                 else
