@@ -11,7 +11,7 @@
 
   <ItemGroup>
     <PackageReference Include="System.Drawing.Common" Version="9.0.0" />
-    <PackageReference Include="WixSharp_wix4" Version="2.12.2" />
+    <PackageReference Include="WixSharp_wix4" Version="2.12.3" />
   </ItemGroup>
 
   <ItemGroup>
