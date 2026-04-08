@@ -103,11 +103,14 @@ public partial class Upload
             }
 
             HttpClient client = HttpClientFactory.CreateClient(SymbolUploadHttpClientName);
-            client.BaseAddress = new Uri(Navigation.BaseUri);
-
+            // Must not use HttpClient.BaseAddress + relative "api/..." without a trailing slash on the base:
+            // Uri resolution replaces the last segment (e.g. port "5000") and posts to the wrong host/port.
+            // Match Search.razor.cs: TrimEnd('/') then join (same as Navigation.ToAbsoluteUri for typical bases).
+            string baseUri = Navigation.BaseUri.TrimEnd('/');
             string query = _force ? "?force=true" : "";
-            using HttpResponseMessage response =
-                await client.PostAsync($"api/uploads/symbol{query}", form);
+            string uploadUrl = $"{baseUri}/api/uploads/symbol{query}";
+            // Server-side loopback: the browser only sees the Blazor circuit (SignalR); this POST is not a tab Network entry.
+            using HttpResponseMessage response = await client.PostAsync(uploadUrl, form);
 
             string body = await response.Content.ReadAsStringAsync();
 
