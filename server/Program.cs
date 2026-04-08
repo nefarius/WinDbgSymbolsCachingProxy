@@ -154,6 +154,9 @@ builder.Services.AddAuthentication(BasicAuthenticationDefaults.AuthenticationSch
     .AddBasic(options =>
     {
         options.Realm = "Basic Authentication";
+        // idunno returns 421 (not 401) on HTTP unless this is true — it will not emit WWW-Authenticate over cleartext.
+        // Use only on trusted networks; prefer HTTPS when exposed beyond the LAN.
+        options.AllowInsecureProtocol = true;
         options.Events = new BasicAuthenticationEvents
         {
             OnValidateCredentials = context =>
