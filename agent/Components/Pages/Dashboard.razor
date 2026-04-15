@@ -88,8 +88,34 @@
                     </HeaderContent>
                     <RowTemplate>
                         <MudTd DataLabel="Path">@context.Path</MudTd>
-                        <MudTd DataLabel="Recursive">@context.Recursive</MudTd>
-                        <MudTd DataLabel="Events">@context.EventsEnabled</MudTd>
+                        <MudTd DataLabel="Recursive">
+                            @if (context.Recursive)
+                            {
+                                <MudTooltip Text="Includes subdirectories">
+                                    <MudIcon Icon="@Icons.Material.Filled.AccountTree" Color="Color.Success" Size="Size.Small" aria-label="Includes subdirectories" />
+                                </MudTooltip>
+                            }
+                            else
+                            {
+                                <MudTooltip Text="This folder only">
+                                    <MudIcon Icon="@Icons.Material.Filled.Folder" Color="Color.Default" Size="Size.Small" aria-label="This folder only" />
+                                </MudTooltip>
+                            }
+                        </MudTd>
+                        <MudTd DataLabel="Events">
+                            @if (context.EventsEnabled)
+                            {
+                                <MudTooltip Text="File system events enabled">
+                                    <MudIcon Icon="@Icons.Material.Filled.PlayCircle" Color="Color.Success" Size="Size.Small" aria-label="File system events enabled" />
+                                </MudTooltip>
+                            }
+                            else
+                            {
+                                <MudTooltip Text="Events disabled">
+                                    <MudIcon Icon="@Icons.Material.Filled.PauseCircle" Color="Color.Default" Size="Size.Small" aria-label="Events disabled" />
+                                </MudTooltip>
+                            }
+                        </MudTd>
                     </RowTemplate>
                 </MudTable>
             </MudCardContent>
