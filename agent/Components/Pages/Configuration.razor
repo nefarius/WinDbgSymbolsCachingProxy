@@ -37,8 +37,8 @@
                                       Margin="Margin.Dense" Class="flex-grow-1" Style="min-width: 12rem;" />
                         <MudIconButton Icon="@Icons.Material.Filled.FolderOpen" aria-label="Browse directory"
                                        OnClick="@(() => BrowseWatcherPathAsync(server, wj))" />
-                        <MudCheckBox T="bool" @bind-Value="server.WatcherPaths[wj].IncludeSubdirectories"
-                                     Label="Include subdirectories" Color="Color.Primary" Dense="true" Class="mt-1" />
+                        <MudSwitch @bind-Value="server.WatcherPaths[wj].IncludeSubdirectories"
+                                   Label="Include subdirectories" Color="Color.Primary" />
                         <MudSwitch @bind-Value="server.WatcherPaths[wj].DeleteAfterUpload" Color="Color.Warning"
                                    Label="Delete after successful upload" />
                         <MudIconButton Icon="@Icons.Material.Filled.Delete" aria-label="Remove path"
