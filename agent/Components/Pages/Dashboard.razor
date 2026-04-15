@@ -58,6 +58,13 @@
                 <CardHeaderContent>
                     <MudText Typo="Typo.h6">Last error</MudText>
                 </CardHeaderContent>
+                <CardHeaderActions>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Default" Size="Size.Small"
+                               Disabled="@(!Health.LastErrorUtc.HasValue)"
+                               OnClick="ClearLastErrorAsync">
+                        Clear error
+                    </MudButton>
+                </CardHeaderActions>
             </MudCardHeader>
             <MudCardContent>
                 <MudText Typo="Typo.body2">@(Health.LastErrorUtc?.ToString("u") ?? "—")</MudText>
@@ -240,6 +247,13 @@
     {
         Health.ClearFileActivityHistory();
         Snackbar.Add("File activity history cleared.", Severity.Success);
+        return Task.CompletedTask;
+    }
+
+    private Task ClearLastErrorAsync()
+    {
+        Health.ClearLastError();
+        Snackbar.Add("Last error cleared.", Severity.Success);
         return Task.CompletedTask;
     }
 

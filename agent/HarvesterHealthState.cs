@@ -260,6 +260,20 @@ public sealed class HarvesterHealthState
         RaiseChanged();
     }
 
+    /// <summary>
+    ///     Clears the displayed last error timestamp and message. Does not reset upload counters or file activity history.
+    /// </summary>
+    public void ClearLastError()
+    {
+        lock (_lock)
+        {
+            LastErrorUtc = null;
+            LastErrorMessage = null;
+        }
+
+        RaiseChanged();
+    }
+
     private void AddHistoryEntry(HarvestedFileHistoryEntry entry)
     {
         List<HarvestedFileHistoryEntry> list = [.. FileActivityHistory];
