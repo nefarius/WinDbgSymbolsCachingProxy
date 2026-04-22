@@ -72,12 +72,11 @@ internal sealed class SymbolUploadEndpoint(DB db, ILogger<SymbolUploadEndpoint> 
 
                 SymbolsEntity? existingSymbol = null;
 
-                // duplicate check – single query by IndexPrefix, FileName, and SymbolKey (revision), then use result for count and existingSymbol
+                // duplicate check matches the unique (IndexPrefix, FileName) index; SymbolKey casing can differ from parse output vs stored rows
                 List<SymbolsEntity> existingSymbols = await db.Find<SymbolsEntity>()
                     .ManyAsync(lr =>
                             lr.Eq(r => r.IndexPrefix, result.IndexPrefix) &
-                            lr.Eq(r => r.FileName, result.FileName) &
-                            lr.Eq(r => r.SymbolKey, result.SymbolKey)
+                            lr.Eq(r => r.FileName, result.FileName)
                         , ct);
 
                 if (existingSymbols.Count != 0)
@@ -101,10 +100,10 @@ internal sealed class SymbolUploadEndpoint(DB db, ILogger<SymbolUploadEndpoint> 
                 {
                     CreatedAt = DateTime.UtcNow,
                     IndexPrefix = result.IndexPrefix,
-                    SymbolKey = result.SymbolKey,
                     FileName = result.FileName
                 };
 
+                symbol.SymbolKey = result.SymbolKey.ToLowerInvariant();
                 symbol.IsCustom = true;
                 symbol.UploadedAt = DateTime.UtcNow;
                 symbol.NotFoundAt = null;
