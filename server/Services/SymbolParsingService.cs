@@ -416,12 +416,12 @@ internal sealed class SymbolParsingService(ILogger<SymbolParsingService> logger,
                 return null;
             }
 
-            if (peFile.Resources.VsVersionInfo.StringFileInfo.StringTable.Length == 0)
+            if (peFile.Resources.VsVersionInfo.StringFileInfo?.StringTable is not { Length: > 0 } stringTableEntries)
             {
                 return null;
             }
 
-            StringTable stringTable = peFile.Resources.VsVersionInfo.StringFileInfo.StringTable.First();
+            StringTable stringTable = stringTableEntries.First();
 
             return string.IsNullOrWhiteSpace(stringTable.OriginalFilename)
                 ? null
