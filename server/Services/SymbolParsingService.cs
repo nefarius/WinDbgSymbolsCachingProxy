@@ -181,6 +181,27 @@ internal sealed class SymbolParsingService(ILogger<SymbolParsingService> logger,
         {
             throw;
         }
+        catch (OverflowException ex)
+        {
+            throw new IncompleteSymbolFileException(
+                $"PDB file {fileName} appears incomplete or corrupted (header read but structure overflow). " +
+                "Please make sure the file is fully written before uploading.",
+                ex);
+        }
+        catch (ArgumentOutOfRangeException ex)
+        {
+            throw new IncompleteSymbolFileException(
+                $"PDB file {fileName} appears incomplete or corrupted (stream table out of range). " +
+                "Please make sure the file is fully written before uploading.",
+                ex);
+        }
+        catch (EndOfStreamException ex)
+        {
+            throw new IncompleteSymbolFileException(
+                $"PDB file {fileName} appears incomplete (unexpected end of stream). " +
+                "Please make sure the file is fully written before uploading.",
+                ex);
+        }
         catch (Exception ex)
         {
             logger.LogWarning(ex,
