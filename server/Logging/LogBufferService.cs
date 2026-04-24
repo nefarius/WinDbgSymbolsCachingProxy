@@ -48,7 +48,7 @@ public sealed class LogBufferService
             _entries.Enqueue(entry);
         }
 
-        Changed?.Invoke();
+        NotifyChanged();
     }
 
     public void Clear()
@@ -63,7 +63,29 @@ public sealed class LogBufferService
 
         if (hadEntries)
         {
-            Changed?.Invoke();
+            NotifyChanged();
+        }
+    }
+
+    private void NotifyChanged()
+    {
+        Action? changed = Changed;
+
+        if (changed is null)
+        {
+            return;
+        }
+
+        foreach (Action handler in changed.GetInvocationList().Cast<Action>())
+        {
+            try
+            {
+                handler();
+            }
+            catch
+            {
+                // Never let UI notification failures escape into the Serilog sink path.
+            }
         }
     }
 }
