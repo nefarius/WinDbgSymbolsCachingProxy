@@ -14,6 +14,9 @@ static class Program
     /// <summary>Must match <c>UseWindowsService</c> name in <c>agent/Program.cs</c>.</summary>
     const string AgentWindowsServiceName = "Debug Symbols Harvesting Agent";
 
+    /// <summary>Must match <c>UseWindowsService</c> / <c>TracingSources.AppActivitySourceName</c> in <c>server/Program.cs</c>.</summary>
+    const string ServerWindowsServiceName = "WinDbgSymbolsCachingProxy";
+
     const string Manufacturer = "Nefarius Software Solutions";
 
     static bool IncludeInPublishedFile(string path)
@@ -54,6 +57,27 @@ static class Program
             string serverMask = Path.Combine(options.ServerPublishDir, "*.*");
             string agentMask = Path.Combine(options.AgentPublishDir, "*.*");
 
+            var serverFiles = new Files(featureServer, serverMask, IncludeInPublishedFile)
+            {
+                OnProcess = file =>
+                {
+                    if (!string.Equals(Path.GetFileName(file.Name), "WinDbgSymbolsCachingProxy.exe",
+                            StringComparison.OrdinalIgnoreCase))
+                        return;
+
+                    file.ServiceInstaller = new ServiceInstaller(ServerWindowsServiceName)
+                    {
+                        DisplayName = "WinDbg Symbols Caching Proxy",
+                        Description =
+                            "Web UI, REST API, and symbol store for the WinDbg Symbols Caching Proxy.",
+                        Start = SvcStartType.auto,
+                        StartOn = SvcEvent.Install,
+                        StopOn = SvcEvent.InstallUninstall_Wait,
+                        RemoveOn = SvcEvent.Uninstall_Wait,
+                    };
+                },
+            };
+
             var agentFiles = new Files(featureAgent, agentMask, IncludeInPublishedFile)
             {
                 OnProcess = file =>
@@ -78,7 +102,7 @@ static class Program
                 "WinDbg Symbols Caching Proxy",
                 new Dir(
                     @"%ProgramFiles64Folder%\Nefarius Software Solutions\WinDbg Symbols Caching Proxy",
-                    new Dir("Server", new Files(featureServer, serverMask, IncludeInPublishedFile)),
+                    new Dir("Server", serverFiles),
                     new Dir("Agent", agentFiles)))
             {
                 GUID = new Guid("a4f8b2c1-3d5e-4a7b-8c9d-0e1f2a3b4c5d"),
