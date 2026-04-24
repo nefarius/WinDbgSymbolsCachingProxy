@@ -1,0 +1,128 @@
+@page "/logs"
+@rendermode InteractiveServer
+@implements IDisposable
+@using HarvestingAgent.Logging
+@inject LogBufferService LogBuffer
+@inject ISnackbar Snackbar
+
+<PageTitle>Agent Logs</PageTitle>
+
+<MudStack Spacing="3">
+    <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudText Typo="Typo.h4">Logs</MudText>
+        <MudSpacer />
+        <MudButton Variant="Variant.Outlined" Color="Color.Default" StartIcon="@Icons.Material.Filled.DeleteSweep"
+                   Disabled="@(_entries.Count == 0)" OnClick="ClearLogs">
+            Clear
+        </MudButton>
+    </MudStack>
+
+    <MudText Typo="Typo.body2">
+        Showing the latest @LogBufferService.Capacity Serilog events captured since agent startup. Clearing this view does not modify log files.
+    </MudText>
+
+    <MudCard>
+        <MudCardContent>
+            @if (_entries.Count == 0)
+            {
+                <MudText Typo="Typo.body2">No log events captured yet.</MudText>
+            }
+            else
+            {
+                <MudTable Items="@_entries" Hover="true" Dense="true" Breakpoint="Breakpoint.Sm"
+                          Style="width:100%; table-layout:fixed;">
+                    <ColGroup>
+                        <col style="width: 12rem;" />
+                        <col style="width: 7rem;" />
+                        <col style="width: 18rem;" />
+                        <col />
+                    </ColGroup>
+                    <HeaderContent>
+                        <MudTh>Time (UTC)</MudTh>
+                        <MudTh>Level</MudTh>
+                        <MudTh>Source</MudTh>
+                        <MudTh>Message</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Time (UTC)" Style="white-space: nowrap;">@context.Timestamp.UtcDateTime.ToString("u")</MudTd>
+                        <MudTd DataLabel="Level" Style="white-space: nowrap;">
+                            <MudChip T="string" Size="Size.Small" Color="@GetLevelColor(context.Level)">@context.Level</MudChip>
+                        </MudTd>
+                        <MudTd DataLabel="Source" Style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                            @(context.SourceContext ?? "-")
+                        </MudTd>
+                        <MudTd DataLabel="Message" Style="min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word;">
+                            @context.Message
+                            @if (!string.IsNullOrWhiteSpace(context.Exception))
+                            {
+                                <MudExpansionPanels Dense="true" Class="mt-2">
+                                    <MudExpansionPanel Text="Exception">
+                                        <pre style="white-space: pre-wrap; overflow-wrap: anywhere; margin: 0;">@context.Exception</pre>
+                                    </MudExpansionPanel>
+                                </MudExpansionPanels>
+                            }
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            }
+        </MudCardContent>
+    </MudCard>
+</MudStack>
+
+@code {
+    private IReadOnlyList<BufferedLogEntry> _entries = [];
+    private bool _disposed;
+
+    protected override void OnInitialized()
+    {
+        Reload();
+        LogBuffer.Changed += OnLogBufferChanged;
+    }
+
+    private void OnLogBufferChanged()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _ = InvokeAsync(() =>
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            Reload();
+            StateHasChanged();
+        });
+    }
+
+    private void Reload()
+    {
+        _entries = LogBuffer.GetSnapshot();
+    }
+
+    private void ClearLogs()
+    {
+        LogBuffer.Clear();
+        Snackbar.Add("Log view cleared.", Severity.Success);
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        LogBuffer.Changed -= OnLogBufferChanged;
+    }
+
+    private static Color GetLevelColor(Serilog.Events.LogEventLevel level) => level switch
+    {
+        Serilog.Events.LogEventLevel.Verbose => Color.Default,
+        Serilog.Events.LogEventLevel.Debug => Color.Default,
+        Serilog.Events.LogEventLevel.Information => Color.Info,
+        Serilog.Events.LogEventLevel.Warning => Color.Warning,
+        Serilog.Events.LogEventLevel.Error => Color.Error,
+        Serilog.Events.LogEventLevel.Fatal => Color.Error,
+        _ => Color.Default
+    };
+}

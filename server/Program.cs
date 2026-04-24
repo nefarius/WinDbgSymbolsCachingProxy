@@ -33,6 +33,7 @@ using Serilog;
 using WinDbgSymbolsCachingProxy.Components;
 using WinDbgSymbolsCachingProxy.Core;
 using WinDbgSymbolsCachingProxy.Jobs;
+using WinDbgSymbolsCachingProxy.Logging;
 using WinDbgSymbolsCachingProxy.Models;
 using WinDbgSymbolsCachingProxy.Services;
 
@@ -42,7 +43,12 @@ WebApplicationOptions opts = new() { Args = args, ContentRootPath = AppContext.B
 
 Directory.SetCurrentDirectory(AppContext.BaseDirectory);
 
-WebApplicationBuilder? builder = WebApplication.CreateBuilder(opts).Setup();
+LogBufferService logBuffer = new();
+
+WebApplicationBuilder? builder = WebApplication.CreateBuilder(opts).Setup(options =>
+{
+    options.Serilog.Configuration.WriteTo.Sink(new LogBufferSink(logBuffer));
+});
 
 if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
 {
@@ -89,6 +95,7 @@ builder.Services.AddTransient<ITracer, Tracer>();
 builder.Services.AddSingleton<SymbolParsingService>();
 builder.Services.AddSingleton<ICachedSymbolOverviewProvider, CachedSymbolOverviewProvider>();
 builder.Services.AddSingleton<IStatusOpenGraphImageRenderer, StatusOpenGraphImageRenderer>();
+builder.Services.AddSingleton(logBuffer);
 
 #endregion
 

@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 
 using HarvestingAgent;
 using HarvestingAgent.Components;
+using HarvestingAgent.Logging;
 
 using MudBlazor.Services;
 
@@ -18,10 +19,12 @@ string settingsPath = AgentSettingsPaths.SettingsFilePath;
 AgentSettingsDocument initialSettings = AgentSettingsStore.LoadOrCreate(settingsPath);
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(opts);
+LogBufferService logBuffer = new();
 
 builder.Host.UseSerilog((context, _, configuration) =>
     configuration.ReadFrom.Configuration(context.Configuration)
-        .Enrich.FromLogContext());
+        .Enrich.FromLogContext()
+        .WriteTo.Sink(new LogBufferSink(logBuffer)));
 
 if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
 {
@@ -40,6 +43,7 @@ builder.Services.AddSingleton(new AgentStartupContext { ListenPortAtStartup = in
 builder.Services.AddSingleton<DirectoryBrowserService>();
 builder.Services.AddSingleton<HarvesterHealthState>();
 builder.Services.AddSingleton<HarvesterRuntime>();
+builder.Services.AddSingleton(logBuffer);
 builder.Services.AddHostedService<HarvestingHostedService>();
 
 builder.Services.AddHttpClient("Server")
