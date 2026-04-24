@@ -28,8 +28,10 @@ static class Program
         string leaf = Path.GetFileName(path);
         if (string.Equals(leaf, "appsettings.Development.json", StringComparison.OrdinalIgnoreCase))
             return false;
+        // Never ship production settings: machine-specific secrets/config must be created on the host and must survive
+        // upgrades (any installed file would be replaced when the component is serviced).
         if (string.Equals(leaf, "appsettings.Production.json", StringComparison.OrdinalIgnoreCase))
-            return System.IO.File.Exists(path);
+            return false;
         return true;
     }
 
