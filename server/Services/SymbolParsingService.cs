@@ -116,11 +116,51 @@ internal sealed class SymbolParsingService(ILogger<SymbolParsingService> logger,
     /// <exception cref="FailedToParsePdbException">Thrown on error.</exception>
     private async Task<PdbParsingResult> ParsePdb(string fileName, MemoryStream stream)
     {
+        try
+        {
+            return await ParsePdbWithPdbSharp(fileName, stream);
+        }
+        catch (FailedToParsePdbException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "PDBSharp failed for {File}; using Microsoft.SymbolStore key generation as fallback",
+                fileName);
+            stream.Position = 0;
+            return ParsePdbIndexViaSymStore(fileName, stream);
+        }
+    }
+
+    /// <summary>
+    ///     Uses Microsoft.SymbolStore key generators on the PDB bytes (same approach as the partial fallbacks inside
+    ///     <see cref="ParsePdbWithPdbSharp" /> when PDBSharp cannot read DBI / signature fields).
+    /// </summary>
+    private PdbParsingResult ParsePdbIndexViaSymStore(string fileName, MemoryStream stream)
+    {
+        const KeyTypeFlags flags = KeyTypeFlags.IdentityKey | KeyTypeFlags.SymbolKey | KeyTypeFlags.ClrKeys;
+        List<SymbolStoreKeyWrapper> keys = symStore.GetKeys(flags, fileName, stream).ToList();
+
+        if (keys.Count == 0)
+        {
+            throw new FailedToParsePdbException(
+                $"Couldn't derive a symbol index for {fileName} after PDBSharp failed.");
+        }
+
+        return new PdbParsingResult(keys.First().Key.IndexPrefix.ToLowerInvariant());
+    }
+
+    private async Task<PdbParsingResult> ParsePdbWithPdbSharp(string fileName, MemoryStream stream)
+    {
         using PDBFile? pdb = PDBFile.Open(stream);
 
         if (pdb is null)
         {
-            throw new FailedToParsePdbException($"Couldn't parse {fileName} as PDB file.");
+            logger.LogWarning("PDBSharp returned null for {File}; using symstore fallback", fileName);
+            stream.Position = 0;
+            return ParsePdbIndexViaSymStore(fileName, stream);
         }
 
         switch (pdb.Type)
@@ -219,6 +259,7 @@ internal sealed class SymbolParsingService(ILogger<SymbolParsingService> logger,
                 throw new FailedToParsePdbException($"Couldn't find the signature of PDB {fileName}.");
         }
     }
+
 
     /// <summary>
     ///     Grabs the original file name from the <c>.EXE</c>, <c>.DLL</c> or <c>.SYS</c> stream.

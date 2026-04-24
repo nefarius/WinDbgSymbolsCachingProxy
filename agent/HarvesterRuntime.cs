@@ -670,7 +670,7 @@ public sealed class HarvesterRuntime : IDisposable
             _logger.LogInformation("Symbol upload failed");
             string body = await response.Content.ReadAsStringAsync(cancellationToken);
             _health.RecordUploadFailure($"HTTP {(int)response.StatusCode}: {body}");
-            await File.WriteAllTextAsync($"{detectedPath}.upload-error.txt", body, cancellationToken);
+            await WriteUploadErrorSidecarAsync(detectedPath, body, cancellationToken);
             return new UploadAttemptResult
             {
                 Success = false,
@@ -694,6 +694,54 @@ public sealed class HarvesterRuntime : IDisposable
                 ServerUrl = serverUrl,
                 ErrorDetails = ex.Message
             };
+        }
+    }
+
+    /// <summary>
+    /// Writes <c>{path}.upload-error.txt</c> next to the symbol file. Retries on typical sharing violations (AV, IDE,
+    /// concurrent writers) and falls back to a timestamped file name if the primary sidecar stays locked.
+    /// </summary>
+    private async Task WriteUploadErrorSidecarAsync(string detectedPath, string body,
+        CancellationToken cancellationToken)
+    {
+        string primary = $"{detectedPath}.upload-error.txt";
+
+        for (int attempt = 0; attempt < 3; attempt++)
+        {
+            try
+            {
+                await File.WriteAllTextAsync(primary, body, cancellationToken);
+                return;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                if (attempt == 2)
+                {
+                    _logger.LogWarning(ex, "Could not write upload error sidecar {Path} after retries", primary);
+                    break;
+                }
+
+                try
+                {
+                    await Task.Delay(50 * (1 << attempt), cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+            }
+        }
+
+        string fallback = $"{detectedPath}.upload-error.{DateTime.UtcNow:yyyyMMddHHmmssfff}.txt";
+
+        try
+        {
+            await File.WriteAllTextAsync(fallback, body, cancellationToken);
+            _logger.LogInformation("Wrote upload error details to fallback path {Path}", fallback);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not write upload error sidecar at {Path} or {Fallback}", primary, fallback);
         }
     }
 
