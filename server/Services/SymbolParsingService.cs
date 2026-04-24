@@ -377,7 +377,9 @@ internal sealed class SymbolParsingService(ILogger<SymbolParsingService> logger,
 
             StringTable stringTable = peFile.Resources.VsVersionInfo.StringFileInfo.StringTable.First();
 
-            return stringTable.OriginalFilename;
+            return string.IsNullOrWhiteSpace(stringTable.OriginalFilename)
+                ? null
+                : stringTable.OriginalFilename;
         }
         catch (Exception ex)
         {
