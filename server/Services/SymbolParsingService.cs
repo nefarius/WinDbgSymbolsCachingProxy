@@ -172,22 +172,22 @@ internal sealed class SymbolParsingService(ILogger<SymbolParsingService> logger,
                 // fingerprint of a file that was only partially written when it was uploaded.
                 throw new IncompleteSymbolFileException(
                     $"PDB file {fileName} appears incomplete or corrupted (header read but structure overflow). " +
-                    "Please make sure the file is fully written before uploading.")
-                    { Data = { ["inner"] = symstoreEx.Message } };
+                    "Please make sure the file is fully written before uploading.",
+                    symstoreEx);
             }
             catch (ArgumentOutOfRangeException symstoreEx)
             {
                 throw new IncompleteSymbolFileException(
                     $"PDB file {fileName} appears incomplete or corrupted (stream table out of range). " +
-                    "Please make sure the file is fully written before uploading.")
-                    { Data = { ["inner"] = symstoreEx.Message } };
+                    "Please make sure the file is fully written before uploading.",
+                    symstoreEx);
             }
             catch (EndOfStreamException symstoreEx)
             {
                 throw new IncompleteSymbolFileException(
                     $"PDB file {fileName} appears incomplete (unexpected end of stream). " +
-                    "Please make sure the file is fully written before uploading.")
-                    { Data = { ["inner"] = symstoreEx.Message } };
+                    "Please make sure the file is fully written before uploading.",
+                    symstoreEx);
             }
         }
     }
@@ -347,26 +347,51 @@ internal sealed class SymbolParsingService(ILogger<SymbolParsingService> logger,
 
     /// <summary>
     ///     Grabs the original file name from the <c>.EXE</c>, <c>.DLL</c> or <c>.SYS</c> stream.
+    ///     Never throws: on any parser/resource-table failure a warning is logged and <c>null</c> is
+    ///     returned so the caller falls back to the upload file name. Mirrors <see cref="GetOriginalPdbName" />.
     /// </summary>
     /// <param name="stream">The source stream.</param>
-    /// <returns>The original executable name or null if not found.</returns>
-    private static string? GetOriginalExecutableName(Stream stream)
+    /// <returns>The original executable name or null if not found / on parse error.</returns>
+    private string? GetOriginalExecutableName(Stream stream)
     {
-        PeFile peFile = new(stream);
+        long originalPosition = stream.CanSeek ? stream.Position : 0;
 
-        if (peFile.Resources?.VsVersionInfo is null)
+        try
         {
+            if (stream.CanSeek)
+            {
+                stream.Position = 0;
+            }
+
+            PeFile peFile = new(stream);
+
+            if (peFile.Resources?.VsVersionInfo is null)
+            {
+                return null;
+            }
+
+            if (peFile.Resources.VsVersionInfo.StringFileInfo.StringTable.Length == 0)
+            {
+                return null;
+            }
+
+            StringTable stringTable = peFile.Resources.VsVersionInfo.StringFileInfo.StringTable.First();
+
+            return stringTable.OriginalFilename;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "Failed to extract original executable name from stream. Falling back to upload name.");
             return null;
         }
-
-        if (peFile.Resources.VsVersionInfo.StringFileInfo.StringTable.Length == 0)
+        finally
         {
-            return null;
+            if (stream.CanSeek)
+            {
+                stream.Position = originalPosition;
+            }
         }
-
-        StringTable stringTable = peFile.Resources.VsVersionInfo.StringFileInfo.StringTable.First();
-
-        return stringTable.OriginalFilename;
     }
 
     /// <summary>
