@@ -63,6 +63,7 @@ internal sealed class SymbolParsingService(ILogger<SymbolParsingService> logger,
             case ".dll":
             case ".sys":
                 {
+                    EnsureValidSignatureOrThrow(stream, filename);
                     filename = GetOriginalExecutableName(stream)?.ToLowerInvariant() ?? filename;
                     stream.Position = 0;
                     indexPrefix = await ParseExecutable(filename, stream);
@@ -73,6 +74,7 @@ internal sealed class SymbolParsingService(ILogger<SymbolParsingService> logger,
                 }
             case ".pdb":
                 {
+                    EnsureValidSignatureOrThrow(stream, filename);
                     filename = GetOriginalPdbName(stream)?.ToLowerInvariant() ?? filename;
                     stream.Position = 0;
                     PdbParsingResult result = await ParsePdb(filename, stream);
@@ -84,6 +86,30 @@ internal sealed class SymbolParsingService(ILogger<SymbolParsingService> logger,
                 }
             default:
                 throw new UnsupportedFileTypeException($"File {filename} has unsupported extension.");
+        }
+    }
+
+    /// <summary>
+    ///     Rejects uploads whose magic bytes do not match the declared file type. Prevents attempting to
+    ///     parse zero-filled or truncated files and surfaces a clean, actionable error to the caller.
+    /// </summary>
+    private static void EnsureValidSignatureOrThrow(MemoryStream stream, string filename)
+    {
+        long originalPosition = stream.Position;
+        try
+        {
+            stream.Position = 0;
+            if (!SymbolFileSignature.HasValidMagic(stream, filename))
+            {
+                string extension = Path.GetExtension(filename).ToLowerInvariant();
+                throw new IncompleteSymbolFileException(
+                    $"Uploaded {extension.TrimStart('.').ToUpperInvariant()} file {filename} appears incomplete or corrupted " +
+                    "(missing expected magic bytes). Please make sure the file is fully written before uploading.");
+            }
+        }
+        finally
+        {
+            stream.Position = originalPosition;
         }
     }
 
@@ -126,13 +152,43 @@ internal sealed class SymbolParsingService(ILogger<SymbolParsingService> logger,
         {
             throw;
         }
+        catch (IncompleteSymbolFileException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             logger.LogWarning(ex,
                 "PDBSharp failed for {File}; using Microsoft.SymbolStore key generation as fallback",
                 fileName);
             stream.Position = 0;
-            return ParsePdbIndexViaSymStore(fileName, stream);
+            try
+            {
+                return ParsePdbIndexViaSymStore(fileName, stream);
+            }
+            catch (OverflowException symstoreEx)
+            {
+                // The PDB header was readable but its tables reference out-of-bounds data. This is the
+                // fingerprint of a file that was only partially written when it was uploaded.
+                throw new IncompleteSymbolFileException(
+                    $"PDB file {fileName} appears incomplete or corrupted (header read but structure overflow). " +
+                    "Please make sure the file is fully written before uploading.")
+                    { Data = { ["inner"] = symstoreEx.Message } };
+            }
+            catch (ArgumentOutOfRangeException symstoreEx)
+            {
+                throw new IncompleteSymbolFileException(
+                    $"PDB file {fileName} appears incomplete or corrupted (stream table out of range). " +
+                    "Please make sure the file is fully written before uploading.")
+                    { Data = { ["inner"] = symstoreEx.Message } };
+            }
+            catch (EndOfStreamException symstoreEx)
+            {
+                throw new IncompleteSymbolFileException(
+                    $"PDB file {fileName} appears incomplete (unexpected end of stream). " +
+                    "Please make sure the file is fully written before uploading.")
+                    { Data = { ["inner"] = symstoreEx.Message } };
+            }
         }
     }
 

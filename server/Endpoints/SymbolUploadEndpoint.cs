@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.WebUtilities;
 
 using MongoDB.Entities;
 
+using WinDbgSymbolsCachingProxy.Core.Exceptions;
 using WinDbgSymbolsCachingProxy.Models;
 using WinDbgSymbolsCachingProxy.Services;
 
@@ -63,10 +64,36 @@ internal sealed class SymbolUploadEndpoint(DB db, ILogger<SymbolUploadEndpoint> 
                 {
                     result = await parsingService.ParseSymbol(filename, ms, ct);
                 }
+                catch (IncompleteSymbolFileException ex)
+                {
+                    // Known case: the file was truncated or still being written. Keep the response concise so
+                    // clients (including the harvesting agent) can react sensibly instead of parsing a stack trace.
+                    logger.LogWarning(ex, "Rejecting incomplete symbol file {File}", filename);
+                    AddError(ex.Message, "400");
+                    continue;
+                }
+                catch (UnsupportedFileTypeException ex)
+                {
+                    logger.LogWarning(ex, "Rejecting unsupported symbol file {File}", filename);
+                    AddError(ex.Message, "415");
+                    continue;
+                }
+                catch (FailedToParsePdbException ex)
+                {
+                    logger.LogError(ex, "Failed to parse PDB {File}", filename);
+                    AddError($"Failed to parse PDB file {filename}: {ex.Message}", "400");
+                    continue;
+                }
+                catch (FailedToParseExecutableException ex)
+                {
+                    logger.LogError(ex, "Failed to parse executable {File}", filename);
+                    AddError($"Failed to parse executable file {filename}: {ex.Message}", "400");
+                    continue;
+                }
                 catch (Exception ex)
                 {
                     logger.LogError(ex, "Failed to parse {File}", filename);
-                    AddError($"Failed to parse file {filename}, error: {ex}", "500");
+                    AddError($"Failed to parse file {filename}: {ex.Message}", "500");
                     continue;
                 }
 
@@ -130,7 +157,7 @@ internal sealed class SymbolUploadEndpoint(DB db, ILogger<SymbolUploadEndpoint> 
             catch (Exception ex)
             {
                 logger.LogError(ex, "Failed to upload symbol");
-                AddError($"Processing file {section.FileName} failed: {ex}");
+                AddError($"Processing file {section.FileName} failed: {ex.Message}");
             }
         }
 
