@@ -33,6 +33,42 @@ public sealed class HarvesterRuntime : IDisposable
     /// </summary>
     private const FileShare SymbolFileShare = FileShare.Read | FileShare.Write | FileShare.Delete;
 
+    /// <summary>
+    ///     Number of consecutive stable probes required before considering a symbol file fully written.
+    ///     With <see cref="StabilityProbeInterval" /> set to 500 ms this translates to a minimum
+    ///     quiescent window of ~2 s, which tolerates the write-burst pauses typical of SMB/NFS copies
+    ///     from remote locations where TCP stalls, Nagle batching, or receiver backpressure can produce
+    ///     multi-hundred-millisecond gaps between writes on the destination.
+    /// </summary>
+    private const int StabilityRequiredConsecutiveSamples = 5;
+
+    /// <summary>
+    ///     Delay between stability probes. Longer than a typical local disk flush cycle so network
+    ///     copies don't get interpreted as "done" between bursts.
+    /// </summary>
+    private static readonly TimeSpan StabilityProbeInterval = TimeSpan.FromMilliseconds(500);
+
+    /// <summary>
+    ///     Upper bound for how long to wait for a symbol file to reach a stable, valid state before
+    ///     giving up. Sized to accommodate multi-hundred-MB PDBs being copied in from slow network
+    ///     shares where end-to-end transfer can take many minutes.
+    /// </summary>
+    private static readonly TimeSpan FileReadyTimeout = TimeSpan.FromMinutes(15);
+
+    /// <summary>
+    ///     After the file metadata has been stable long enough, we additionally try to open the file
+    ///     without granting write-share access to confirm no writer still holds a handle on it. On a
+    ///     slow copy that check keeps failing while the copier is flushing the tail of the file; this
+    ///     is the maximum time we will insist on it before falling back to the stability signal alone
+    ///     (handles the case of an IDE/AV that keeps a PDB open for its own reasons).
+    /// </summary>
+    private static readonly TimeSpan WriterLockProbeGracePeriod = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    ///     Maximum number of snapshot attempts when the source file keeps changing during the copy.
+    /// </summary>
+    private const int SnapshotMaxAttempts = 5;
+
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<HarvesterRuntime> _logger;
     private readonly AgentSettingsStore _store;
@@ -65,35 +101,124 @@ public sealed class HarvesterRuntime : IDisposable
     }
 
     /// <summary>
-    ///     Waits until the file size is stable and it can be opened for read with sharing compatible with live MSBuild output.
-    ///     Returns the file version observed after that probe (length + last write time).
+    ///     Waits until a symbol file is completely written before it is eligible for upload. A file is
+    ///     considered ready only when:
+    ///     <list type="bullet">
+    ///         <item>Its length and last-write-time remain unchanged over <see cref="StabilityRequiredConsecutiveSamples" />
+    ///               consecutive probes (spaced by <see cref="StabilityProbeInterval" />).</item>
+    ///         <item>It can be opened for read with the shared flags used by compilers and linkers.</item>
+    ///         <item>Its header matches a known-good magic signature for the file format (see
+    ///               <see cref="SymbolFileSignature" />). Guards against files whose length happens to
+    ///               stabilize momentarily while still being initialized.</item>
+    ///         <item>No other process still holds the file with write access, probed by attempting to
+    ///               open the file without granting write-share. If the probe keeps failing after
+    ///               <see cref="WriterLockProbeGracePeriod" />, the stability signal alone is accepted
+    ///               so that files permanently opened by an IDE, AV scanner, or similar don't block
+    ///               upload indefinitely.</item>
+    ///     </list>
+    ///     The combination tolerates slow network copies (SMB / NFS) where individual write bursts may
+    ///     be tens to hundreds of milliseconds apart, while still rejecting truly in-progress writes
+    ///     where data has not been fully flushed.
+    ///     Returns the file version observed once the file is deemed ready. Throws a <see cref="TimeoutException" />
+    ///     if the file does not stabilize within <see cref="FileReadyTimeout" />.
     /// </summary>
-    private static async Task<SymbolFileVersion> WaitForFileReadyAsync(string fullPath,
+    private async Task<SymbolFileVersion> WaitForFileReadyAsync(string fullPath,
         CancellationToken cancellationToken)
     {
+        DateTime deadline = DateTime.UtcNow + FileReadyTimeout;
+        SymbolFileVersion lastObservation = default;
+        int stableSamples = 0;
+        DateTime? firstStableUtc = null;
+
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
+
+            if (DateTime.UtcNow > deadline)
+            {
+                throw new TimeoutException(
+                    $"Symbol file {fullPath} did not reach a stable, readable state within {FileReadyTimeout.TotalSeconds:F0}s.");
+            }
+
+            SymbolFileVersion currentObservation;
             try
             {
-                long len1 = new FileInfo(fullPath).Length;
-                await Task.Delay(150, cancellationToken);
-                long len2 = new FileInfo(fullPath).Length;
-                if (len1 != len2)
-                {
-                    await Task.Delay(350, cancellationToken);
-                    continue;
-                }
+                currentObservation = GetSymbolFileVersion(fullPath);
+            }
+            catch (FileNotFoundException)
+            {
+                throw;
+            }
+            catch (DirectoryNotFoundException)
+            {
+                throw;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                await Task.Delay(StabilityProbeInterval, cancellationToken);
+                continue;
+            }
 
+            // Zero-length means the writer only created the placeholder entry; keep waiting.
+            if (currentObservation.Length == 0)
+            {
+                stableSamples = 0;
+                lastObservation = currentObservation;
+                firstStableUtc = null;
+                await Task.Delay(StabilityProbeInterval, cancellationToken);
+                continue;
+            }
+
+            if (lastObservation.Length == currentObservation.Length &&
+                lastObservation.LastWriteTimeUtc == currentObservation.LastWriteTimeUtc)
+            {
+                stableSamples++;
+            }
+            else
+            {
+                stableSamples = 1;
+                lastObservation = currentObservation;
+                firstStableUtc = null;
+            }
+
+            if (stableSamples < StabilityRequiredConsecutiveSamples)
+            {
+                await Task.Delay(StabilityProbeInterval, cancellationToken);
+                continue;
+            }
+
+            firstStableUtc ??= DateTime.UtcNow;
+
+            // Length + timestamp stabilized across enough samples. Confirm we can actually read the file
+            // and that the file contents look like a real symbol file (not just a sized placeholder).
+            try
+            {
                 await using FileStream stream = new(
                     fullPath,
                     FileMode.Open,
                     FileAccess.Read,
                     SymbolFileShare,
-                    bufferSize: 1,
+                    bufferSize: 1024 * 8,
                     options: FileOptions.Asynchronous | FileOptions.SequentialScan);
 
-                return GetSymbolFileVersion(fullPath);
+                bool validMagic = await SymbolFileSignature.HasValidMagicAsync(stream, fullPath, cancellationToken);
+                if (!validMagic)
+                {
+                    _logger.LogDebug(
+                        "Symbol file {Path} length stabilized at {Length} bytes but its header does not match a known format; continuing to wait",
+                        fullPath,
+                        currentObservation.Length);
+
+                    stableSamples = 0;
+                    lastObservation = default;
+                    firstStableUtc = null;
+                    await Task.Delay(StabilityProbeInterval, cancellationToken);
+                    continue;
+                }
             }
             catch (OperationCanceledException)
             {
@@ -113,18 +238,116 @@ public sealed class HarvesterRuntime : IDisposable
             }
             catch (IOException)
             {
-                await Task.Delay(500, cancellationToken);
+                // Read with shared-read access is blocked (rare, happens e.g. during SMB tail flush).
+                // Don't reset firstStableUtc — this is still evidence a writer is active.
+                await Task.Delay(StabilityProbeInterval, cancellationToken);
+                continue;
+            }
+
+            // Writer-exclusion probe: try to open the file without granting write-share. On Windows and
+            // SMB this fails with an IOException as long as any other handle was opened with write
+            // access. Compilers/linkers and CopyFileEx/robocopy both open with write access while
+            // writing; once they close the handle the probe succeeds. Gives a high-confidence "no one
+            // is writing" signal that metadata alone cannot.
+            bool writerStillPresent;
+            try
+            {
+                await using FileStream probe = new(
+                    fullPath,
+                    FileMode.Open,
+                    FileAccess.Read,
+                    FileShare.Read | FileShare.Delete,
+                    bufferSize: 1,
+                    options: FileOptions.Asynchronous);
+                writerStillPresent = false;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (FileNotFoundException)
+            {
+                throw;
+            }
+            catch (DirectoryNotFoundException)
+            {
+                throw;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // Treat as "can't prove it's released"; rely on stability window grace period.
+                writerStillPresent = true;
+            }
+            catch (IOException)
+            {
+                writerStillPresent = true;
+            }
+
+            if (writerStillPresent)
+            {
+                bool gracePeriodExpired = firstStableUtc.HasValue
+                                          && DateTime.UtcNow - firstStableUtc.Value > WriterLockProbeGracePeriod;
+
+                if (!gracePeriodExpired)
+                {
+                    await Task.Delay(StabilityProbeInterval, cancellationToken);
+                    continue;
+                }
+
+                _logger.LogDebug(
+                    "Writer still holds {Path} after {Elapsed:F1}s of stable metadata; accepting stability signal",
+                    fullPath,
+                    WriterLockProbeGracePeriod.TotalSeconds);
+            }
+
+            // Final version re-check so we can't accept a snapshot token for data that just changed.
+            SymbolFileVersion afterRead;
+            try
+            {
+                afterRead = GetSymbolFileVersion(fullPath);
+            }
+            catch (FileNotFoundException)
+            {
+                throw;
+            }
+            catch (DirectoryNotFoundException)
+            {
+                throw;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                throw;
             }
             catch (Exception)
             {
-                await Task.Delay(500, cancellationToken);
+                await Task.Delay(StabilityProbeInterval, cancellationToken);
+                continue;
             }
+
+            if (afterRead != currentObservation)
+            {
+                stableSamples = 1;
+                lastObservation = afterRead;
+                firstStableUtc = null;
+                await Task.Delay(StabilityProbeInterval, cancellationToken);
+                continue;
+            }
+
+            return currentObservation;
         }
     }
 
     /// <summary>
+    ///     Signals that a source symbol file changed during snapshot capture and the snapshot must be discarded.
+    /// </summary>
+    private sealed class SnapshotVersionMismatchException(string message) : Exception(message);
+
+    /// <summary>
     ///     Copies the symbol to a temp file using a short-lived shared read on the source, so uploads do not hold handles on build outputs.
     ///     Returns the temp path and the source file version that was snapshotted (length + last write UTC at copy start).
+    ///     If the source file changes between the ready check and the end of the copy, a
+    ///     <see cref="SnapshotVersionMismatchException" /> is thrown so the caller can discard the partial
+    ///     snapshot and wait for a new stable state instead of uploading a torn read.
     /// </summary>
     private async Task<(string TempPath, SymbolFileVersion Version)> CreateUploadSnapshotAsync(string sourcePath,
         SymbolFileVersion versionAfterWait,
@@ -136,11 +359,9 @@ public sealed class HarvesterRuntime : IDisposable
         SymbolFileVersion versionBeforeOpen = GetSymbolFileVersion(sourcePath);
         if (versionBeforeOpen != versionAfterWait)
         {
-            _logger.LogWarning(
-                "Symbol file {Path} changed between ready check and snapshot start (wait token {WaitVersion}, now {CurrentVersion})",
-                sourcePath,
-                versionAfterWait,
-                versionBeforeOpen);
+            throw new SnapshotVersionMismatchException(
+                $"Symbol file {sourcePath} changed between ready check and snapshot start " +
+                $"(wait token {versionAfterWait}, now {versionBeforeOpen}).");
         }
 
         bool copySucceeded = false;
@@ -154,6 +375,12 @@ public sealed class HarvesterRuntime : IDisposable
                 bufferSize: 1024 * 64,
                 options: FileOptions.Asynchronous | FileOptions.SequentialScan);
             SymbolFileVersion snapshottedVersion = GetSymbolFileVersion(sourcePath);
+            if (snapshottedVersion != versionAfterWait)
+            {
+                throw new SnapshotVersionMismatchException(
+                    $"Symbol file {sourcePath} changed after opening for snapshot " +
+                    $"(wait token {versionAfterWait}, now {snapshottedVersion}).");
+            }
 
             await using FileStream dest = new(
                 tempPath,
@@ -164,6 +391,16 @@ public sealed class HarvesterRuntime : IDisposable
                 options: FileOptions.Asynchronous);
 
             await source.CopyToAsync(dest, cancellationToken);
+
+            // Final guard: if the underlying file changed during the copy we may have captured a torn read.
+            SymbolFileVersion versionAfterCopy = GetSymbolFileVersion(sourcePath);
+            if (versionAfterCopy != versionAfterWait)
+            {
+                throw new SnapshotVersionMismatchException(
+                    $"Symbol file {sourcePath} changed during snapshot copy " +
+                    $"(wait token {versionAfterWait}, now {versionAfterCopy}).");
+            }
+
             copySucceeded = true;
             return (tempPath, snapshottedVersion);
         }
@@ -472,15 +709,43 @@ public sealed class HarvesterRuntime : IDisposable
                 string fileName = Path.GetFileName(path);
                 _health.RecordFileDetected(path);
 
-                SymbolFileVersion versionAfterWait = await WaitForFileReadyAsync(path, stopping);
-
                 string? snapshotPath = null;
                 SymbolFileVersion snapshottedVersion = default;
+                SymbolFileVersion versionAfterWait = default;
+
+                for (int attempt = 1; attempt <= SnapshotMaxAttempts; attempt++)
+                {
+                    versionAfterWait = await WaitForFileReadyAsync(path, stopping);
+
+                    try
+                    {
+                        (snapshotPath, snapshottedVersion) =
+                            await CreateUploadSnapshotAsync(path, versionAfterWait, stopping);
+                        break;
+                    }
+                    catch (SnapshotVersionMismatchException ex)
+                    {
+                        _logger.LogWarning(ex,
+                            "Snapshot attempt {Attempt}/{Max} for {Path} detected a concurrent modification; retrying",
+                            attempt,
+                            SnapshotMaxAttempts,
+                            path);
+
+                        if (attempt == SnapshotMaxAttempts)
+                        {
+                            throw;
+                        }
+                    }
+                }
+
+                if (snapshotPath is null)
+                {
+                    throw new InvalidOperationException(
+                        $"Could not capture a consistent snapshot of {path} after {SnapshotMaxAttempts} attempts.");
+                }
+
                 try
                 {
-                    (snapshotPath, snapshottedVersion) =
-                        await CreateUploadSnapshotAsync(path, versionAfterWait, stopping);
-
                     string? mimeType = MimeTypeMap.GetMimeType(Path.GetExtension(path));
                     ArgumentException.ThrowIfNullOrEmpty(mimeType);
 

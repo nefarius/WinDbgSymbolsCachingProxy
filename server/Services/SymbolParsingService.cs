@@ -63,9 +63,35 @@ internal sealed class SymbolParsingService(ILogger<SymbolParsingService> logger,
             case ".dll":
             case ".sys":
                 {
+                    EnsureValidSignatureOrThrow(stream, filename);
                     filename = GetOriginalExecutableName(stream)?.ToLowerInvariant() ?? filename;
                     stream.Position = 0;
-                    indexPrefix = await ParseExecutable(filename, stream);
+                    try
+                    {
+                        indexPrefix = await ParseExecutable(filename, stream);
+                    }
+                    catch (OverflowException ex)
+                    {
+                        throw new IncompleteSymbolFileException(
+                            $"Executable file {filename} appears incomplete or corrupted (header read but structure overflow). " +
+                            "Please make sure the file is fully written before uploading.",
+                            ex);
+                    }
+                    catch (ArgumentOutOfRangeException ex)
+                    {
+                        throw new IncompleteSymbolFileException(
+                            $"Executable file {filename} appears incomplete or corrupted (structure out of range). " +
+                            "Please make sure the file is fully written before uploading.",
+                            ex);
+                    }
+                    catch (EndOfStreamException ex)
+                    {
+                        throw new IncompleteSymbolFileException(
+                            $"Executable file {filename} appears incomplete (unexpected end of stream). " +
+                            "Please make sure the file is fully written before uploading.",
+                            ex);
+                    }
+
                     signature = indexPrefix.Split('/')[1].ToUpper();
                     logger.LogInformation("File {File} (EXE/DLL/SYS) has signature {Signature}", filename,
                         signature);
@@ -73,6 +99,7 @@ internal sealed class SymbolParsingService(ILogger<SymbolParsingService> logger,
                 }
             case ".pdb":
                 {
+                    EnsureValidSignatureOrThrow(stream, filename);
                     filename = GetOriginalPdbName(stream)?.ToLowerInvariant() ?? filename;
                     stream.Position = 0;
                     PdbParsingResult result = await ParsePdb(filename, stream);
@@ -84,6 +111,30 @@ internal sealed class SymbolParsingService(ILogger<SymbolParsingService> logger,
                 }
             default:
                 throw new UnsupportedFileTypeException($"File {filename} has unsupported extension.");
+        }
+    }
+
+    /// <summary>
+    ///     Rejects uploads whose magic bytes do not match the declared file type. Prevents attempting to
+    ///     parse zero-filled or truncated files and surfaces a clean, actionable error to the caller.
+    /// </summary>
+    private static void EnsureValidSignatureOrThrow(MemoryStream stream, string filename)
+    {
+        long originalPosition = stream.Position;
+        try
+        {
+            stream.Position = 0;
+            if (!SymbolFileSignature.HasValidMagic(stream, filename))
+            {
+                string extension = Path.GetExtension(filename).ToLowerInvariant();
+                throw new IncompleteSymbolFileException(
+                    $"Uploaded {extension.TrimStart('.').ToUpperInvariant()} file {filename} appears incomplete or corrupted " +
+                    "(missing expected magic bytes). Please make sure the file is fully written before uploading.");
+            }
+        }
+        finally
+        {
+            stream.Position = originalPosition;
         }
     }
 
@@ -126,13 +177,64 @@ internal sealed class SymbolParsingService(ILogger<SymbolParsingService> logger,
         {
             throw;
         }
+        catch (IncompleteSymbolFileException)
+        {
+            throw;
+        }
+        catch (OverflowException ex)
+        {
+            throw new IncompleteSymbolFileException(
+                $"PDB file {fileName} appears incomplete or corrupted (header read but structure overflow). " +
+                "Please make sure the file is fully written before uploading.",
+                ex);
+        }
+        catch (ArgumentOutOfRangeException ex)
+        {
+            throw new IncompleteSymbolFileException(
+                $"PDB file {fileName} appears incomplete or corrupted (stream table out of range). " +
+                "Please make sure the file is fully written before uploading.",
+                ex);
+        }
+        catch (EndOfStreamException ex)
+        {
+            throw new IncompleteSymbolFileException(
+                $"PDB file {fileName} appears incomplete (unexpected end of stream). " +
+                "Please make sure the file is fully written before uploading.",
+                ex);
+        }
         catch (Exception ex)
         {
             logger.LogWarning(ex,
                 "PDBSharp failed for {File}; using Microsoft.SymbolStore key generation as fallback",
                 fileName);
             stream.Position = 0;
-            return ParsePdbIndexViaSymStore(fileName, stream);
+            try
+            {
+                return ParsePdbIndexViaSymStore(fileName, stream);
+            }
+            catch (OverflowException symstoreEx)
+            {
+                // The PDB header was readable but its tables reference out-of-bounds data. This is the
+                // fingerprint of a file that was only partially written when it was uploaded.
+                throw new IncompleteSymbolFileException(
+                    $"PDB file {fileName} appears incomplete or corrupted (header read but structure overflow). " +
+                    "Please make sure the file is fully written before uploading.",
+                    symstoreEx);
+            }
+            catch (ArgumentOutOfRangeException symstoreEx)
+            {
+                throw new IncompleteSymbolFileException(
+                    $"PDB file {fileName} appears incomplete or corrupted (stream table out of range). " +
+                    "Please make sure the file is fully written before uploading.",
+                    symstoreEx);
+            }
+            catch (EndOfStreamException symstoreEx)
+            {
+                throw new IncompleteSymbolFileException(
+                    $"PDB file {fileName} appears incomplete (unexpected end of stream). " +
+                    "Please make sure the file is fully written before uploading.",
+                    symstoreEx);
+            }
         }
     }
 
@@ -291,26 +393,53 @@ internal sealed class SymbolParsingService(ILogger<SymbolParsingService> logger,
 
     /// <summary>
     ///     Grabs the original file name from the <c>.EXE</c>, <c>.DLL</c> or <c>.SYS</c> stream.
+    ///     Never throws: on any parser/resource-table failure a warning is logged and <c>null</c> is
+    ///     returned so the caller falls back to the upload file name. Mirrors <see cref="GetOriginalPdbName" />.
     /// </summary>
     /// <param name="stream">The source stream.</param>
-    /// <returns>The original executable name or null if not found.</returns>
-    private static string? GetOriginalExecutableName(Stream stream)
+    /// <returns>The original executable name or null if not found / on parse error.</returns>
+    private string? GetOriginalExecutableName(Stream stream)
     {
-        PeFile peFile = new(stream);
+        long originalPosition = stream.CanSeek ? stream.Position : 0;
 
-        if (peFile.Resources?.VsVersionInfo is null)
+        try
         {
+            if (stream.CanSeek)
+            {
+                stream.Position = 0;
+            }
+
+            PeFile peFile = new(stream);
+
+            if (peFile.Resources?.VsVersionInfo is null)
+            {
+                return null;
+            }
+
+            if (peFile.Resources.VsVersionInfo.StringFileInfo?.StringTable is not { Length: > 0 } stringTableEntries)
+            {
+                return null;
+            }
+
+            StringTable stringTable = stringTableEntries.First();
+
+            return string.IsNullOrWhiteSpace(stringTable.OriginalFilename)
+                ? null
+                : stringTable.OriginalFilename;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "Failed to extract original executable name from stream. Falling back to upload name.");
             return null;
         }
-
-        if (peFile.Resources.VsVersionInfo.StringFileInfo.StringTable.Length == 0)
+        finally
         {
-            return null;
+            if (stream.CanSeek)
+            {
+                stream.Position = originalPosition;
+            }
         }
-
-        StringTable stringTable = peFile.Resources.VsVersionInfo.StringFileInfo.StringTable.First();
-
-        return stringTable.OriginalFilename;
     }
 
     /// <summary>
