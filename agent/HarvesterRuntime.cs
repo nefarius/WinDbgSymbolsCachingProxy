@@ -721,14 +721,7 @@ public sealed class HarvesterRuntime : IDisposable
                     break;
                 }
 
-                try
-                {
-                    await Task.Delay(50 * (1 << attempt), cancellationToken);
-                }
-                catch (OperationCanceledException)
-                {
-                    throw;
-                }
+                await Task.Delay(50 * (1 << attempt), cancellationToken);
             }
         }
 
@@ -741,6 +734,15 @@ public sealed class HarvesterRuntime : IDisposable
         }
         catch (Exception ex)
         {
+            if (ex is OperationCanceledException)
+                throw;
+
+            for (Exception? inner = ex.InnerException; inner != null; inner = inner.InnerException)
+            {
+                if (inner is OperationCanceledException)
+                    throw inner;
+            }
+
             _logger.LogWarning(ex, "Could not write upload error sidecar at {Path} or {Fallback}", primary, fallback);
         }
     }
