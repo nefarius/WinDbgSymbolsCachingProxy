@@ -19,6 +19,9 @@ static class Program
 
     const string Manufacturer = "Nefarius Software Solutions";
 
+    /// <summary>Root directory id; must be a public property (all caps). WixSharp maps this to <c>WIXUI_INSTALLDIR</c> for <c>InstallDirDlg</c>.</summary>
+    const string InstallDirProperty = "INSTALLDIR";
+
     static bool IncludeInPublishedFile(string path)
     {
         string leaf = Path.GetFileName(path);
@@ -100,7 +103,8 @@ static class Program
 
             var project = new Project(
                 "WinDbg Symbols Caching Proxy",
-                new Dir(
+                new InstallDir(
+                    new Id(InstallDirProperty),
                     @"%ProgramFiles64Folder%\Nefarius Software Solutions\WinDbg Symbols Caching Proxy",
                     new Dir("Server", serverFiles),
                     new Dir("Agent", agentFiles)))
@@ -109,7 +113,8 @@ static class Program
                 UpgradeCode = new Guid("e7a3c8f2-1b4d-4c9e-9f6a-0d2e8b5c7a91"),
                 Platform = Platform.x64,
                 Scope = InstallScope.perMachine,
-                UI = WUI.WixUI_FeatureTree,
+                // Includes built-in InstallDirDlg (destination folder) and FeaturesDlg (Server / Agent), unlike WixUI_FeatureTree.
+                UI = WUI.WixUI_Advanced,
                 LicenceFile = licensePath,
                 Version = ReadProductVersion(options.ServerPublishDir),
                 OutDir = options.OutputDir,
@@ -117,6 +122,7 @@ static class Program
             };
 
             project.ControlPanelInfo.Manufacturer = Manufacturer;
+            project.ControlPanelInfo.InstallLocation = $"[{InstallDirProperty}]";
 
             // Align with WiX 5.x + WixToolset.UI.wixext/5.0.x (see GitHub workflow); avoids WiX 6 / mismatched UI extension.
             WixExtension.UI.PreferredVersion = "5.0.2";
