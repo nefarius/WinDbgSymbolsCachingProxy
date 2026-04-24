@@ -6,9 +6,10 @@ Windows service that watches configured folders for new symbol files and uploads
 
 - Bound to **127.0.0.1 only** (no authentication). Default port **5088** unless you change it in Settings.
 - Open `http://127.0.0.1:5088/` after starting the agent.
-- **Dashboard** — start/stop harvesting, upload counters, last error, watcher list, and recent in-memory upload/file activity history (detected/uploaded/failed) to help spot unhealthy uploads quickly.
-- **Configuration** — named upload servers (display name, URL, basic auth), watcher paths (each with an **Include subdirectories** checkbox and directory browser assisted selection), upload file filters (`*.exe`, `*.dll`, …), delete-after-upload and deletion glob rules.
+- **Dashboard** — start/stop harvesting, upload counters, last error with a **Clear error** action, watcher list, and recent in-memory file activity history with **Clear history**. Activity includes detected, uploaded, failed, deleted, delete-skipped, and delete-failed outcomes to help spot unhealthy uploads quickly.
+- **Configuration** — named upload servers (display name, URL, basic auth) and watcher paths. Each watched path has its own **Include subdirectories** checkbox, directory browser assisted selection, upload file filters (`*.exe`, `.dll`, …), delete-after-upload toggle, and deletion inclusion/exclusion glob rules.
 - **Settings** — listen port (requires **service restart** to take effect).
+- **Logs** — inspect the latest Serilog events captured since startup. Clearing this page only resets the in-memory view, not log files.
 
 ## Settings file
 
@@ -21,9 +22,9 @@ On first run the file is created with defaults if it does not exist. The JSON co
 
 The agent watches directories you configure. Supported upload patterns default to `.exe`, `.dll`, `.sys`, and `.pdb` unless you override them in the UI. Multiple named servers and multiple watcher paths per server are supported.
 
-Enable **Include subdirectories** on a watcher row when you want the entire directory tree monitored. The built-in directory browser helps select watcher roots without manually typing full paths. That pairs well with **Delete after successful upload** turned off so builds are not disturbed. Older settings files that used a trailing `*` on the path are still loaded and converted automatically.
+Enable **Include subdirectories** on a watcher row when you want the entire directory tree monitored. The built-in directory browser helps select watcher roots without manually typing full paths. Configure upload filters, **Delete after successful upload**, and deletion glob rules per watched path so build output and archival folders can use different behavior on the same server. Keeping deletion turned off for build trees is still recommended. Older settings files that used a trailing `*` on the path are still loaded and converted automatically.
 
-When watching **live** build output (e.g. MSBuild writing to the same folder), the agent opens files with **shared** read access, waits for a **stable file size**, then **copies each symbol to a temp file** and uploads from that snapshot so the original path is not held open for the duration of the HTTP request. That reduces contention with the toolchain; keeping **Delete after successful upload** off for build trees is still recommended.
+When watching **live** build output (e.g. MSBuild writing to the same folder), the agent opens files with **shared** read access, waits for a **stable file size**, then **copies each symbol to a temp file** and uploads from that snapshot so the original path is not held open for the duration of the HTTP request. Files that are still being written are retried instead of being uploaded prematurely. That reduces contention with the toolchain.
 
 Logging is still configured via `appsettings.json` / `appsettings.Development.json` (Serilog); harvester options are **not** read from those files.
 Dashboard file activity history is in-memory only and resets when the process/service restarts.
@@ -31,6 +32,6 @@ Dashboard file activity history is in-memory only and resets when the process/se
 ## Sources & 3rd-party credits
 
 - [MinVer](https://github.com/adamralph/minver)
-- [MimeTypeMap](https://github.com/samuelneff/MimeTypeMap)
+- [MimeTypeMapOfficial](https://github.com/samuelneff/MimeTypeMap)
 - [MudBlazor](https://mudblazor.com/)
 - [Serilog](https://github.com/serilog/serilog)

@@ -45,14 +45,14 @@ dotnet run --project server/WinDbgSymbolsCachingProxy.csproj
 
 | Area | Path | Notes |
 |------|------|--------|
-| Symbol download | `/download/symbols/{symbol}/{key}/{file}` | WinDbg-compatible layout; anonymous |
+| Symbol download | `/download/symbols/{Symbol}/{SymbolKey}/{FileName}` | WinDbg-compatible layout; anonymous |
 | Badges | `/api/badges/{name}` | SVG metrics; `name` is `cachedSymbolsTotal`, `cachedSymbolsFound`, or `cachedSymbolsNotFound`; anonymous |
 | Upload API | `/api/uploads/symbol` | Multipart upload; Basic auth |
-| Overview JSON | `/info` | Version + counts; anonymous; short-lived cache |
+| Overview JSON | `/info` | Version + counts; anonymous; one-hour cache |
 | OG image | `/og/status.png` | PNG for link previews; anonymous; same cached counts as `/info` |
 | UI | `/` | Redirects to `/status` |
 | UI | `/status` | Public dashboard |
-| UI | `/search`, `/upload` | Basic auth |
+| UI | `/search`, `/upload`, `/logs` | Basic auth; `/logs` shows the in-memory Serilog event buffer |
 
 Swagger / OpenAPI is enabled for the FastEndpoints routes (some internal endpoints are excluded from the document).
 

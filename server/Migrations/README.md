@@ -1,5 +1,6 @@
 ﻿# MongoDB Migrations
 
-Schema migrations to in-place fix schema changes over the development lifecycle of the app.
+Schema migrations in this folder perform in-place fixes for schema changes over the development lifecycle of the app.
 
-If you are starting from scratch, these won't do anything.
+They are applied during server startup through MongoDB.Entities before indexes are ensured. If you are starting from
+scratch, there is usually no legacy data to migrate, so these scripts won't change anything.

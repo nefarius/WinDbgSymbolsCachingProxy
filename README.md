@@ -71,11 +71,13 @@ If you like this idea and want to keep my public instance happy and running,
     - `/status` — public overview: server version and cached symbol counts (total, found upstream, not-found upstream).
     - `/search` — browse stored symbols in a data grid (Basic authentication, same credentials as the upload API).
     - `/upload` — upload symbols in the browser (multi-file, drag-and-drop; same extensions as the API; Basic auth).
-    - App shell with a navigation drawer and light/dark theme. Search and Upload use a full page load so the browser
+    - `/logs` — inspect the latest Serilog events captured since server startup (Basic auth; clearing only resets the
+      in-memory view, not log files).
+    - App shell with a navigation drawer and light/dark theme. Search, Upload, and Logs use a full page load so the browser
       can attach Basic credentials when you open those routes.
 - Status and metrics (for dashboards, bots, and link previews) 📊
     - `/info` — JSON with `serverVersion`, `cachedSymbolsTotal`, `cachedSymbolsFound`, `cachedSymbols404`, and
-      `projectUrl` (same figures as the status page, with a short in-memory cache).
+      `projectUrl` (same figures as the status page, with a one-hour in-memory cache).
     - `/og/status.png` — PNG preview image for Open Graph / Twitter cards when sharing `/status` (Discord, Slack, etc.).
 - Badges! Embed server statistics anywhere via generated SVGs 🖼️
     - `/api/badges/cachedSymbolsTotal`
@@ -99,9 +101,9 @@ If you like this idea and want to keep my public instance happy and running,
   servers. Recent additions include server display names, a directory browser assisted watcher setup, and in-memory
   upload history/activity diagnostics in the dashboard; settings are stored under ProgramData.
 - [`WinDbgSymbolsCachingProxy.Installer`](./installer)  
-  WixSharp (WiX 4) project that builds an x64 MSI with optional **Server** and **Agent** features (both selected by
-  default). The license dialog uses [installer/License.rtf](./installer/License.rtf), which mirrors the repository
-  [LICENSE](./LICENSE).
+  WixSharp project for the WiX 5 toolchain that builds an x64 MSI with optional **Server** and **Agent** features (both
+  selected by default) and a configurable installation directory. The license dialog uses
+  [installer/License.rtf](./installer/License.rtf), which mirrors the repository [LICENSE](./LICENSE).
 - [`Nefarius.Utilities.ExceptionEnricher`](./lib)  
   A class library that makes use of the symbol server infrastructure to on-demand download debug symbols whenever an
   exception happens.
@@ -144,7 +146,8 @@ wix extension add -g WixToolset.UI.wixext/5.0.2
 ```
 
 Then the Nuke target **`BuildInstaller`** publishes both applications and produces
-`publish-x64\installer\WinDbgSymbolsCachingProxy.msi` (per-machine x64 install under Program Files, feature tree UI).
+`publish-x64\installer\WinDbgSymbolsCachingProxy.msi` (per-machine x64 install, feature tree UI, configurable install
+directory).
 
 ```PowerShell
 .\build.ps1 BuildInstaller
