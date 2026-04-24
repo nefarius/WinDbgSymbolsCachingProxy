@@ -66,7 +66,32 @@ internal sealed class SymbolParsingService(ILogger<SymbolParsingService> logger,
                     EnsureValidSignatureOrThrow(stream, filename);
                     filename = GetOriginalExecutableName(stream)?.ToLowerInvariant() ?? filename;
                     stream.Position = 0;
-                    indexPrefix = await ParseExecutable(filename, stream);
+                    try
+                    {
+                        indexPrefix = await ParseExecutable(filename, stream);
+                    }
+                    catch (OverflowException ex)
+                    {
+                        throw new IncompleteSymbolFileException(
+                            $"Executable file {filename} appears incomplete or corrupted (header read but structure overflow). " +
+                            "Please make sure the file is fully written before uploading.",
+                            ex);
+                    }
+                    catch (ArgumentOutOfRangeException ex)
+                    {
+                        throw new IncompleteSymbolFileException(
+                            $"Executable file {filename} appears incomplete or corrupted (structure out of range). " +
+                            "Please make sure the file is fully written before uploading.",
+                            ex);
+                    }
+                    catch (EndOfStreamException ex)
+                    {
+                        throw new IncompleteSymbolFileException(
+                            $"Executable file {filename} appears incomplete (unexpected end of stream). " +
+                            "Please make sure the file is fully written before uploading.",
+                            ex);
+                    }
+
                     signature = indexPrefix.Split('/')[1].ToUpper();
                     logger.LogInformation("File {File} (EXE/DLL/SYS) has signature {Signature}", filename,
                         signature);
