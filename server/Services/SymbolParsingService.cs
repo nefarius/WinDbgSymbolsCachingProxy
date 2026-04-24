@@ -1,3 +1,5 @@
+using System.Globalization;
+
 using Kaitai;
 
 using Microsoft.SymbolStore.KeyGenerators;
@@ -116,11 +118,84 @@ internal sealed class SymbolParsingService(ILogger<SymbolParsingService> logger,
     /// <exception cref="FailedToParsePdbException">Thrown on error.</exception>
     private async Task<PdbParsingResult> ParsePdb(string fileName, MemoryStream stream)
     {
+        try
+        {
+            return await ParsePdbWithPdbSharp(fileName, stream);
+        }
+        catch (FailedToParsePdbException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "PDBSharp failed for {File}; using Microsoft.SymbolStore key generation as fallback",
+                fileName);
+            stream.Position = 0;
+            return ParsePdbIndexViaSymStore(fileName, stream);
+        }
+    }
+
+    /// <summary>
+    ///     Uses Microsoft.SymbolStore key generators on the PDB bytes (same approach as the partial fallbacks inside
+    ///     <see cref="ParsePdbWithPdbSharp" /> when PDBSharp cannot read DBI / signature fields).
+    /// </summary>
+    private PdbParsingResult ParsePdbIndexViaSymStore(string fileName, MemoryStream stream)
+    {
+        stream.Position = 0;
+        const KeyTypeFlags flags = KeyTypeFlags.IdentityKey | KeyTypeFlags.SymbolKey | KeyTypeFlags.ClrKeys;
+        List<SymbolStoreKeyWrapper> keys = symStore.GetKeys(flags, fileName, stream).ToList();
+
+        if (keys.Count == 0)
+        {
+            throw new FailedToParsePdbException(
+                $"Couldn't derive a symbol index for {fileName} after PDBSharp failed.");
+        }
+
+        string indexPrefix = keys.First().Key.IndexPrefix.ToLowerInvariant();
+        return TryBuildPdbParsingResultFromSymStoreIndexPrefix(indexPrefix);
+    }
+
+    /// <summary>
+    ///     SSQP PDB keys use <c>filename/&lt;Signature&gt;&lt;Age&gt;/...</c> where Signature is the PDB GUID as 32 hex
+    ///     digits (N) and Age is hex without leading zeros (e.g. portable PDB age <c>FFFFFFFF</c>).
+    /// </summary>
+    /// <returns>
+    ///     A result with <see cref="PdbParsingResult.Age" /> and <see cref="PdbParsingResult.NewSignature" /> when the
+    ///     middle segment matches; otherwise <see cref="PdbParsingResult" /> with only <see cref="PdbParsingResult.IndexPrefix" /> set.
+    /// </returns>
+    private static PdbParsingResult TryBuildPdbParsingResultFromSymStoreIndexPrefix(string indexPrefix)
+    {
+        string normalized = indexPrefix.TrimEnd('/').ToLowerInvariant();
+        string[] segments = normalized.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (segments.Length < 2)
+            return new PdbParsingResult(indexPrefix);
+
+        string combined = segments[1];
+        // GUID (32 hex, N) + age (at least one hex digit; often 1 or 8 for FFFFFFFF)
+        if (combined.Length < 33)
+            return new PdbParsingResult(indexPrefix);
+
+        ReadOnlySpan<char> guidSpan = combined.AsSpan(0, 32);
+        if (!Guid.TryParseExact(guidSpan, "N", out Guid guid))
+            return new PdbParsingResult(indexPrefix);
+
+        ReadOnlySpan<char> ageHex = combined.AsSpan(32);
+        if (!uint.TryParse(ageHex, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out uint age))
+            return new PdbParsingResult(indexPrefix);
+
+        return new PdbParsingResult(indexPrefix, age, Signature: null, NewSignature: guid);
+    }
+
+    private async Task<PdbParsingResult> ParsePdbWithPdbSharp(string fileName, MemoryStream stream)
+    {
         using PDBFile? pdb = PDBFile.Open(stream);
 
         if (pdb is null)
         {
-            throw new FailedToParsePdbException($"Couldn't parse {fileName} as PDB file.");
+            logger.LogWarning("PDBSharp returned null for {File}; using symstore fallback", fileName);
+            stream.Position = 0;
+            return ParsePdbIndexViaSymStore(fileName, stream);
         }
 
         switch (pdb.Type)
@@ -153,7 +228,6 @@ internal sealed class SymbolParsingService(ILogger<SymbolParsingService> logger,
                 }
             case PDBType.Big:
                 {
-                    List<SymbolStoreKeyWrapper> keys;
                     const KeyTypeFlags flags = KeyTypeFlags.IdentityKey | KeyTypeFlags.SymbolKey | KeyTypeFlags.ClrKeys;
 
                     await using DBIReader? dbi = pdb.Services.GetService<DBIReader?>();
@@ -161,19 +235,15 @@ internal sealed class SymbolParsingService(ILogger<SymbolParsingService> logger,
                     if (dbi is null)
                     {
                         logger.LogWarning("Couldn't get DBIReader, using symstore fallback");
-
-                        keys = symStore.GetKeys(flags, fileName, stream).ToList();
-
-                        return new PdbParsingResult(keys.First().Key.IndexPrefix.ToLowerInvariant());
+                        stream.Position = 0;
+                        return ParsePdbIndexViaSymStore(fileName, stream);
                     }
 
                     if (dbi.Header is not DBIHeaderNew hdr)
                     {
                         logger.LogWarning("Couldn't get DBIHeaderNew, using symstore fallback");
-
-                        keys = symStore.GetKeys(flags, fileName, stream).ToList();
-
-                        return new PdbParsingResult(keys.First().Key.IndexPrefix.ToLowerInvariant());
+                        stream.Position = 0;
+                        return ParsePdbIndexViaSymStore(fileName, stream);
                     }
 
                     uint age = hdr.Age;
@@ -183,10 +253,8 @@ internal sealed class SymbolParsingService(ILogger<SymbolParsingService> logger,
                     if (pdbStream.NewSignature is null)
                     {
                         logger.LogWarning("Couldn't get NewSignature, using symstore fallback");
-
-                        keys = symStore.GetKeys(flags, fileName, stream).ToList();
-
-                        return new PdbParsingResult(keys.First().Key.IndexPrefix.ToLowerInvariant());
+                        stream.Position = 0;
+                        return ParsePdbIndexViaSymStore(fileName, stream);
                     }
 
                     Guid guid = pdbStream.NewSignature.Value;
@@ -198,7 +266,7 @@ internal sealed class SymbolParsingService(ILogger<SymbolParsingService> logger,
                     pdb.Dispose();
                     stream.Position = 0;
 
-                    keys = symStore.GetKeys(flags, fileName, stream).ToList();
+                    List<SymbolStoreKeyWrapper> keys = symStore.GetKeys(flags, fileName, stream).ToList();
 
                     if (keys.Count == 0)
                     {
@@ -219,6 +287,7 @@ internal sealed class SymbolParsingService(ILogger<SymbolParsingService> logger,
                 throw new FailedToParsePdbException($"Couldn't find the signature of PDB {fileName}.");
         }
     }
+
 
     /// <summary>
     ///     Grabs the original file name from the <c>.EXE</c>, <c>.DLL</c> or <c>.SYS</c> stream.
