@@ -3,7 +3,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 
 using WixSharp;
-using WixSharp.Controls;
 
 namespace WinDbgSymbolsCachingProxy.Installer;
 
@@ -19,9 +18,6 @@ static class Program
     const string ServerWindowsServiceName = "WinDbgSymbolsCachingProxy";
 
     const string Manufacturer = "Nefarius Software Solutions";
-
-    /// <summary>Root directory id; must be a public property (all caps). WixSharp maps this to <c>WIXUI_INSTALLDIR</c> for <c>InstallDirDlg</c>.</summary>
-    const string InstallDirProperty = "INSTALLDIR";
 
     static bool IncludeInPublishedFile(string path)
     {
@@ -106,8 +102,7 @@ static class Program
 
             var project = new Project(
                 "WinDbg Symbols Caching Proxy",
-                new InstallDir(
-                    new Id(InstallDirProperty),
+                new Dir(
                     @"%ProgramFiles64Folder%\Nefarius Software Solutions\WinDbg Symbols Caching Proxy",
                     new Dir("Server", serverFiles),
                     new Dir("Agent", agentFiles)))
@@ -124,18 +119,6 @@ static class Program
             };
 
             project.ControlPanelInfo.Manufacturer = Manufacturer;
-            project.ControlPanelInfo.InstallLocation = $"[{InstallDirProperty}]";
-
-            // Built-in InstallDirDlg between license and feature tree (WixUI_Advanced needs extra properties; see CI WIX0094).
-            // Use WiX dialog/control ids (WixSharp_wix4 does not expose a Dialogs type in this package).
-            const string licenseDlg = "LicenseAgreementDlg";
-            const string installDirDlg = "InstallDirDlg";
-            const string customizeDlg = "CustomizeDlg";
-            project.CustomUI = new DialogSequence()
-                .On(licenseDlg, Buttons.Next, new ShowDialog(installDirDlg))
-                .On(installDirDlg, Buttons.Back, new ShowDialog(licenseDlg))
-                .On(installDirDlg, Buttons.Next, new ShowDialog(customizeDlg))
-                .On(customizeDlg, Buttons.Back, new ShowDialog(installDirDlg));
 
             // Align with WiX 5.x + WixToolset.UI.wixext/5.0.x (see GitHub workflow); avoids WiX 6 / mismatched UI extension.
             WixExtension.UI.PreferredVersion = "5.0.2";
