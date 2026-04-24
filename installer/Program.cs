@@ -127,11 +127,15 @@ static class Program
             project.ControlPanelInfo.InstallLocation = $"[{InstallDirProperty}]";
 
             // Built-in InstallDirDlg between license and feature tree (WixUI_Advanced needs extra properties; see CI WIX0094).
+            // Use WiX dialog/control ids (WixSharp_wix4 does not expose a Dialogs type in this package).
+            const string licenseDlg = "LicenseAgreementDlg";
+            const string installDirDlg = "InstallDirDlg";
+            const string customizeDlg = "CustomizeDlg";
             project.CustomUI = new DialogSequence()
-                .On(Dialogs.LicenseAgreementDlg, Buttons.Next, new ShowDialog(Dialogs.InstallDirDlg))
-                .On(Dialogs.InstallDirDlg, Buttons.Back, new ShowDialog(Dialogs.LicenseAgreementDlg))
-                .On(Dialogs.InstallDirDlg, Buttons.Next, new ShowDialog(Dialogs.CustomizeDlg))
-                .On(Dialogs.CustomizeDlg, Buttons.Back, new ShowDialog(Dialogs.InstallDirDlg));
+                .On(licenseDlg, Buttons.Next, new ShowDialog(installDirDlg))
+                .On(installDirDlg, Buttons.Back, new ShowDialog(licenseDlg))
+                .On(installDirDlg, Buttons.Next, new ShowDialog(customizeDlg))
+                .On(customizeDlg, Buttons.Back, new ShowDialog(installDirDlg));
 
             // Align with WiX 5.x + WixToolset.UI.wixext/5.0.x (see GitHub workflow); avoids WiX 6 / mismatched UI extension.
             WixExtension.UI.PreferredVersion = "5.0.2";
