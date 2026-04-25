@@ -5,15 +5,34 @@ using JetBrains.Annotations;
 namespace HarvestingAgent;
 
 [UsedImplicitly]
-public sealed class AuthenticationConfig
+public sealed class AuthenticationConfig : IEquatable<AuthenticationConfig>
 {
     public string Username { get; set; } = "";
 
     public string Password { get; set; } = "";
+
+    public bool Equals(AuthenticationConfig? other)
+    {
+        return other is not null &&
+               string.Equals(Username, other.Username, StringComparison.Ordinal) &&
+               string.Equals(Password, other.Password, StringComparison.Ordinal);
+    }
+
+    public override bool Equals(object? obj)
+    {
+        return Equals(obj as AuthenticationConfig);
+    }
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(
+            StringComparer.Ordinal.GetHashCode(Username),
+            StringComparer.Ordinal.GetHashCode(Password));
+    }
 }
 
 [UsedImplicitly]
-public sealed class ServerConfig
+public sealed class ServerConfig : IEquatable<ServerConfig>
 {
     /// <summary>
     ///     Upload server authentication details.
@@ -59,6 +78,28 @@ public sealed class ServerConfig
     /// </summary>
     /// <remarks>See https://learn.microsoft.com/en-us/dotnet/core/extensions/file-globbing</remarks>
     public List<string> DeletionExclusionFilter { get; set; } = [];
+
+    public bool Equals(ServerConfig? other)
+    {
+        return other is not null &&
+               EqualityComparer<Uri?>.Default.Equals(ServerUrl, other.ServerUrl) &&
+               EqualityComparer<AuthenticationConfig>.Default.Equals(Authentication, other.Authentication) &&
+               string.Equals(DisplayName, other.DisplayName, StringComparison.Ordinal);
+    }
+
+    public override bool Equals(object? obj)
+    {
+        return Equals(obj as ServerConfig);
+    }
+
+    public override int GetHashCode()
+    {
+        HashCode hash = new();
+        hash.Add(ServerUrl);
+        hash.Add(Authentication);
+        hash.Add(DisplayName, StringComparer.Ordinal);
+        return hash.ToHashCode();
+    }
 }
 
 public sealed class ServiceConfig

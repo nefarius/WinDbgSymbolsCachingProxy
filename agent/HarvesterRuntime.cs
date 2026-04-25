@@ -947,8 +947,17 @@ public sealed class HarvesterRuntime : IDisposable
 
         try
         {
-            string? mimeType = MimeTypeMap.GetMimeType(Path.GetExtension(path));
-            ArgumentException.ThrowIfNullOrEmpty(mimeType);
+            string extension = Path.GetExtension(path);
+            string? mimeType = MimeTypeMap.GetMimeType(extension);
+            if (string.IsNullOrEmpty(mimeType))
+            {
+                mimeType = "application/octet-stream";
+                _logger.LogWarning(
+                    "Could not resolve MIME type for {Path} with extension {Extension}; using {MimeType}",
+                    path,
+                    extension,
+                    mimeType);
+            }
 
             Task<UploadAttemptResult>[] uploads = binding.Servers
                 .Select(serverConfig =>
