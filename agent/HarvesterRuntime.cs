@@ -20,6 +20,8 @@ public sealed class HarvesterRuntime : IDisposable
         public required string Path { get; init; }
         public required string FileName { get; init; }
         public required WatcherBinding Binding { get; set; }
+        public required long WatcherSetGeneration { get; init; }
+        public required CancellationToken WatcherSetCancellationToken { get; init; }
         public int Revision { get; set; }
     }
 
@@ -91,6 +93,8 @@ public sealed class HarvesterRuntime : IDisposable
     private readonly object _gate = new();
     private Dictionary<FileSystemWatcher, WatcherBinding>? _maps;
     private readonly Dictionary<string, PendingFileEvent> _pendingFileEvents = new(StringComparer.OrdinalIgnoreCase);
+    private CancellationTokenSource _watcherSetCancellation = new();
+    private long _watcherSetGeneration;
     private bool _disposed;
 
     public HarvesterRuntime(
@@ -455,6 +459,7 @@ public sealed class HarvesterRuntime : IDisposable
         {
             cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
+            InvalidatePendingFileEventsLocked();
 
             AgentSettingsDocument doc = _store.GetSnapshot();
             ServiceConfig serviceConfig = doc.ToServiceConfig();
@@ -606,6 +611,7 @@ public sealed class HarvesterRuntime : IDisposable
             ThrowIfDisposed();
             cancellationToken.ThrowIfCancellationRequested();
             _store.UpdateHarvestingEnabled(enabled);
+            InvalidatePendingFileEventsLocked();
 
             if (_maps is null)
             {
@@ -647,6 +653,7 @@ public sealed class HarvesterRuntime : IDisposable
             }
 
             _disposed = true;
+            InvalidatePendingFileEventsLocked();
             DisposeWatchersLocked();
             _maps = null;
         }
@@ -655,6 +662,14 @@ public sealed class HarvesterRuntime : IDisposable
     private void ThrowIfDisposed()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+    }
+
+    private void InvalidatePendingFileEventsLocked()
+    {
+        _watcherSetGeneration++;
+        _watcherSetCancellation.Cancel();
+        _watcherSetCancellation = new CancellationTokenSource();
+        _pendingFileEvents.Clear();
     }
 
     private void DisposeWatchersLocked()
@@ -724,6 +739,11 @@ public sealed class HarvesterRuntime : IDisposable
                 return;
             }
 
+            if (!watcher.EnableRaisingEvents)
+            {
+                return;
+            }
+
             if (binding.Servers.Count == 0)
             {
                 return;
@@ -753,6 +773,8 @@ public sealed class HarvesterRuntime : IDisposable
                 Path = path,
                 FileName = fileName,
                 Binding = binding,
+                WatcherSetGeneration = _watcherSetGeneration,
+                WatcherSetCancellationToken = _watcherSetCancellation.Token,
                 Revision = 1
             };
             _pendingFileEvents.Add(path, pendingToProcess);
@@ -771,6 +793,10 @@ public sealed class HarvesterRuntime : IDisposable
 
     private async Task ProcessPendingFileEventAsync(PendingFileEvent pending, CancellationToken stopping)
     {
+        using CancellationTokenSource linkedCancellation =
+            CancellationTokenSource.CreateLinkedTokenSource(stopping, pending.WatcherSetCancellationToken);
+        CancellationToken cancellationToken = linkedCancellation.Token;
+
         try
         {
             while (true)
@@ -781,7 +807,8 @@ public sealed class HarvesterRuntime : IDisposable
                 lock (_gate)
                 {
                     if (!_pendingFileEvents.TryGetValue(pending.Path, out PendingFileEvent? current) ||
-                        !ReferenceEquals(current, pending))
+                        !ReferenceEquals(current, pending) ||
+                        pending.WatcherSetGeneration != _watcherSetGeneration)
                     {
                         return;
                     }
@@ -790,12 +817,13 @@ public sealed class HarvesterRuntime : IDisposable
                     binding = pending.Binding;
                 }
 
-                await Task.Delay(FileEventDebounceInterval, stopping);
+                await Task.Delay(FileEventDebounceInterval, cancellationToken);
 
                 lock (_gate)
                 {
                     if (!_pendingFileEvents.TryGetValue(pending.Path, out PendingFileEvent? current) ||
-                        !ReferenceEquals(current, pending))
+                        !ReferenceEquals(current, pending) ||
+                        pending.WatcherSetGeneration != _watcherSetGeneration)
                     {
                         return;
                     }
@@ -808,11 +836,15 @@ public sealed class HarvesterRuntime : IDisposable
 
                 try
                 {
-                    await ProcessDetectedFileAsync(binding, pending.Path, pending.FileName, stopping);
+                    await ProcessDetectedFileAsync(binding, pending.Path, pending.FileName, cancellationToken);
                 }
                 catch (OperationCanceledException)
                 {
                     throw;
+                }
+                catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
+                {
+                    _logger.LogDebug(ex, "Skipping symbol upload because {Path} no longer exists", pending.Path);
                 }
                 catch (Exception ex)
                 {
@@ -824,7 +856,8 @@ public sealed class HarvesterRuntime : IDisposable
                 lock (_gate)
                 {
                     if (!_pendingFileEvents.TryGetValue(pending.Path, out PendingFileEvent? current) ||
-                        !ReferenceEquals(current, pending))
+                        !ReferenceEquals(current, pending) ||
+                        pending.WatcherSetGeneration != _watcherSetGeneration)
                     {
                         return;
                     }
