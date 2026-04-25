@@ -665,7 +665,9 @@ public sealed class HarvesterRuntime : IDisposable
     private void InvalidatePendingFileEventsLocked()
     {
         _watcherSetGeneration++;
-        _watcherSetCancellation.Cancel();
+        CancellationTokenSource oldCancellation = _watcherSetCancellation;
+        oldCancellation.Cancel();
+        oldCancellation.Dispose();
         _watcherSetCancellation = new CancellationTokenSource();
         _pendingFileEvents.Clear();
     }
