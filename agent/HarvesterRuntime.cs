@@ -15,6 +15,16 @@ public sealed class HarvesterRuntime : IDisposable
         public required IReadOnlyList<WatcherPathEntry> WatchRules { get; init; }
     }
 
+    private sealed class PendingFileEvent
+    {
+        public required string Path { get; init; }
+        public required string FileName { get; init; }
+        public required List<WatcherBinding> Bindings { get; init; }
+        public required long WatcherSetGeneration { get; init; }
+        public required CancellationToken WatcherSetCancellationToken { get; init; }
+        public int Revision { get; set; }
+    }
+
     private sealed class UploadAttemptResult
     {
         public bool Success { get; init; }
@@ -69,6 +79,11 @@ public sealed class HarvesterRuntime : IDisposable
     /// </summary>
     private const int SnapshotMaxAttempts = 5;
 
+    /// <summary>
+    ///     Coalesces the burst of change notifications emitted while compilers and linkers are writing build outputs.
+    /// </summary>
+    private static readonly TimeSpan FileEventDebounceInterval = TimeSpan.FromSeconds(1);
+
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<HarvesterRuntime> _logger;
     private readonly AgentSettingsStore _store;
@@ -77,6 +92,9 @@ public sealed class HarvesterRuntime : IDisposable
 
     private readonly object _gate = new();
     private Dictionary<FileSystemWatcher, WatcherBinding>? _maps;
+    private readonly Dictionary<string, PendingFileEvent> _pendingFileEvents = new(StringComparer.OrdinalIgnoreCase);
+    private CancellationTokenSource _watcherSetCancellation = new();
+    private long _watcherSetGeneration;
     private bool _disposed;
 
     public HarvesterRuntime(
@@ -425,7 +443,7 @@ public sealed class HarvesterRuntime : IDisposable
     /// </summary>
     /// <remarks>
     /// Creates one watcher per unique normalized directory path and recursion setting, registers configured file filters
-    /// and servers for each watcher, attaches Created event handlers, replaces any existing watchers atomically, updates
+    /// and servers for each watcher, attaches file event handlers, replaces any existing watchers atomically, updates
     /// the runtime health state, and disposes old watchers.
     /// </remarks>
     /// <param name="cancellationToken">Cancellation token to abort the rebuild operation.</param>
@@ -441,6 +459,7 @@ public sealed class HarvesterRuntime : IDisposable
         {
             cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
+            InvalidatePendingFileEventsLocked();
 
             AgentSettingsDocument doc = _store.GetSnapshot();
             ServiceConfig serviceConfig = doc.ToServiceConfig();
@@ -505,9 +524,7 @@ public sealed class HarvesterRuntime : IDisposable
                     {
                         watcher = new FileSystemWatcher(item.Key.Path)
                         {
-                            NotifyFilter = NotifyFilters.Attributes
-                                           | NotifyFilters.CreationTime
-                                           | NotifyFilters.DirectoryName
+                            NotifyFilter = NotifyFilters.DirectoryName
                                            | NotifyFilters.FileName
                                            | NotifyFilters.LastWrite
                                            | NotifyFilters.Size,
@@ -551,7 +568,9 @@ public sealed class HarvesterRuntime : IDisposable
                     cancellationToken.ThrowIfCancellationRequested();
 
                     FileSystemWatcher w = map.Key;
-                    w.Created += WatcherOnCreated;
+                    w.Created += WatcherOnFileEvent;
+                    w.Changed += WatcherOnFileEvent;
+                    w.Renamed += WatcherOnRenamed;
                     w.EnableRaisingEvents = enable;
                     status.Add(new WatcherStatusEntry
                     {
@@ -590,6 +609,7 @@ public sealed class HarvesterRuntime : IDisposable
             ThrowIfDisposed();
             cancellationToken.ThrowIfCancellationRequested();
             _store.UpdateHarvestingEnabled(enabled);
+            InvalidatePendingFileEventsLocked();
 
             if (_maps is null)
             {
@@ -631,6 +651,7 @@ public sealed class HarvesterRuntime : IDisposable
             }
 
             _disposed = true;
+            InvalidatePendingFileEventsLocked();
             DisposeWatchersLocked();
             _maps = null;
         }
@@ -639,6 +660,16 @@ public sealed class HarvesterRuntime : IDisposable
     private void ThrowIfDisposed()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+    }
+
+    private void InvalidatePendingFileEventsLocked()
+    {
+        _watcherSetGeneration++;
+        CancellationTokenSource oldCancellation = _watcherSetCancellation;
+        oldCancellation.Cancel();
+        oldCancellation.Dispose();
+        _watcherSetCancellation = new CancellationTokenSource();
+        _pendingFileEvents.Clear();
     }
 
     private void DisposeWatchersLocked()
@@ -656,7 +687,9 @@ public sealed class HarvesterRuntime : IDisposable
         int count = maps.Count;
         foreach (KeyValuePair<FileSystemWatcher, WatcherBinding> map in maps)
         {
-            map.Key.Created -= WatcherOnCreated;
+            map.Key.Created -= WatcherOnFileEvent;
+            map.Key.Changed -= WatcherOnFileEvent;
+            map.Key.Renamed -= WatcherOnRenamed;
             map.Key.EnableRaisingEvents = false;
             map.Key.Dispose();
         }
@@ -669,7 +702,7 @@ public sealed class HarvesterRuntime : IDisposable
     }
 
     /// <summary>
-    /// Begins background processing for a newly created filesystem entry detected by a FileSystemWatcher.
+    /// Begins background processing for a filesystem entry detected by a FileSystemWatcher.
     /// </summary>
     /// <remarks>
     /// Processing records the detection, waits for the file to become readable, snapshots the file to a temporary path,
@@ -680,165 +713,343 @@ public sealed class HarvesterRuntime : IDisposable
     /// </remarks>
     /// <param name="sender">The <see cref="FileSystemWatcher"/> that raised the event.</param>
     /// <param name="e">The <see cref="FileSystemEventArgs"/> containing the detected file path.</param>
-    private void WatcherOnCreated(object sender, FileSystemEventArgs e)
+    private void WatcherOnFileEvent(object sender, FileSystemEventArgs e)
+    {
+        QueueDetectedFileEvent(sender, e);
+    }
+
+    private void WatcherOnRenamed(object sender, RenamedEventArgs e)
+    {
+        QueueDetectedFileEvent(sender, e);
+    }
+
+    private void QueueDetectedFileEvent(object sender, FileSystemEventArgs e)
     {
         FileSystemWatcher? watcher = sender as FileSystemWatcher;
         ArgumentNullException.ThrowIfNull(watcher);
 
         CancellationToken stopping = _lifetime.ApplicationStopping;
 
-        Task.Run(async () =>
+        PendingFileEvent? pendingToProcess = null;
+
+        lock (_gate)
         {
-            try
+            if (_maps is null || !_maps.TryGetValue(watcher, out WatcherBinding? binding))
             {
-                WatcherBinding? binding;
+                return;
+            }
+
+            if (!watcher.EnableRaisingEvents)
+            {
+                return;
+            }
+
+            if (binding.Servers.Count == 0)
+            {
+                return;
+            }
+
+            string path = e.FullPath;
+            string fileName = Path.GetFileName(path);
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                return;
+            }
+
+            if (_pendingFileEvents.TryGetValue(path, out PendingFileEvent? pending))
+            {
+                if (!pending.Bindings.Contains(binding))
+                {
+                    pending.Bindings.Add(binding);
+                }
+
+                pending.Revision++;
+                _logger.LogTrace(
+                    "Coalesced {ChangeType} event for {Path} into pending revision {Revision}",
+                    e.ChangeType,
+                    path,
+                    pending.Revision);
+                return;
+            }
+
+            pendingToProcess = new PendingFileEvent
+            {
+                Path = path,
+                FileName = fileName,
+                Bindings = [binding],
+                WatcherSetGeneration = _watcherSetGeneration,
+                WatcherSetCancellationToken = _watcherSetCancellation.Token,
+                Revision = 1
+            };
+            _pendingFileEvents.Add(path, pendingToProcess);
+        }
+
+        if (pendingToProcess is null)
+        {
+            return;
+        }
+
+        PendingFileEvent queuedEvent = pendingToProcess;
+        _ = Task.Run(
+            () => ProcessPendingFileEventAsync(queuedEvent, stopping),
+            stopping);
+    }
+
+    private async Task ProcessPendingFileEventAsync(PendingFileEvent pending, CancellationToken stopping)
+    {
+        using CancellationTokenSource linkedCancellation =
+            CancellationTokenSource.CreateLinkedTokenSource(stopping, pending.WatcherSetCancellationToken);
+        CancellationToken cancellationToken = linkedCancellation.Token;
+
+        try
+        {
+            while (true)
+            {
+                int revision;
+                WatcherBinding binding;
+
                 lock (_gate)
                 {
-                    if (_maps is null || !_maps.TryGetValue(watcher, out binding))
+                    if (!_pendingFileEvents.TryGetValue(pending.Path, out PendingFileEvent? current) ||
+                        !ReferenceEquals(current, pending) ||
+                        pending.WatcherSetGeneration != _watcherSetGeneration)
                     {
                         return;
                     }
+
+                    revision = pending.Revision;
+                    binding = MergeBindings(pending.Bindings);
                 }
 
-                if (binding.Servers.Count == 0)
+                await Task.Delay(FileEventDebounceInterval, cancellationToken);
+
+                lock (_gate)
                 {
-                    return;
-                }
-
-                string path = e.FullPath;
-                string fileName = Path.GetFileName(path);
-                _health.RecordFileDetected(path);
-
-                string? snapshotPath = null;
-                SymbolFileVersion snapshottedVersion = default;
-                SymbolFileVersion versionAfterWait = default;
-
-                for (int attempt = 1; attempt <= SnapshotMaxAttempts; attempt++)
-                {
-                    versionAfterWait = await WaitForFileReadyAsync(path, stopping);
-
-                    try
+                    if (!_pendingFileEvents.TryGetValue(pending.Path, out PendingFileEvent? current) ||
+                        !ReferenceEquals(current, pending) ||
+                        pending.WatcherSetGeneration != _watcherSetGeneration)
                     {
-                        (snapshotPath, snapshottedVersion) =
-                            await CreateUploadSnapshotAsync(path, versionAfterWait, stopping);
-                        break;
+                        return;
                     }
-                    catch (SnapshotVersionMismatchException ex)
+
+                    if (pending.Revision != revision)
                     {
-                        _logger.LogWarning(ex,
-                            "Snapshot attempt {Attempt}/{Max} for {Path} detected a concurrent modification; retrying",
-                            attempt,
-                            SnapshotMaxAttempts,
-                            path);
-
-                        if (attempt == SnapshotMaxAttempts)
-                        {
-                            throw;
-                        }
+                        continue;
                     }
-                }
-
-                if (snapshotPath is null)
-                {
-                    throw new InvalidOperationException(
-                        $"Could not capture a consistent snapshot of {path} after {SnapshotMaxAttempts} attempts.");
                 }
 
                 try
                 {
-                    string? mimeType = MimeTypeMap.GetMimeType(Path.GetExtension(path));
-                    ArgumentException.ThrowIfNullOrEmpty(mimeType);
-
-                    Task<UploadAttemptResult>[] uploads = binding.Servers
-                        .Select(serverConfig =>
-                            UploadToServerAsync(
-                                serverConfig,
-                                snapshotPath,
-                                path,
-                                fileName,
-                                mimeType,
-                                snapshottedVersion,
-                                stopping))
-                        .ToArray();
-
-                    UploadAttemptResult[] results = await Task.WhenAll(uploads);
-
-                    foreach (UploadAttemptResult result in results)
-                    {
-                        if (!result.Success)
-                        {
-                            _health.RecordFileUploadFailure(
-                                path,
-                                result.ServerDisplayName,
-                                result.ServerUrl,
-                                result.ErrorDetails ?? "Upload failed");
-                        }
-                    }
-
-                    bool allSucceeded = results.All(r => r.Success);
-                    bool shouldDelete = ShouldDeleteAfterAllSuccess(binding.WatchRules, fileName);
-
-                    if (allSucceeded && shouldDelete)
-                    {
-                        try
-                        {
-                            SymbolFileVersion currentVersion = GetSymbolFileVersion(path);
-                            if (currentVersion != snapshottedVersion)
-                            {
-                                _logger.LogWarning(
-                                    "Not deleting {Path}: file changed after snapshot (snapshotted version {Snapshotted}, current {Current})",
-                                    path,
-                                    snapshottedVersion,
-                                    currentVersion);
-                                _health.RecordFileDeleteSkipped(
-                                    path,
-                                    $"Version mismatch: snapshotted {snapshottedVersion}, current {currentVersion}");
-                            }
-                            else
-                            {
-                                File.Delete(path);
-                                _logger.LogInformation("Symbol file {Symbol} deleted", path);
-                                _health.RecordFileDeleted(path);
-                            }
-                        }
-                        catch (FileNotFoundException)
-                        {
-                            _logger.LogWarning("Not deleting {Path}: file no longer exists", path);
-                            _health.RecordFileDeleteFailed(path, "File not found");
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, "Could not verify or delete {Path} after upload", path);
-                            _health.RecordFileDeleteFailed(path, ex.Message);
-                        }
-                    }
+                    await ProcessDetectedFileAsync(binding, pending.Path, pending.FileName, cancellationToken);
                 }
-                finally
+                catch (OperationCanceledException)
                 {
-                    if (snapshotPath is not null)
+                    throw;
+                }
+                catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
+                {
+                    _logger.LogDebug(ex, "Skipping symbol upload because {Path} no longer exists", pending.Path);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to upload symbol {FullPath}", pending.Path);
+                    _health.RecordFileUploadFailure(pending.Path, null, null, ex.Message);
+                    _health.RecordError(ex.Message);
+                }
+
+                lock (_gate)
+                {
+                    if (!_pendingFileEvents.TryGetValue(pending.Path, out PendingFileEvent? current) ||
+                        !ReferenceEquals(current, pending) ||
+                        pending.WatcherSetGeneration != _watcherSetGeneration)
                     {
-                        try
-                        {
-                            File.Delete(snapshotPath);
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, "Failed to delete temp upload snapshot {TempPath}", snapshotPath);
-                        }
+                        return;
+                    }
+
+                    if (pending.Revision == revision)
+                    {
+                        _pendingFileEvents.Remove(pending.Path);
+                        return;
                     }
                 }
             }
-            catch (OperationCanceledException)
+        }
+        catch (OperationCanceledException)
+        {
+            // shutdown
+        }
+        finally
+        {
+            lock (_gate)
             {
-                // shutdown
+                if (_pendingFileEvents.TryGetValue(pending.Path, out PendingFileEvent? current) &&
+                    ReferenceEquals(current, pending))
+                {
+                    _pendingFileEvents.Remove(pending.Path);
+                }
             }
-            catch (Exception ex)
+        }
+    }
+
+    private static WatcherBinding MergeBindings(IReadOnlyList<WatcherBinding> bindings)
+    {
+        return new WatcherBinding
+        {
+            Servers = bindings
+                .SelectMany(binding => binding.Servers)
+                .Distinct()
+                .ToArray(),
+            WatchRules = bindings
+                .SelectMany(binding => binding.WatchRules)
+                .ToArray()
+        };
+    }
+
+    private async Task ProcessDetectedFileAsync(WatcherBinding binding, string path, string fileName,
+        CancellationToken stopping)
+    {
+        _health.RecordFileDetected(path);
+
+        string? snapshotPath = null;
+        SymbolFileVersion snapshottedVersion = default;
+        SymbolFileVersion versionAfterWait = default;
+
+        for (int attempt = 1; attempt <= SnapshotMaxAttempts; attempt++)
+        {
+            versionAfterWait = await WaitForFileReadyAsync(path, stopping);
+
+            try
             {
-                _logger.LogError(ex, "Failed to upload symbol {FullPath}", e.FullPath);
-                _health.RecordFileUploadFailure(e.FullPath, null, null, ex.Message);
-                _health.RecordError(ex.Message);
+                (snapshotPath, snapshottedVersion) =
+                    await CreateUploadSnapshotAsync(path, versionAfterWait, stopping);
+                break;
             }
-        }, stopping);
+            catch (SnapshotVersionMismatchException ex)
+            {
+                _logger.LogWarning(ex,
+                    "Snapshot attempt {Attempt}/{Max} for {Path} detected a concurrent modification; retrying",
+                    attempt,
+                    SnapshotMaxAttempts,
+                    path);
+
+                if (attempt == SnapshotMaxAttempts)
+                {
+                    throw;
+                }
+            }
+        }
+
+        if (snapshotPath is null)
+        {
+            throw new InvalidOperationException(
+                $"Could not capture a consistent snapshot of {path} after {SnapshotMaxAttempts} attempts.");
+        }
+
+        try
+        {
+            string extension = Path.GetExtension(path);
+            string? mimeType = MimeTypeMap.GetMimeType(extension);
+            if (string.IsNullOrEmpty(mimeType))
+            {
+                mimeType = "application/octet-stream";
+                _logger.LogWarning(
+                    "Could not resolve MIME type for {Path} with extension {Extension}; using {MimeType}",
+                    path,
+                    extension,
+                    mimeType);
+            }
+
+            Task<UploadAttemptResult>[] uploads = binding.Servers
+                .Select(serverConfig =>
+                    UploadToServerAsync(
+                        serverConfig,
+                        snapshotPath,
+                        path,
+                        fileName,
+                        mimeType,
+                        snapshottedVersion,
+                        stopping))
+                .ToArray();
+
+            UploadAttemptResult[] results = await Task.WhenAll(uploads);
+
+            foreach (UploadAttemptResult result in results)
+            {
+                if (!result.Success)
+                {
+                    _health.RecordFileUploadFailure(
+                        path,
+                        result.ServerDisplayName,
+                        result.ServerUrl,
+                        result.ErrorDetails ?? "Upload failed");
+                }
+            }
+
+            bool allSucceeded = results.All(r => r.Success);
+            bool shouldDelete = ShouldDeleteAfterAllSuccess(binding.WatchRules, fileName);
+
+            if (allSucceeded && shouldDelete)
+            {
+                try
+                {
+                    if (stopping.IsCancellationRequested)
+                    {
+                        _logger.LogWarning("Not deleting {Path}: cancellation requested before version probe", path);
+                        _health.RecordFileDeleteSkipped(path, "Cancellation requested before deletion version probe");
+                        return;
+                    }
+
+                    SymbolFileVersion currentVersion = GetSymbolFileVersion(path);
+                    if (currentVersion != snapshottedVersion)
+                    {
+                        _logger.LogWarning(
+                            "Not deleting {Path}: file changed after snapshot (snapshotted version {Snapshotted}, current {Current})",
+                            path,
+                            snapshottedVersion,
+                            currentVersion);
+                        _health.RecordFileDeleteSkipped(
+                            path,
+                            $"Version mismatch: snapshotted {snapshottedVersion}, current {currentVersion}");
+                    }
+                    else
+                    {
+                        if (stopping.IsCancellationRequested)
+                        {
+                            _logger.LogWarning("Not deleting {Path}: cancellation requested before delete", path);
+                            _health.RecordFileDeleteSkipped(path, "Cancellation requested before delete");
+                            return;
+                        }
+
+                        File.Delete(path);
+                        _logger.LogInformation("Symbol file {Symbol} deleted", path);
+                        _health.RecordFileDeleted(path);
+                    }
+                }
+                catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
+                {
+                    _logger.LogWarning("Not deleting {Path}: file no longer exists or directory vanished", path);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Could not verify or delete {Path} after upload", path);
+                    _health.RecordFileDeleteFailed(path, ex.Message);
+                }
+            }
+        }
+        finally
+        {
+            if (snapshotPath is not null)
+            {
+                try
+                {
+                    File.Delete(snapshotPath);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to delete temp upload snapshot {TempPath}", snapshotPath);
+                }
+            }
+        }
     }
 
     /// <summary>

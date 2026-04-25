@@ -1,4 +1,4 @@
-
+﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.33516.290
@@ -43,6 +43,8 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Installer", "Installer", "{1860D2E4-5C43-71D5-59A5-599A4DE1DF67}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinDbgSymbolsCachingProxy.Installer", "installer\WinDbgSymbolsCachingProxy.Installer.csproj", "{BA98B9AC-930F-41F9-9622-0664A86B5E4F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HarvestingAgent.Tests", "tests\HarvestingAgent.Tests\HarvestingAgent.Tests.csproj", "{AD2461FA-8787-4E15-BE2E-132D5F3AB820}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -135,6 +137,18 @@ Global
 		{BA98B9AC-930F-41F9-9622-0664A86B5E4F}.Release|x64.Build.0 = Release|Any CPU
 		{BA98B9AC-930F-41F9-9622-0664A86B5E4F}.Release|x86.ActiveCfg = Release|Any CPU
 		{BA98B9AC-930F-41F9-9622-0664A86B5E4F}.Release|x86.Build.0 = Release|Any CPU
+		{AD2461FA-8787-4E15-BE2E-132D5F3AB820}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AD2461FA-8787-4E15-BE2E-132D5F3AB820}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AD2461FA-8787-4E15-BE2E-132D5F3AB820}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{AD2461FA-8787-4E15-BE2E-132D5F3AB820}.Debug|x64.Build.0 = Debug|Any CPU
+		{AD2461FA-8787-4E15-BE2E-132D5F3AB820}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{AD2461FA-8787-4E15-BE2E-132D5F3AB820}.Debug|x86.Build.0 = Debug|Any CPU
+		{AD2461FA-8787-4E15-BE2E-132D5F3AB820}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AD2461FA-8787-4E15-BE2E-132D5F3AB820}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AD2461FA-8787-4E15-BE2E-132D5F3AB820}.Release|x64.ActiveCfg = Release|Any CPU
+		{AD2461FA-8787-4E15-BE2E-132D5F3AB820}.Release|x64.Build.0 = Release|Any CPU
+		{AD2461FA-8787-4E15-BE2E-132D5F3AB820}.Release|x86.ActiveCfg = Release|Any CPU
+		{AD2461FA-8787-4E15-BE2E-132D5F3AB820}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -146,5 +160,6 @@ Global
 		{95B2C961-372A-4F72-8319-051991F869D5} = {88AF9BE8-9E86-4A3F-AD7C-BFE704D9AB7A}
 		{F576E9F2-AD9C-4CA0-A83F-0A68B31E6680} = {31214E1B-4CF4-44C7-9DCB-901A06D4AE3D}
 		{BA98B9AC-930F-41F9-9622-0664A86B5E4F} = {1860D2E4-5C43-71D5-59A5-599A4DE1DF67}
+		{AD2461FA-8787-4E15-BE2E-132D5F3AB820} = {31214E1B-4CF4-44C7-9DCB-901A06D4AE3D}
 	EndGlobalSection
 EndGlobal
