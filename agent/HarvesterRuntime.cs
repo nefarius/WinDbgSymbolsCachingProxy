@@ -19,7 +19,7 @@ public sealed class HarvesterRuntime : IDisposable
     {
         public required string Path { get; init; }
         public required string FileName { get; init; }
-        public required WatcherBinding Binding { get; set; }
+        public required List<WatcherBinding> Bindings { get; init; }
         public required long WatcherSetGeneration { get; init; }
         public required CancellationToken WatcherSetCancellationToken { get; init; }
         public int Revision { get; set; }
@@ -758,7 +758,11 @@ public sealed class HarvesterRuntime : IDisposable
 
             if (_pendingFileEvents.TryGetValue(path, out PendingFileEvent? pending))
             {
-                pending.Binding = binding;
+                if (!pending.Bindings.Contains(binding))
+                {
+                    pending.Bindings.Add(binding);
+                }
+
                 pending.Revision++;
                 _logger.LogTrace(
                     "Coalesced {ChangeType} event for {Path} into pending revision {Revision}",
@@ -772,7 +776,7 @@ public sealed class HarvesterRuntime : IDisposable
             {
                 Path = path,
                 FileName = fileName,
-                Binding = binding,
+                Bindings = [binding],
                 WatcherSetGeneration = _watcherSetGeneration,
                 WatcherSetCancellationToken = _watcherSetCancellation.Token,
                 Revision = 1
@@ -814,7 +818,7 @@ public sealed class HarvesterRuntime : IDisposable
                     }
 
                     revision = pending.Revision;
-                    binding = pending.Binding;
+                    binding = MergeBindings(pending.Bindings);
                 }
 
                 await Task.Delay(FileEventDebounceInterval, cancellationToken);
@@ -885,6 +889,20 @@ public sealed class HarvesterRuntime : IDisposable
                 }
             }
         }
+    }
+
+    private static WatcherBinding MergeBindings(IReadOnlyList<WatcherBinding> bindings)
+    {
+        return new WatcherBinding
+        {
+            Servers = bindings
+                .SelectMany(binding => binding.Servers)
+                .Distinct()
+                .ToArray(),
+            WatchRules = bindings
+                .SelectMany(binding => binding.WatchRules)
+                .ToArray()
+        };
     }
 
     private async Task ProcessDetectedFileAsync(WatcherBinding binding, string path, string fileName,
@@ -965,6 +983,13 @@ public sealed class HarvesterRuntime : IDisposable
             {
                 try
                 {
+                    if (stopping.IsCancellationRequested)
+                    {
+                        _logger.LogWarning("Not deleting {Path}: cancellation requested before version probe", path);
+                        _health.RecordFileDeleteSkipped(path, "Cancellation requested before deletion version probe");
+                        return;
+                    }
+
                     SymbolFileVersion currentVersion = GetSymbolFileVersion(path);
                     if (currentVersion != snapshottedVersion)
                     {
@@ -979,6 +1004,13 @@ public sealed class HarvesterRuntime : IDisposable
                     }
                     else
                     {
+                        if (stopping.IsCancellationRequested)
+                        {
+                            _logger.LogWarning("Not deleting {Path}: cancellation requested before delete", path);
+                            _health.RecordFileDeleteSkipped(path, "Cancellation requested before delete");
+                            return;
+                        }
+
                         File.Delete(path);
                         _logger.LogInformation("Symbol file {Symbol} deleted", path);
                         _health.RecordFileDeleted(path);
