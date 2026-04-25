@@ -1016,10 +1016,9 @@ public sealed class HarvesterRuntime : IDisposable
                         _health.RecordFileDeleted(path);
                     }
                 }
-                catch (FileNotFoundException)
+                catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
                 {
-                    _logger.LogWarning("Not deleting {Path}: file no longer exists", path);
-                    _health.RecordFileDeleteFailed(path, "File not found");
+                    _logger.LogWarning("Not deleting {Path}: file no longer exists or directory vanished", path);
                 }
                 catch (Exception ex)
                 {
