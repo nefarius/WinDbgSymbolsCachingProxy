@@ -524,9 +524,7 @@ public sealed class HarvesterRuntime : IDisposable
                     {
                         watcher = new FileSystemWatcher(item.Key.Path)
                         {
-                            NotifyFilter = NotifyFilters.Attributes
-                                           | NotifyFilters.CreationTime
-                                           | NotifyFilters.DirectoryName
+                            NotifyFilter = NotifyFilters.DirectoryName
                                            | NotifyFilters.FileName
                                            | NotifyFilters.LastWrite
                                            | NotifyFilters.Size,
