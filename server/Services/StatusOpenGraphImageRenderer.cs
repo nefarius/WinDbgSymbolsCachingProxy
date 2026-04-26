@@ -1,5 +1,6 @@
 using SkiaSharp;
 
+using WinDbgSymbolsCachingProxy.Core;
 using WinDbgSymbolsCachingProxy.Models;
 
 namespace WinDbgSymbolsCachingProxy.Services;
@@ -44,12 +45,12 @@ public sealed class StatusOpenGraphImageRenderer : IStatusOpenGraphImageRenderer
 
         float rowTop = 240;
         float colWidth = (Width - 56 * 2) / 3f;
-        DrawStatColumn(canvas, overview.CachedSymbolsTotal.ToString(), "Cached total", new SKColor(0x0F, 0x82, 0xBF),
-            56, rowTop, colWidth, statValueFont, statLabelFont);
-        DrawStatColumn(canvas, overview.CachedSymbolsFound.ToString(), "Found", new SKColor(0x2A, 0xC3, 0x3B),
-            56 + colWidth, rowTop, colWidth, statValueFont, statLabelFont);
-        DrawStatColumn(canvas, overview.CachedSymbols404.ToString(), "Not found (404)", new SKColor(0xE6, 0xA2, 0x3C),
-            56 + colWidth * 2, rowTop, colWidth, statValueFont, statLabelFont);
+        DrawStatColumn(canvas, CompactNumberFormatter.FormatCount(overview.CachedSymbolsTotal), "Cached total",
+            new SKColor(0x0F, 0x82, 0xBF), 56, rowTop, colWidth, statValueFont, statLabelFont);
+        DrawStatColumn(canvas, CompactNumberFormatter.FormatCount(overview.CachedSymbolsFound), "Found",
+            new SKColor(0x2A, 0xC3, 0x3B), 56 + colWidth, rowTop, colWidth, statValueFont, statLabelFont);
+        DrawStatColumn(canvas, CompactNumberFormatter.FormatCount(overview.CachedSymbols404), "Not found (404)",
+            new SKColor(0xE6, 0xA2, 0x3C), 56 + colWidth * 2, rowTop, colWidth, statValueFont, statLabelFont);
 
         string footer = overview.ServerVersion is { Length: > 0 } v
             ? $"Version {v} · {overview.ProjectUrl}"
