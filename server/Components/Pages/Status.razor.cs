@@ -36,7 +36,13 @@ public partial class Status : IDisposable
     private string OgDescription =>
         _loadFailed
             ? "Live database status for this WinDbg symbols caching proxy."
-            : $"Cached symbols: {_cachedTotal:N0} total · {_cachedFound:N0} found · {_cachedNotFound:N0} recorded as not found upstream.";
+            : $"Cached symbols: {CachedTotalDisplay} total · {CachedFoundDisplay} found · {CachedNotFoundDisplay} recorded as not found upstream.";
+
+    private string CachedTotalDisplay => CompactNumberFormatter.FormatCount(_cachedTotal);
+
+    private string CachedFoundDisplay => CompactNumberFormatter.FormatCount(_cachedFound);
+
+    private string CachedNotFoundDisplay => CompactNumberFormatter.FormatCount(_cachedNotFound);
 
     private CancellationTokenSource? _cts;
     private bool _loading = true;

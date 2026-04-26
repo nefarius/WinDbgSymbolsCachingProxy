@@ -76,7 +76,7 @@ public sealed class BadgeEndpoint(
                 logger.LogDebug("Returning cached symbols count");
                 long symbolsCount = await db.CountAsync<SymbolsEntity>(cancellation: ct);
                 parameters.Label = "Cached Symbols Total";
-                parameters.Result = symbolsCount.ToString();
+                parameters.Result = CompactNumberFormatter.FormatCount(symbolsCount);
                 parameters.ResultColor = "#0f82bfff"; // blue
                 break;
             case Badge.CachedSymbolsNotFound:
@@ -85,7 +85,7 @@ public sealed class BadgeEndpoint(
                     s => s.NotFoundAt != null,
                     cancellation: ct);
                 parameters.Label = "Cached Symbols 404";
-                parameters.Result = symbols404Count.ToString();
+                parameters.Result = CompactNumberFormatter.FormatCount(symbols404Count);
                 parameters.ResultColor = "#dcb135ff"; // yellow
                 break;
             case Badge.CachedSymbolsFound:
@@ -95,7 +95,7 @@ public sealed class BadgeEndpoint(
                         s => s.NotFoundAt == null,
                         cancellation: ct);
                 parameters.Label = "Cached Symbols Found";
-                parameters.Result = symbolsFoundCount.ToString();
+                parameters.Result = CompactNumberFormatter.FormatCount(symbolsFoundCount);
                 parameters.ResultColor = "#2ac33bff"; // green
                 break;
             default:
