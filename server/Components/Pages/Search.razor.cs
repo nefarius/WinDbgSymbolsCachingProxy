@@ -75,7 +75,8 @@ public partial class Search
     /// </summary>
     /// <remarks>
     /// When the search box is empty, the filter matches all documents; otherwise it matches case-insensitively (MongoDB regex)
-    /// against FileName, IndexPrefix, SymbolKey, UpstreamFileName, and any entry in AlternateRequestSymbols. Sort is applied in MongoDB (including timestamps and all columns).
+    /// against FileName, IndexPrefix, SymbolKey, UpstreamFileName, and any entry in AlternateRequestSymbols (via
+    /// <c>$elemMatch</c> on the array). Sort is applied in MongoDB (including timestamps and all columns).
     /// Paging uses <c>_dataGrid.RowsPerPage</c> and <c>_dataGrid.CurrentPage</c>.
     /// </remarks>
     /// <returns>A GridData&lt;SymbolsEntity&gt; containing the page of items in <c>Items</c> and the total number of matching items in <c>TotalItems</c>.</returns>
@@ -86,15 +87,19 @@ public partial class Search
         string pattern = string.IsNullOrEmpty(normalizedSearch) ? ".*" : Regex.Escape(normalizedSearch);
         var regex = new BsonRegularExpression(pattern, "i");
 
-        var query = Db.PagedSearch<SymbolsEntity>()
-            .Match(f => f.Or(
-                f.Regex(b => b.FileName, regex),
-                f.Regex(b => b.IndexPrefix, regex),
-                f.Regex(b => b.SymbolKey, regex),
-                f.And(f.Ne(b => b.UpstreamFileName, null), f.Regex(b => b.UpstreamFileName, regex)),
-                f.And(f.Ne(b => b.AlternateRequestSymbols, null),
-                    f.Regex(b => b.AlternateRequestSymbols, regex))));
+        var fb = MongoDB.Driver.Builders<SymbolsEntity>.Filter;
+        MongoDB.Driver.FilterDefinition<SymbolsEntity> searchFilter = fb.Or(
+            fb.Regex(e => e.FileName, regex),
+            fb.Regex(e => e.IndexPrefix, regex),
+            fb.Regex(e => e.SymbolKey, regex),
+            fb.And(fb.Ne(e => e.UpstreamFileName, null), fb.Regex(e => e.UpstreamFileName!, regex)),
+            fb.And(
+                fb.Ne(e => e.AlternateRequestSymbols, null),
+                fb.ElemMatch(
+                    e => e.AlternateRequestSymbols,
+                    MongoDB.Driver.Builders<string>.Filter.Regex(s => s, regex))));
 
+        var query = Db.PagedSearch<SymbolsEntity>().Match(searchFilter);
         SortDefinition<SymbolsEntity>? sortDefinition = state.SortDefinitions.FirstOrDefault();
         Order order = sortDefinition?.Descending == true ? Order.Descending : Order.Ascending;
         string? sortBy = sortDefinition?.SortBy?.ToString();
