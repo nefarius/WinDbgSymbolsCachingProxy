@@ -75,7 +75,7 @@ public partial class Search
     /// </summary>
     /// <remarks>
     /// When the search box is empty, the filter matches all documents; otherwise it matches case-insensitively (MongoDB regex)
-    /// against FileName, IndexPrefix, SymbolKey, and UpstreamFileName. Sort is applied in MongoDB (including timestamps and all columns).
+    /// against FileName, IndexPrefix, SymbolKey, UpstreamFileName, and any entry in AlternateRequestSymbols. Sort is applied in MongoDB (including timestamps and all columns).
     /// Paging uses <c>_dataGrid.RowsPerPage</c> and <c>_dataGrid.CurrentPage</c>.
     /// </remarks>
     /// <returns>A GridData&lt;SymbolsEntity&gt; containing the page of items in <c>Items</c> and the total number of matching items in <c>TotalItems</c>.</returns>
@@ -91,7 +91,9 @@ public partial class Search
                 f.Regex(b => b.FileName, regex),
                 f.Regex(b => b.IndexPrefix, regex),
                 f.Regex(b => b.SymbolKey, regex),
-                f.And(f.Ne(b => b.UpstreamFileName, null), f.Regex(b => b.UpstreamFileName, regex))));
+                f.And(f.Ne(b => b.UpstreamFileName, null), f.Regex(b => b.UpstreamFileName, regex)),
+                f.And(f.Ne(b => b.AlternateRequestSymbols, null),
+                    f.Regex(b => b.AlternateRequestSymbols, regex))));
 
         SortDefinition<SymbolsEntity>? sortDefinition = state.SortDefinitions.FirstOrDefault();
         Order order = sortDefinition?.Descending == true ? Order.Descending : Order.Ascending;

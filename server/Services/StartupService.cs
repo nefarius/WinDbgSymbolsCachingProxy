@@ -117,6 +117,20 @@ internal sealed class StartupService(
                 throw;
             }
         }
+
+        try
+        {
+            await db.Index<SymbolsEntity>()
+                .Key(a => a.IsCustom, KeyType.Ascending)
+                .Key(a => a.SymbolKey, KeyType.Ascending)
+                .Key(a => a.AlternateRequestSymbols, KeyType.Ascending)
+                .Option(o => o.Unique = false)
+                .CreateAsync(cancellationToken);
+        }
+        catch (MongoCommandException ex) when (ex.CodeName is "IndexOptionsConflict" or "DuplicateKey" || ex.Code == 85)
+        {
+            logger.LogDebug(ex, "AlternateRequestSymbols lookup index already present or conflicting; continuing");
+        }
     }
 
     /// <summary>

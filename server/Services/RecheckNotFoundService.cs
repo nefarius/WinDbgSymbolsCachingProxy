@@ -6,7 +6,11 @@ using WinDbgSymbolsCachingProxy.Models;
 
 namespace WinDbgSymbolsCachingProxy.Services;
 
-public sealed class RecheckNotFoundService(DB db, IHttpClientFactory clientFactory, ILogger<RecheckNotFoundService> logger)
+public sealed class RecheckNotFoundService(
+    DB db,
+    IHttpClientFactory clientFactory,
+    SymbolAliasLookupService aliasLookup,
+    ILogger<RecheckNotFoundService> logger)
 {
     /// <summary>
     ///     Queries all 404 symbols from DB and contacts the upstream server to check if they have become available since the
@@ -28,6 +32,15 @@ public sealed class RecheckNotFoundService(DB db, IHttpClientFactory clientFacto
         // boost performance by issuing requests in parallel
         await Parallel.ForEachAsync(notFoundSymbols, opts, async (symbol, innerToken) =>
         {
+            if (await aliasLookup.IsUpstreamNotFoundShadowedByCustomAliasAsync(symbol, innerToken))
+            {
+                logger.LogInformation(
+                    "Deleting obsolete upstream not-found row {Symbol} (covered by custom upload alias)",
+                    symbol);
+                await db.DeleteAsync<SymbolsEntity>(symbol.ID, innerToken);
+                return;
+            }
+
             using HttpClient client = clientFactory.CreateClient("MicrosoftSymbolServer");
 
             using HttpResponseMessage response =
