@@ -225,6 +225,18 @@ public sealed class SymbolsDownloadEndpoint(
             return;
         }
 
+        if (response is null)
+        {
+            logger.LogError("Upstream symbol client returned no HTTP response for {Request}", req.ToString());
+            if (!HttpContext.Response.HasStarted)
+            {
+                HttpContext.Response.StatusCode = 502;
+                await HttpContext.Response.WriteAsync("Upstream symbol client returned no response.", ct);
+            }
+
+            return;
+        }
+
         try
         {
             SymbolsEntity newSymbol = existingSymbol ?? new SymbolsEntity
@@ -235,7 +247,7 @@ public sealed class SymbolsDownloadEndpoint(
                 IndexPrefix = req.IndexPrefix.ToLowerInvariant()
             };
 
-            if (!response!.IsSuccessStatusCode)
+            if (!response.IsSuccessStatusCode)
             {
                 if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Gone)
                 {
@@ -374,7 +386,8 @@ public sealed class SymbolsDownloadEndpoint(
     /// </summary>
     private async Task<bool> TryServeFromCustomAliasAsync(SymbolsRequest req, CancellationToken ct)
     {
-        SymbolsEntity? canonical = await aliasLookup.FindCustomSymbolByRequestPathAsync(req.SymbolKey, req.Symbol, ct);
+        SymbolsEntity? canonical = await aliasLookup.FindCustomSymbolByRequestPathAsync(
+            req.SymbolKey.ToLowerInvariant(), req.Symbol.ToLowerInvariant(), ct);
         if (canonical is null)
         {
             return false;
