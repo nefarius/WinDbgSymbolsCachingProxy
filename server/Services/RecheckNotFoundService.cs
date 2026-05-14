@@ -53,15 +53,18 @@ public sealed class RecheckNotFoundService(DB db, IHttpClientFactory clientFacto
         await Parallel.ForEachAsync(notFoundSymbols, opts, async (symbol, innerToken) =>
         {
             if (SymbolAliasLookupService.TryParseSymbolFromIndexPrefix(symbol.IndexPrefix, out string symbolSeg) &&
-                !string.IsNullOrEmpty(symbol.SymbolKey) &&
-                shadowIndex.Contains((symbol.SymbolKey.ToLowerInvariant(), symbolSeg)))
+                !string.IsNullOrEmpty(symbol.SymbolKey))
             {
-                logger.LogInformation(
-                    "Deleting obsolete upstream not-found row {Symbol} (covered by custom upload alias)",
-                    symbol);
-                await db.DeleteAsync<SymbolsEntity>(symbol.ID, innerToken);
-                shadowRemoved.Add(1);
-                return;
+                string normalizedSymbolSeg = symbolSeg.ToLowerInvariant();
+                if (shadowIndex.Contains((symbol.SymbolKey.ToLowerInvariant(), normalizedSymbolSeg)))
+                {
+                    logger.LogInformation(
+                        "Deleting obsolete upstream not-found row {Symbol} (covered by custom upload alias)",
+                        symbol);
+                    await db.DeleteAsync<SymbolsEntity>(symbol.ID, innerToken);
+                    shadowRemoved.Add(1);
+                    return;
+                }
             }
 
             using HttpClient client = clientFactory.CreateClient("MicrosoftSymbolServer");
