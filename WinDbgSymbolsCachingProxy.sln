@@ -46,6 +46,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinDbgSymbolsCachingProxy.I
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HarvestingAgent.Tests", "tests\HarvestingAgent.Tests\HarvestingAgent.Tests.csproj", "{AD2461FA-8787-4E15-BE2E-132D5F3AB820}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinDbgSymbolsCachingProxy.Server.Tests", "tests\WinDbgSymbolsCachingProxy.Server.Tests\WinDbgSymbolsCachingProxy.Server.Tests.csproj", "{CF587E38-8820-40BC-9002-B8B0FA44E3EC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -149,6 +151,18 @@ Global
 		{AD2461FA-8787-4E15-BE2E-132D5F3AB820}.Release|x64.Build.0 = Release|Any CPU
 		{AD2461FA-8787-4E15-BE2E-132D5F3AB820}.Release|x86.ActiveCfg = Release|Any CPU
 		{AD2461FA-8787-4E15-BE2E-132D5F3AB820}.Release|x86.Build.0 = Release|Any CPU
+		{CF587E38-8820-40BC-9002-B8B0FA44E3EC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CF587E38-8820-40BC-9002-B8B0FA44E3EC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CF587E38-8820-40BC-9002-B8B0FA44E3EC}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{CF587E38-8820-40BC-9002-B8B0FA44E3EC}.Debug|x64.Build.0 = Debug|Any CPU
+		{CF587E38-8820-40BC-9002-B8B0FA44E3EC}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{CF587E38-8820-40BC-9002-B8B0FA44E3EC}.Debug|x86.Build.0 = Debug|Any CPU
+		{CF587E38-8820-40BC-9002-B8B0FA44E3EC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CF587E38-8820-40BC-9002-B8B0FA44E3EC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CF587E38-8820-40BC-9002-B8B0FA44E3EC}.Release|x64.ActiveCfg = Release|Any CPU
+		{CF587E38-8820-40BC-9002-B8B0FA44E3EC}.Release|x64.Build.0 = Release|Any CPU
+		{CF587E38-8820-40BC-9002-B8B0FA44E3EC}.Release|x86.ActiveCfg = Release|Any CPU
+		{CF587E38-8820-40BC-9002-B8B0FA44E3EC}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -161,5 +175,6 @@ Global
 		{F576E9F2-AD9C-4CA0-A83F-0A68B31E6680} = {31214E1B-4CF4-44C7-9DCB-901A06D4AE3D}
 		{BA98B9AC-930F-41F9-9622-0664A86B5E4F} = {1860D2E4-5C43-71D5-59A5-599A4DE1DF67}
 		{AD2461FA-8787-4E15-BE2E-132D5F3AB820} = {31214E1B-4CF4-44C7-9DCB-901A06D4AE3D}
+		{CF587E38-8820-40BC-9002-B8B0FA44E3EC} = {31214E1B-4CF4-44C7-9DCB-901A06D4AE3D}
 	EndGlobalSection
 EndGlobal

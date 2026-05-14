@@ -60,4 +60,8 @@
         <EmbeddedResource Include="favicon.ico" />
     </ItemGroup>
 
+    <ItemGroup>
+        <InternalsVisibleTo Include="WinDbgSymbolsCachingProxy.Server.Tests" />
+    </ItemGroup>
+
 </Project>

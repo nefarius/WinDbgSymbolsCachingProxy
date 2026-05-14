@@ -135,6 +135,13 @@ internal sealed class SymbolUploadEndpoint(DB db, ILogger<SymbolUploadEndpoint> 
                 symbol.UploadedAt = DateTime.UtcNow;
                 symbol.NotFoundAt = null;
 
+                string uploadBaseName = Path.GetFileName(section.FileName).ToLowerInvariant();
+                if (!string.Equals(uploadBaseName, result.FileName, StringComparison.Ordinal)
+                    && !symbol.AlternateRequestSymbols.Contains(uploadBaseName))
+                {
+                    symbol.AlternateRequestSymbols.Add(uploadBaseName);
+                }
+
                 ms.Position = 0;
 
                 await db.SaveAsync(symbol, cancellation: ct);

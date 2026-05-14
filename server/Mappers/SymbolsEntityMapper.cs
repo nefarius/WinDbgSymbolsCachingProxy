@@ -17,6 +17,7 @@ public partial class SymbolsEntityMapper
     /// <param name="entity">The <see cref="SymbolsEntity" /> object to map from.</param>
     /// <returns>A new <see cref="SymbolsEntityDto" /> object with mapped properties.</returns>
     [MapperIgnoreTarget(nameof(SymbolsEntityDto.Blob))]
+    [MapperIgnoreSource(nameof(SymbolsEntity.AlternateRequestSymbols))]
     public partial SymbolsEntityDto SymbolsEntityToSymbolsEntityDto(SymbolsEntity entity);
 #pragma warning restore RMG020
 }

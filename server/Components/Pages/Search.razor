@@ -20,18 +20,32 @@
             <MudIconButton Icon="@Icons.Material.Filled.Refresh" OnClick="OnRefreshClick" title="Refresh data" aria-label="Refresh data" Class="mt-0"/>
         </ToolBarContent>
         <ColGroup>
+            <col style="width: 12%;"/>
+            <col style="width: 12%;"/>
             <col style="width: 14%;"/>
-            <col style="width: 16%;"/>
-            <col style="width: 16%;"/>
-            <col style="width: 14%;"/>
+            <col style="width: 12%;"/>
             <col style="width: 10%;"/>
-            <col style="width: 10%;"/>
-            <col style="width: 10%;"/>
-            <col style="width: 5%;"/>
-            <col style="width: 5%;"/>
+            <col style="width: 8%;"/>
+            <col style="width: 8%;"/>
+            <col style="width: 8%;"/>
+            <col style="width: 8%;"/>
+            <col style="width: 4%;"/>
+            <col style="width: 4%;"/>
         </ColGroup>
         <Columns>
             <PropertyColumn Property="x => x.FileName" Title="Filename" Sortable="true" InitialDirection="SortDirection.Ascending" CellStyle="overflow: hidden; text-overflow: ellipsis; max-width: 0; white-space: nowrap;"/>
+            <TemplateColumn Title="Aliases" Sortable="false" CellStyle="overflow: hidden; text-overflow: ellipsis; max-width: 0; white-space: nowrap;">
+                <CellTemplate>
+                    @if (context.Item.AlternateRequestSymbols is { Count: > 0 } aliases)
+                    {
+                        <span title="@string.Join(", ", aliases)">@string.Join(", ", aliases)</span>
+                    }
+                    else
+                    {
+                        <span class="mud-text-secondary">—</span>
+                    }
+                </CellTemplate>
+            </TemplateColumn>
             <PropertyColumn Property="x => x.SymbolKey" Title="Symbol key" Sortable="true" CellStyle="overflow: hidden; text-overflow: ellipsis; max-width: 0; white-space: nowrap;"/>
             <PropertyColumn Property="x => x.IndexPrefix" Title="Index prefix" Sortable="true" CellStyle="overflow: hidden; text-overflow: ellipsis; max-width: 0; white-space: nowrap;"/>
             <PropertyColumn Property="x => x.UpstreamFileName" Title="Upstream filename" Sortable="true" CellStyle="overflow: hidden; text-overflow: ellipsis; max-width: 0; white-space: nowrap;"/>

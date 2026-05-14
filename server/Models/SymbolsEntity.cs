@@ -37,6 +37,13 @@ public class SymbolsEntity : FileEntity<SymbolsEntity>
     public string FileName { get; set; } = null!;
 
     /// <summary>
+    ///     Lowercased module or PDB names WinDbg may use in the request path when they differ from the PE/PDB embedded
+    ///     canonical name (e.g. renamed driver on disk vs. OriginalFilename in the image). Populated on custom upload when
+    ///     the multipart file name does not match <see cref="FileName" />.
+    /// </summary>
+    public List<string> AlternateRequestSymbols { get; set; } = [];
+
+    /// <summary>
     ///     The pre-v7 PDB UInt32 Signature.
     /// </summary>
     public ulong? Signature { get; set; }

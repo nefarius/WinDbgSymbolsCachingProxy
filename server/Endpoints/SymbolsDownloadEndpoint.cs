@@ -12,6 +12,7 @@ using MongoDB.Entities;
 using WinDbgSymbolsCachingProxy.Core;
 using WinDbgSymbolsCachingProxy.Mappers;
 using WinDbgSymbolsCachingProxy.Models;
+using WinDbgSymbolsCachingProxy.Services;
 
 namespace WinDbgSymbolsCachingProxy.Endpoints;
 
@@ -23,7 +24,8 @@ public sealed class SymbolsDownloadEndpoint(
     ILogger<SymbolsDownloadEndpoint> logger,
     IHttpClientFactory clientFactory,
     IOptions<ServiceConfig> options,
-    IMemoryCache mc)
+    IMemoryCache mc,
+    SymbolAliasLookupService aliasLookup)
     : Endpoint<SymbolsRequest>
 {
     private readonly ActivitySource _activitySource = new(TracingSources.AppActivitySourceName);
@@ -41,7 +43,7 @@ public sealed class SymbolsDownloadEndpoint(
     /// <summary>
     ///     Processes the request for downloading and caching a symbol file. The method attempts to retrieve the symbol from
     ///     memory cache, database, or an upstream symbol server.
-    ///     It ensures the symbol is properly cached for future requests and streams the file to the client.
+    ///     It ensures the symbol is properly cached for future requests and streams the file to the requester.
     /// </summary>
     /// <param name="req">The symbol request containing details such as IndexPrefix, Symbol, SymbolKey, and FileName.</param>
     /// <param name="ct">A token to monitor for cancellation requests.</param>
@@ -65,19 +67,24 @@ public sealed class SymbolsDownloadEndpoint(
 
             if (cachedEntity.NotFoundAt.HasValue || cachedEntity.Blob is null)
             {
+                if (await TryServeFromCustomAliasAsync(req, ct))
+                {
+                    return;
+                }
+
                 await Send.NotFoundAsync(ct);
                 return;
             }
 
             logger.LogInformation("Returning memory-cached copy for {Entity}", cachedEntity.ToString());
 
-            await Send.BytesAsync(cachedEntity.Blob, cachedEntity.UpstreamFileName ?? cachedEntity.FileName,
-                cancellation: ct);
+            string memoryStreamName = ResolveStreamFileNameFromDto(cachedEntity, req);
+            await Send.BytesAsync(cachedEntity.Blob, memoryStreamName, cancellation: ct);
 
             SymbolsEntity? entityToUpdate = (await db.Find<SymbolsEntity>()
                     .ManyAsync(lr =>
-                            lr.Eq(r => r.IndexPrefix, req.IndexPrefix.ToLowerInvariant()) &
-                            lr.Eq(r => r.FileName, req.FileName.ToLowerInvariant())
+                            lr.Eq(r => r.IndexPrefix, cachedEntity.IndexPrefix.ToLowerInvariant()) &
+                            lr.Eq(r => r.FileName, cachedEntity.FileName.ToLowerInvariant())
                         , CancellationToken.None))
                 .FirstOrDefault();
             if (entityToUpdate is not null)
@@ -86,6 +93,7 @@ public sealed class SymbolsDownloadEndpoint(
                 entityToUpdate.AccessedCount = (entityToUpdate.AccessedCount ?? 0) + 1;
                 await db.SaveAsync(entityToUpdate, CancellationToken.None);
             }
+
             return;
         }
 
@@ -109,6 +117,11 @@ public sealed class SymbolsDownloadEndpoint(
             {
                 if (existingSymbol.NotFoundAt.Value.Add(options.Value.UpstreamRecheckPeriod) > DateTime.UtcNow)
                 {
+                    if (await TryServeFromCustomAliasAsync(req, ct))
+                    {
+                        return;
+                    }
+
                     logger.LogInformation("Cached symbol marked as not found");
 
                     CacheSymbolInMemory(req, existingSymbol);
@@ -166,9 +179,8 @@ public sealed class SymbolsDownloadEndpoint(
                     try
                     {
                         logger.LogInformation("Returning cached copy");
-                        await Send.StreamAsync(new MemoryStream(blob),
-                            existingSymbol.UpstreamFileName ?? existingSymbol.FileName,
-                            cancellation: ct);
+                        string streamName = ResolveStreamFileName(existingSymbol, req);
+                        await Send.StreamAsync(new MemoryStream(blob), streamName, cancellation: ct);
                     }
                     catch (Exception ex)
                     {
@@ -191,9 +203,14 @@ public sealed class SymbolsDownloadEndpoint(
             }
         }
 
+        if (await TryServeFromCustomAliasAsync(req, ct))
+        {
+            return;
+        }
+
         HttpClient client = clientFactory.CreateClient("MicrosoftSymbolServer");
 
-        HttpResponseMessage response;
+        HttpResponseMessage? response = null;
 
         try
         {
@@ -205,6 +222,18 @@ public sealed class SymbolsDownloadEndpoint(
         catch (OperationCanceledException) when (HttpContext.RequestAborted.IsCancellationRequested)
         {
             logger.LogDebug("Client disconnected during upstream fetch for {Request}", req.ToString());
+            return;
+        }
+
+        if (response is null)
+        {
+            logger.LogError("Upstream symbol client returned no HTTP response for {Request}", req.ToString());
+            if (!HttpContext.Response.HasStarted)
+            {
+                HttpContext.Response.StatusCode = 502;
+                await HttpContext.Response.WriteAsync("Upstream symbol client returned no response.", ct);
+            }
+
             return;
         }
 
@@ -223,6 +252,11 @@ public sealed class SymbolsDownloadEndpoint(
                 if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Gone)
                 {
                     logger.LogInformation("Requested symbol {Symbol} not found upstream", req.ToString());
+
+                    if (await TryServeFromCustomAliasAsync(req, ct))
+                    {
+                        return;
+                    }
 
                     if (existingSymbol is null)
                     {
@@ -342,8 +376,137 @@ public sealed class SymbolsDownloadEndpoint(
         }
         finally
         {
-            response.Dispose();
+            response?.Dispose();
         }
+    }
+
+    /// <summary>
+    ///     Streams a custom symbol whose canonical path differs from <paramref name="req" /> but lists the requested symbol
+    ///     name in <see cref="SymbolsEntity.AlternateRequestSymbols" />.
+    /// </summary>
+    private async Task<bool> TryServeFromCustomAliasAsync(SymbolsRequest req, CancellationToken ct)
+    {
+        SymbolsEntity? canonical = await aliasLookup.FindCustomSymbolByRequestPathAsync(
+            req.SymbolKey.ToLowerInvariant(), req.Symbol.ToLowerInvariant(), ct);
+        if (canonical is null)
+        {
+            return false;
+        }
+
+        logger.LogInformation(
+            "Serving custom symbol for {Request} via alternate request name (canonical {Canonical})",
+            req, canonical);
+
+        using MemoryStream ms = new();
+
+        try
+        {
+            await canonical.Data(db).DownloadAsync(ms, cancellation: ct);
+        }
+        catch (InvalidOperationException ex)
+        {
+            logger.LogWarning(ex, "Custom symbol metadata found but blob missing for {Canonical}", canonical);
+            return false;
+        }
+        catch (MongoException ex)
+        {
+            logger.LogWarning(ex, "MongoDB error while reading custom symbol blob for {Canonical}", canonical);
+            return false;
+        }
+
+        ms.Position = 0;
+        byte[] blob = ms.ToArray();
+        canonical.LastAccessedAt = DateTime.UtcNow;
+        canonical.AccessedCount = (canonical.AccessedCount ?? 0) + 1;
+        CacheSymbolInMemory(req, canonical, new MemoryStream(blob));
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await db.SaveAsync(canonical, CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to persist access metadata for {IndexPrefix}", canonical.IndexPrefix);
+            }
+        });
+
+        string streamName = ResolveStreamFileName(canonical, req);
+
+        try
+        {
+            await Send.StreamAsync(new MemoryStream(blob), streamName, cancellation: ct);
+        }
+        catch (Exception ex)
+        {
+            if (!HttpContext.Response.HasStarted)
+            {
+                logger.LogWarning(ex, "Error while streaming alias-resolved symbol to client");
+                HttpContext.Response.StatusCode = 500;
+                await HttpContext.Response.WriteAsync("Error while streaming cached symbol to client.", ct);
+            }
+            else
+            {
+                logger.LogWarning(ex,
+                    "Error after starting response (e.g. client disconnect), cache entry unchanged");
+            }
+
+            return true;
+        }
+
+        await TryDeleteShadowedUpstreamPlaceholderAsync(req, ct);
+        return true;
+    }
+
+    private async Task TryDeleteShadowedUpstreamPlaceholderAsync(SymbolsRequest req, CancellationToken ct)
+    {
+        SymbolsEntity? stale = (await db.Find<SymbolsEntity>()
+                .ManyAsync(lr =>
+                        lr.Eq(r => r.IndexPrefix, req.IndexPrefix.ToLowerInvariant()) &
+                        lr.Eq(r => r.FileName, req.FileName.ToLowerInvariant())
+                    , ct))
+            .FirstOrDefault();
+
+        if (stale is null || stale.IsCustom || !stale.NotFoundAt.HasValue)
+        {
+            return;
+        }
+
+        try
+        {
+            await db.DeleteAsync<SymbolsEntity>(stale.ID, ct);
+            logger.LogInformation("Removed redundant upstream not-found row for {Request}", req);
+            mc.Remove(req.ToString());
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to delete redundant not-found row {Id}", stale.ID);
+        }
+    }
+
+    private static string ResolveStreamFileName(SymbolsEntity canonical, SymbolsRequest req)
+    {
+        bool exactPath = canonical.IndexPrefix.Equals(req.IndexPrefix, StringComparison.OrdinalIgnoreCase) &&
+                         canonical.FileName.Equals(req.FileName, StringComparison.OrdinalIgnoreCase);
+        if (exactPath)
+        {
+            return canonical.UpstreamFileName ?? canonical.FileName;
+        }
+
+        return req.FileName;
+    }
+
+    private static string ResolveStreamFileNameFromDto(SymbolsEntityDto dto, SymbolsRequest req)
+    {
+        bool exactPath = dto.IndexPrefix.Equals(req.IndexPrefix, StringComparison.OrdinalIgnoreCase) &&
+                         dto.FileName.Equals(req.FileName, StringComparison.OrdinalIgnoreCase);
+        if (exactPath)
+        {
+            return dto.UpstreamFileName ?? dto.FileName;
+        }
+
+        return req.FileName;
     }
 
     /// <summary>

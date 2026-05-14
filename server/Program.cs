@@ -89,6 +89,7 @@ builder.Services.AddSingleton<IBadgeFactory, BadgeFactory>();
 builder.Services.AddSingleton<IBadgeService, BadgeService>();
 builder.Services.AddSingleton<ISvgService, SvgService>();
 builder.Services.AddTransient<RecheckNotFoundJob>();
+builder.Services.AddSingleton<SymbolAliasLookupService>();
 builder.Services.AddSingleton<RecheckNotFoundService>();
 builder.Services.AddTransient<SymStoreService>();
 builder.Services.AddTransient<ITracer, Tracer>();

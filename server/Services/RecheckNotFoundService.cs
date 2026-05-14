@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net;
 
 using MongoDB.Entities;
@@ -18,6 +19,41 @@ public sealed class RecheckNotFoundService(DB db, IHttpClientFactory clientFacto
         List<SymbolsEntity> notFoundSymbols = await db.Find<SymbolsEntity>().ManyAsync(
             sym => sym.NotFoundAt != null && !sym.IsCustom, ct);
 
+        List<SymbolsEntity> customWithAliases = await db.Find<SymbolsEntity>().ManyAsync(
+            sym =>
+                sym.IsCustom &&
+                sym.NotFoundAt == null &&
+                sym.AlternateRequestSymbols != null &&
+                sym.AlternateRequestSymbols.Count > 0,
+            ct);
+
+        HashSet<(string SymbolKey, string Alias)> shadowIndex = new();
+        foreach (SymbolsEntity c in customWithAliases)
+        {
+            if (string.IsNullOrWhiteSpace(c.SymbolKey) || c.AlternateRequestSymbols is null)
+            {
+                continue;
+            }
+
+            string sk = c.SymbolKey.Trim().ToLowerInvariant();
+            foreach (string? alias in c.AlternateRequestSymbols)
+            {
+                string? aliasTrimmed = alias?.Trim();
+                if (string.IsNullOrEmpty(aliasTrimmed))
+                {
+                    continue;
+                }
+
+                shadowIndex.Add((sk, aliasTrimmed.ToLowerInvariant()));
+            }
+        }
+
+        logger.LogInformation(
+            "RecheckNotFound: {PlaceholderCount} upstream placeholders, {CustomWithAliases} custom rows, {ShadowKeyCount} (symbolKey,alias) shadow keys preloaded",
+            notFoundSymbols.Count, customWithAliases.Count, shadowIndex.Count);
+
+        ConcurrentBag<int> shadowRemoved = new();
+
         // https://stackoverflow.com/a/9290531
         ParallelOptions opts = new()
         {
@@ -25,9 +61,23 @@ public sealed class RecheckNotFoundService(DB db, IHttpClientFactory clientFacto
             MaxDegreeOfParallelism = Convert.ToInt32(Math.Ceiling(Environment.ProcessorCount * 0.75 * 1.0))
         };
 
-        // boost performance by issuing requests in parallel
         await Parallel.ForEachAsync(notFoundSymbols, opts, async (symbol, innerToken) =>
         {
+            if (SymbolAliasLookupService.TryParseSymbolFromIndexPrefix(symbol.IndexPrefix, out string symbolSeg) &&
+                !string.IsNullOrEmpty(symbol.SymbolKey))
+            {
+                string normalizedSymbolSeg = symbolSeg.ToLowerInvariant();
+                if (shadowIndex.Contains((symbol.SymbolKey.ToLowerInvariant(), normalizedSymbolSeg)))
+                {
+                    logger.LogInformation(
+                        "Deleting obsolete upstream not-found row {Symbol} (covered by custom upload alias)",
+                        symbol);
+                    await db.DeleteAsync<SymbolsEntity>(symbol.ID, innerToken);
+                    shadowRemoved.Add(1);
+                    return;
+                }
+            }
+
             using HttpClient client = clientFactory.CreateClient("MicrosoftSymbolServer");
 
             using HttpResponseMessage response =
@@ -80,5 +130,9 @@ public sealed class RecheckNotFoundService(DB db, IHttpClientFactory clientFacto
             logger.LogInformation("Symbol {Symbol} ({Filename}) cached",
                 symbol, upstreamFilename);
         });
+
+        logger.LogInformation(
+            "RecheckNotFound finished: removed {ShadowRemoved} placeholders as alias-shadowed without upstream fetch",
+            shadowRemoved.Count);
     }
 }
