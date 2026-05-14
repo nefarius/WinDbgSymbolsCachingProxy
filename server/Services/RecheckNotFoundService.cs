@@ -30,10 +30,21 @@ public sealed class RecheckNotFoundService(DB db, IHttpClientFactory clientFacto
         HashSet<(string SymbolKey, string Alias)> shadowIndex = new();
         foreach (SymbolsEntity c in customWithAliases)
         {
-            string sk = c.SymbolKey.ToLowerInvariant();
-            foreach (string alias in c.AlternateRequestSymbols)
+            if (string.IsNullOrWhiteSpace(c.SymbolKey) || c.AlternateRequestSymbols is null)
             {
-                shadowIndex.Add((sk, alias.ToLowerInvariant()));
+                continue;
+            }
+
+            string sk = c.SymbolKey.Trim().ToLowerInvariant();
+            foreach (string? alias in c.AlternateRequestSymbols)
+            {
+                string? aliasTrimmed = alias?.Trim();
+                if (string.IsNullOrEmpty(aliasTrimmed))
+                {
+                    continue;
+                }
+
+                shadowIndex.Add((sk, aliasTrimmed.ToLowerInvariant()));
             }
         }
 
