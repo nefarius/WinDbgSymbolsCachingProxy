@@ -72,7 +72,7 @@ public sealed class RecheckNotFoundService(DB db, IHttpClientFactory clientFacto
                     logger.LogInformation(
                         "Deleting obsolete upstream not-found row {Symbol} (covered by custom upload alias)",
                         symbol);
-                    await db.DeleteAsync<SymbolsEntity>(symbol.ID, innerToken);
+                    await db.DeleteAsync<SymbolsEntity>(symbol.ID, CancellationToken.None);
                     shadowRemoved.Add(1);
                     return;
                 }

@@ -475,7 +475,7 @@ public sealed class SymbolsDownloadEndpoint(
 
         try
         {
-            await db.DeleteAsync<SymbolsEntity>(stale.ID, ct);
+            await db.DeleteAsync<SymbolsEntity>(stale.ID, CancellationToken.None);
             logger.LogInformation("Removed redundant upstream not-found row for {Request}", req);
             mc.Remove(req.ToString());
         }
