@@ -6,7 +6,7 @@ EXPOSE 80
 EXPOSE 443
 
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
-# Optional: set when the build context has no .git (e.g. tarball). Otherwise MinVer uses tags from .git.
+# Optional: force version when MinVer cannot read tags (e.g. no .git or shallow clone). CI sets this; git-URL docker builds have no .git in context.
 ARG MINVERVERSIONOVERRIDE
 WORKDIR /src
 RUN apt-get update \
@@ -14,11 +14,14 @@ RUN apt-get update \
     && git config --global --add safe.directory /src \
     && rm -rf /var/lib/apt/lists/*
 COPY nuget.config .
-COPY .git ./.git
 COPY server/WinDbgSymbolsCachingProxy.csproj server/
 RUN --mount=type=cache,target=/root/.nuget/packages \
     dotnet restore "server/WinDbgSymbolsCachingProxy.csproj"
 COPY server/ ./server/
+# docker build <git-url> omits .git from the context; a local clone includes it. MinVer reads /src/.git when present.
+COPY . /tmp/buildctx/
+RUN if [ -d /tmp/buildctx/.git ]; then cp -a /tmp/buildctx/.git /src/.git; fi \
+    && rm -rf /tmp/buildctx
 WORKDIR /src/server
 RUN --mount=type=cache,target=/root/.nuget/packages \
     if [ -n "${MINVERVERSIONOVERRIDE}" ]; then export MINVERVERSIONOVERRIDE="${MINVERVERSIONOVERRIDE}"; fi \
