@@ -9,10 +9,10 @@ namespace WinDbgSymbolsCachingProxy.Core;
 public sealed class NotFoundCleanupOptions
 {
     /// <summary>
-    ///     When <see langword="true" /> (the default), stale not-found placeholders are deleted during the 404 recheck run.
-    ///     Set to <see langword="false" /> to disable all automatic cleanup.
+    ///     When <see langword="true" />, stale not-found placeholders are deleted during the 404 recheck run.
+    ///     Defaults to <see langword="false" />; opt in explicitly by setting this to <see langword="true" /> in configuration.
     /// </summary>
-    public bool Enabled { get; set; } = true;
+    public bool Enabled { get; set; } = false;
 
     /// <summary>
     ///     A not-found placeholder is deleted when it has been requested by at least one client before but
