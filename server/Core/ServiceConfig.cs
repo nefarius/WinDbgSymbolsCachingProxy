@@ -42,4 +42,9 @@ public sealed class ServiceConfig
     ///     Option list of Basic Auth credentials for protected endpoints.
     /// </summary>
     public List<BasicAuthCredentials>? BasicAuthCredentials { get; set; }
+
+    /// <summary>
+    ///     Settings for the automatic cleanup of stale not-found placeholders run as part of the 404 recheck job.
+    /// </summary>
+    public NotFoundCleanupOptions NotFoundCleanup { get; set; } = new();
 }
