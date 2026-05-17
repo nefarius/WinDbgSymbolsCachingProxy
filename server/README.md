@@ -26,7 +26,7 @@ Edit [`appsettings.json`](appsettings.json) or environment-specific files such a
 | `UpstreamRecheckPeriod` | How long 404 cache entries wait before a background recheck |
 | `MemoryCacheSizeLimit` | In-memory cache cap (used for overview stats shared by `/info` and `/og/status.png`) |
 | `BasicAuthCredentials` | Allowed username/password pairs for upload API and authorized Blazor routes |
-| `NotFoundCleanup.Enabled` | `true` by default; set to `false` to disable automatic pruning of stale 404 placeholders |
+| `NotFoundCleanup.Enabled` | `false` by default; set to `true` to enable automatic pruning of stale 404 placeholders |
 | `NotFoundCleanup.InactiveAfter` | Placeholder that was requested at least once is deleted when `LastAccessedAt` is older than this threshold (default `180.00:00:00` — 180 days) |
 | `NotFoundCleanup.UnusedNotFoundAfter` | Placeholder that was **never** requested by any client is deleted when `NotFoundAt` is older than this threshold (default `180.00:00:00` — 180 days) |
 

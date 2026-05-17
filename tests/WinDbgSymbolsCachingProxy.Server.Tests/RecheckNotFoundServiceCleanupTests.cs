@@ -179,15 +179,14 @@ public sealed class RecheckNotFoundServiceCleanupTests
     // ── Enabled flag ─────────────────────────────────────────────────────────────
 
     [Fact]
-    public void Disabled_config_means_IsStaleNotFound_result_is_ignored_at_service_level()
+    public void IsStaleNotFound_Predicate_Ignores_EnabledFlag()
     {
-        // The service skips PruneStaleNotFoundAsync entirely when Enabled == false.
-        // At the predicate level we verify the rule still evaluates correctly — the
-        // caller (service) is responsible for gating on Enabled.
+        // IsStaleNotFound is a pure predicate; it deliberately does not know about
+        // the Enabled flag — that gating lives in PruneStaleNotFoundAsync, which
+        // returns early when Enabled == false (the default).
         NotFoundCleanupOptions disabled = new() { Enabled = false };
         Assert.False(disabled.Enabled);
 
-        // Even though the predicate would match, the service would skip it
         SymbolsEntity staleEntity = new()
         {
             IndexPrefix = "stale.pdb/ccc/",
@@ -197,7 +196,7 @@ public sealed class RecheckNotFoundServiceCleanupTests
             LastAccessedAt = null
         };
 
-        // Predicate itself doesn't know about Enabled — that's the service's concern
+        // Predicate matches regardless — the service gates on Enabled separately.
         Assert.True(RecheckNotFoundService.IsStaleNotFound(staleEntity, InactiveCutoff, UnusedCutoff));
     }
 }

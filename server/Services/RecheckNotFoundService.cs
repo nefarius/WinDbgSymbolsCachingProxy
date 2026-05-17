@@ -172,6 +172,14 @@ public sealed class RecheckNotFoundService(
             return;
         }
 
+        if (cleanup.InactiveAfter <= TimeSpan.Zero || cleanup.UnusedNotFoundAfter <= TimeSpan.Zero)
+        {
+            logger.LogWarning(
+                "NotFoundCleanup: skipping pruning because {InactiveAfter} or {UnusedNotFoundAfter} is zero or negative — set both to a positive TimeSpan to enable cleanup",
+                cleanup.InactiveAfter, cleanup.UnusedNotFoundAfter);
+            return;
+        }
+
         DateTime inactiveCutoff = DateTime.UtcNow - cleanup.InactiveAfter;
         DateTime unusedCutoff = DateTime.UtcNow - cleanup.UnusedNotFoundAfter;
 
