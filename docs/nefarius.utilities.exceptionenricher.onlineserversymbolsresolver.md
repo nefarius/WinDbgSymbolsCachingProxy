@@ -2,15 +2,16 @@
 
 Namespace: Nefarius.Utilities.ExceptionEnricher
 
-An implementation of  that contacts an online symbol server to resolve debug
+An implementation of ISymbolReaderProvider that contacts an online symbol server to resolve debug
  symbols.
 
 ```csharp
 public sealed class OnlineServerSymbolsResolver : Mono.Cecil.Cil.ISymbolReaderProvider, System.IDisposable
 ```
 
-Inheritance [Object](https://docs.microsoft.com/en-us/dotnet/api/system.object) → [OnlineServerSymbolsResolver](./nefarius.utilities.exceptionenricher.onlineserversymbolsresolver.md)<br>
-Implements ISymbolReaderProvider, [IDisposable](https://docs.microsoft.com/en-us/dotnet/api/system.idisposable)
+Inheritance [Object](https://learn.microsoft.com/dotnet/api/system.object) → [OnlineServerSymbolsResolver](./nefarius.utilities.exceptionenricher.onlineserversymbolsresolver.md)<br>
+Implements ISymbolReaderProvider, [IDisposable](https://learn.microsoft.com/dotnet/api/system.idisposable)<br>
+Attributes [NullableContextAttribute](https://learn.microsoft.com/dotnet/api/system.runtime.compilerservices.nullablecontextattribute), [NullableAttribute](https://learn.microsoft.com/dotnet/api/system.runtime.compilerservices.nullableattribute)
 
 ## Constructors
 
@@ -24,10 +25,10 @@ public OnlineServerSymbolsResolver(HttpClient httpClient, bool throwIfNoSymbol)
 
 #### Parameters
 
-`httpClient` HttpClient<br>
-The  to use to contact the symbol server.
+`httpClient` [HttpClient](https://learn.microsoft.com/dotnet/api/system.net.http.httpclient)<br>
+The [HttpClient](https://learn.microsoft.com/dotnet/api/system.net.http.httpclient) to use to contact the symbol server.
 
-`throwIfNoSymbol` [Boolean](https://docs.microsoft.com/en-us/dotnet/api/system.boolean)<br>
+`throwIfNoSymbol` [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)<br>
 If set, throws an exception if symbol resolving failed. If false, each missing symbol
  will be resolved as null.
 
@@ -41,13 +42,13 @@ public OnlineServerSymbolsResolver(IHttpClientFactory httpClientFactory, string 
 
 #### Parameters
 
-`httpClientFactory` IHttpClientFactory<br>
-An  instance, when used with DI.
+`httpClientFactory` [IHttpClientFactory](https://learn.microsoft.com/dotnet/api/system.net.http.ihttpclientfactory)<br>
+An [IHttpClientFactory](https://learn.microsoft.com/dotnet/api/system.net.http.ihttpclientfactory) instance, when used with DI.
 
-`clientName` [String](https://docs.microsoft.com/en-us/dotnet/api/system.string)<br>
+`clientName` [String](https://learn.microsoft.com/dotnet/api/system.string)<br>
 The name of the http client to request via the `httpClientFactory`.
 
-`throwIfNoSymbol` [Boolean](https://docs.microsoft.com/en-us/dotnet/api/system.boolean)<br>
+`throwIfNoSymbol` [Boolean](https://learn.microsoft.com/dotnet/api/system.boolean)<br>
 If set, throws an exception if symbol resolving failed. If false, each missing symbol
  will be resolved as null.
 
@@ -69,7 +70,7 @@ public ISymbolReader GetSymbolReader(ModuleDefinition module, string fileName)
 
 `module` ModuleDefinition<br>
 
-`fileName` [String](https://docs.microsoft.com/en-us/dotnet/api/system.string)<br>
+`fileName` [String](https://learn.microsoft.com/dotnet/api/system.string)<br>
 
 #### Returns
 
@@ -85,7 +86,7 @@ public ISymbolReader GetSymbolReader(ModuleDefinition module, Stream symbolStrea
 
 `module` ModuleDefinition<br>
 
-`symbolStream` [Stream](https://docs.microsoft.com/en-us/dotnet/api/system.io.stream)<br>
+`symbolStream` [Stream](https://learn.microsoft.com/dotnet/api/system.io.stream)<br>
 
 #### Returns
 

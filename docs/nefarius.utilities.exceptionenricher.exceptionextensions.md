@@ -2,13 +2,14 @@
 
 Namespace: Nefarius.Utilities.ExceptionEnricher
 
-Extension methods for [Exception](https://docs.microsoft.com/en-us/dotnet/api/system.exception) objects.
+Extension methods for [Exception](https://learn.microsoft.com/dotnet/api/system.exception) objects.
 
 ```csharp
 public static class ExceptionExtensions
 ```
 
-Inheritance [Object](https://docs.microsoft.com/en-us/dotnet/api/system.object) → [ExceptionExtensions](./nefarius.utilities.exceptionenricher.exceptionextensions.md)
+Inheritance [Object](https://learn.microsoft.com/dotnet/api/system.object) → [ExceptionExtensions](./nefarius.utilities.exceptionenricher.exceptionextensions.md)<br>
+Attributes [NullableContextAttribute](https://learn.microsoft.com/dotnet/api/system.runtime.compilerservices.nullablecontextattribute), [NullableAttribute](https://learn.microsoft.com/dotnet/api/system.runtime.compilerservices.nullableattribute), [ExtensionAttribute](https://learn.microsoft.com/dotnet/api/system.runtime.compilerservices.extensionattribute)
 
 ## Methods
 
@@ -22,8 +23,8 @@ public static EnrichedException ToRemotelyEnrichedException(Exception exception,
 
 #### Parameters
 
-`exception` [Exception](https://docs.microsoft.com/en-us/dotnet/api/system.exception)<br>
-The [Exception](https://docs.microsoft.com/en-us/dotnet/api/system.exception) object to enrich/rebuild.
+`exception` [Exception](https://learn.microsoft.com/dotnet/api/system.exception)<br>
+The [Exception](https://learn.microsoft.com/dotnet/api/system.exception) object to enrich/rebuild.
 
 `provider` [OnlineServerSymbolsResolver](./nefarius.utilities.exceptionenricher.onlineserversymbolsresolver.md)<br>
 The [OnlineServerSymbolsResolver](./nefarius.utilities.exceptionenricher.onlineserversymbolsresolver.md) to be used for symbol lookup.
@@ -42,11 +43,11 @@ public static EnrichedException ToRemotelyEnrichedException(Exception exception,
 
 #### Parameters
 
-`exception` [Exception](https://docs.microsoft.com/en-us/dotnet/api/system.exception)<br>
-The [Exception](https://docs.microsoft.com/en-us/dotnet/api/system.exception) object to enrich/rebuild.
+`exception` [Exception](https://learn.microsoft.com/dotnet/api/system.exception)<br>
+The [Exception](https://learn.microsoft.com/dotnet/api/system.exception) object to enrich/rebuild.
 
-`httpClient` HttpClient<br>
-A  that specified the remote symbol server to contact.
+`httpClient` [HttpClient](https://learn.microsoft.com/dotnet/api/system.net.http.httpclient)<br>
+A [HttpClient](https://learn.microsoft.com/dotnet/api/system.net.http.httpclient) that specified the remote symbol server to contact.
 
 #### Returns
 
