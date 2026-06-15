@@ -50,9 +50,18 @@ public sealed class SymbolsDownloadEndpoint(
     /// <returns>A task representing the asynchronous operation of handling the symbol request.</returns>
     public override async Task HandleAsync(SymbolsRequest req, CancellationToken ct)
     {
+        Stopwatch sw = Stopwatch.StartNew();
+        string requestPath = HttpContext.Request.Path;
+        string? remoteIp = HttpContext.Connection.RemoteIpAddress?.ToString();
+        string? userAgent = HttpContext.Request.Headers.UserAgent.ToString();
+        bool hadRange = HttpContext.Request.Headers.ContainsKey("Range");
+
         HttpContext.RequestAborted.Register(() =>
         {
-            logger.LogWarning("Client disconnected while streaming file: {RequestPath}", HttpContext.Request.Path);
+            logger.LogDebug(
+                "Client disconnected for {RequestPath} (remote={RemoteIp}, ua={UserAgent}, range={HadRange}, responseStarted={Started}, status={Status}, elapsedMs={Elapsed})",
+                requestPath, remoteIp, userAgent, hadRange,
+                HttpContext.Response.HasStarted, HttpContext.Response.StatusCode, sw.ElapsedMilliseconds);
         });
 
         Activity? parentActivity = Activity.Current;
@@ -79,7 +88,14 @@ public sealed class SymbolsDownloadEndpoint(
             logger.LogInformation("Returning memory-cached copy for {Entity}", cachedEntity.ToString());
 
             string memoryStreamName = ResolveStreamFileNameFromDto(cachedEntity, req);
-            await Send.BytesAsync(cachedEntity.Blob, memoryStreamName, cancellation: ct);
+            try
+            {
+                await Send.BytesAsync(cachedEntity.Blob, memoryStreamName, enableRangeProcessing: true, cancellation: ct);
+            }
+            catch (OperationCanceledException) when (HttpContext.RequestAborted.IsCancellationRequested)
+            {
+                return;
+            }
 
             SymbolsEntity? entityToUpdate = (await db.Find<SymbolsEntity>()
                     .ManyAsync(lr =>
@@ -180,22 +196,23 @@ public sealed class SymbolsDownloadEndpoint(
                     {
                         logger.LogInformation("Returning cached copy");
                         string streamName = ResolveStreamFileName(existingSymbol, req);
-                        await Send.StreamAsync(new MemoryStream(blob), streamName, cancellation: ct);
+                        await Send.StreamAsync(new MemoryStream(blob), streamName, enableRangeProcessing: true, cancellation: ct);
+                    }
+                    catch (OperationCanceledException) when (HttpContext.RequestAborted.IsCancellationRequested)
+                    {
+                        // benign client disconnect; already logged by the RequestAborted callback
                     }
                     catch (Exception ex)
                     {
-                        if (HttpContext.Response.HasStarted)
-                        {
-                            logger.LogWarning(ex,
-                                "Error after starting response (e.g. client disconnect), cache entry unchanged");
-                        }
-                        else
+                        if (!HttpContext.Response.HasStarted)
                         {
                             logger.LogWarning(ex, "Error while streaming cached symbol to client");
                             HttpContext.Response.StatusCode = 500;
                             await HttpContext.Response.WriteAsync("Error while streaming cached symbol to client.", ct);
                             return;
                         }
+
+                        logger.LogWarning(ex, "Error after response started while streaming {RequestPath}", requestPath);
                     }
 
                     return;
@@ -361,7 +378,11 @@ public sealed class SymbolsDownloadEndpoint(
 
             try
             {
-                await Send.StreamAsync(cache, upstreamFilename, cancellation: ct);
+                await Send.StreamAsync(cache, upstreamFilename, enableRangeProcessing: true, cancellation: ct);
+            }
+            catch (OperationCanceledException) when (HttpContext.RequestAborted.IsCancellationRequested)
+            {
+                // benign client disconnect; already logged by the RequestAborted callback
             }
             catch (Exception ex)
             {
@@ -371,7 +392,7 @@ public sealed class SymbolsDownloadEndpoint(
                     await HttpContext.Response.WriteAsync("Error while sending symbol file.", ct);
                 }
 
-                logger.LogError(ex, "Failed to stream symbol file for {RequestPath}", HttpContext.Request.Path);
+                logger.LogError(ex, "Failed to stream symbol file for {RequestPath}", requestPath);
             }
         }
         finally
@@ -436,7 +457,12 @@ public sealed class SymbolsDownloadEndpoint(
 
         try
         {
-            await Send.StreamAsync(new MemoryStream(blob), streamName, cancellation: ct);
+            await Send.StreamAsync(new MemoryStream(blob), streamName, enableRangeProcessing: true, cancellation: ct);
+        }
+        catch (OperationCanceledException) when (HttpContext.RequestAborted.IsCancellationRequested)
+        {
+            // benign client disconnect; already logged by the RequestAborted callback
+            return true;
         }
         catch (Exception ex)
         {
@@ -448,8 +474,7 @@ public sealed class SymbolsDownloadEndpoint(
             }
             else
             {
-                logger.LogWarning(ex,
-                    "Error after starting response (e.g. client disconnect), cache entry unchanged");
+                logger.LogWarning(ex, "Error after response started while streaming {RequestPath}", HttpContext.Request.Path);
             }
 
             return true;
