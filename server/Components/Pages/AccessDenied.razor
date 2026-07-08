@@ -1,0 +1,11 @@
+@page "/account/access-denied"
+@attribute [AllowAnonymous]
+
+<PageTitle>Symbols Server — Access Denied</PageTitle>
+
+<MudStack Spacing="3" Class="mt-8" AlignItems="AlignItems.Center">
+    <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Large" Color="Color.Error" />
+    <MudText Typo="Typo.h5">Access Denied</MudText>
+    <MudText Typo="Typo.body1">You do not have permission to view this page.</MudText>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/status">Go to Status</MudButton>
+</MudStack>

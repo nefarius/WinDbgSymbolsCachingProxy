@@ -1,0 +1,89 @@
+@page "/admin/roles"
+@attribute [Authorize(Policy = WinDbgSymbolsCachingProxy.Core.Permissions.Admin)]
+@using WinDbgSymbolsCachingProxy.Core
+@using WinDbgSymbolsCachingProxy.Models
+
+<PageTitle>Symbols Server — Role Management</PageTitle>
+
+<MudStack Spacing="3">
+    <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudText Typo="Typo.h5">Role Management</MudText>
+        <MudSpacer />
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="OpenCreateDialog">
+            New Role
+        </MudButton>
+    </MudStack>
+
+    @if (_loading)
+    {
+        <MudProgressLinear Indeterminate="true" />
+    }
+    else
+    {
+        <MudTable Items="_roles" Hover="true" Dense="true" Breakpoint="Breakpoint.Sm">
+            <HeaderContent>
+                <MudTh>Name</MudTh>
+                <MudTh>Description</MudTh>
+                <MudTh>Permissions</MudTh>
+                <MudTh>System</MudTh>
+                <MudTh></MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Name"><strong>@context.Name</strong></MudTd>
+                <MudTd DataLabel="Description">@(context.Description ?? "-")</MudTd>
+                <MudTd DataLabel="Permissions">
+                    @foreach (string perm in context.Permissions)
+                    {
+                        <MudChip T="string" Size="Size.Small" Class="ma-1">@perm</MudChip>
+                    }
+                </MudTd>
+                <MudTd DataLabel="System">
+                    @if (context.IsSystemRole)
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.Shield" Title="System role" Size="Size.Small" />
+                    }
+                </MudTd>
+                <MudTd>
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                   Size="Size.Small"
+                                   OnClick="() => OpenEditDialog(context)" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                   Color="Color.Error" Size="Size.Small"
+                                   Disabled="context.IsSystemRole"
+                                   OnClick="() => DeleteRoleAsync(context)" />
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+</MudStack>
+
+@* Create / Edit dialog *@
+<MudDialog @bind-Visible="_dialogOpen" Options="_dialogOptions">
+    <TitleContent>
+        <MudText Typo="Typo.h6">@(_editingRole?.ID is null ? "New Role" : $"Edit — {_editingRole.Name}")</MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (_editingRole is not null)
+        {
+            <MudStack Spacing="2">
+                <MudTextField @bind-Value="_editingRole.Name" Label="Name" Variant="Variant.Outlined"
+                              Disabled="_editingRole.IsSystemRole" />
+                <MudTextField @bind-Value="_editingRole.Description" Label="Description" Variant="Variant.Outlined" />
+                <MudText Typo="Typo.subtitle2">Permissions</MudText>
+                @foreach (string perm in Permissions.All)
+                {
+                    bool hasIt = _editingRole.Permissions.Contains(perm);
+                    <MudCheckBox Value="hasIt"
+                                 ValueChanged="(bool v) => TogglePermission(perm, v)"
+                                 Label="@perm" Color="Color.Primary" />
+                }
+            </MudStack>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="CloseDialog">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveRoleAsync">Save</MudButton>
+    </DialogActions>
+</MudDialog>

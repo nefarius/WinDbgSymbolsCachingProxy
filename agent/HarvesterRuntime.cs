@@ -1106,11 +1106,19 @@ public sealed class HarvesterRuntime : IDisposable
 
             using HttpClient client = _httpClientFactory.CreateClient("Server");
             client.BaseAddress = serverConfig.ServerUrl;
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-                "Basic",
-                Convert.ToBase64String(
-                    Encoding.UTF8.GetBytes(
-                        $"{serverConfig.Authentication.Username}:{serverConfig.Authentication.Password}")));
+
+            if (!string.IsNullOrWhiteSpace(serverConfig.ApiKey))
+            {
+                client.DefaultRequestHeaders.TryAddWithoutValidation("X-Api-Key", serverConfig.ApiKey);
+            }
+            else
+            {
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+                    "Basic",
+                    Convert.ToBase64String(
+                        Encoding.UTF8.GetBytes(
+                            $"{serverConfig.Authentication.Username}:{serverConfig.Authentication.Password}")));
+            }
 
             using MultipartFormDataContent form = new();
             await using FileStream fileStream = new(

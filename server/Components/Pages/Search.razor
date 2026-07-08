@@ -1,5 +1,5 @@
 @page "/search"
-@attribute [Authorize]
+@attribute [Authorize(Policy = WinDbgSymbolsCachingProxy.Core.Permissions.SymbolsDelete)]
 @using WinDbgSymbolsCachingProxy.Models
 @inject ISnackbar Snackbar
 

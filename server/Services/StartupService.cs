@@ -4,12 +4,13 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using MongoDB.Entities;
 
+using WinDbgSymbolsCachingProxy.Core;
 using WinDbgSymbolsCachingProxy.Models;
 
 namespace WinDbgSymbolsCachingProxy.Services;
 
 /// <summary>
-///     Hosted service that runs at startup: blocks until DB is ready (migrations, indexes), then optionally parses/rechecks.
+///     Hosted service that runs at startup: blocks until DB is ready (migrations, indexes, role seeding), then optionally parses/rechecks.
 /// </summary>
 internal sealed class StartupService(
     DB db,
@@ -29,6 +30,10 @@ internal sealed class StartupService(
 
         logger.LogInformation("Ensuring database indexes");
         await EnsureSymbolsIndexAsync(cancellationToken);
+        await EnsureAuthIndexesAsync(cancellationToken);
+
+        logger.LogInformation("Seeding default roles");
+        await SeedDefaultRolesAsync(cancellationToken);
 
         await base.StartAsync(cancellationToken);
     }
@@ -165,6 +170,77 @@ internal sealed class StartupService(
 
             logger.LogInformation("Re-check finished after {Timespan}", sw.Elapsed);
         }
+    }
+
+    private async Task EnsureAuthIndexesAsync(CancellationToken ct)
+    {
+        try
+        {
+            await db.Index<UserEntity>()
+                .Key(u => u.Subject, KeyType.Ascending)
+                .Option(o => o.Unique = true)
+                .CreateAsync(ct);
+        }
+        catch (MongoCommandException ex) when (ex.CodeName is "IndexOptionsConflict" or "DuplicateKey" || ex.Code == 85)
+        {
+            logger.LogDebug(ex, "UserEntity Subject index already present or conflicting; continuing");
+        }
+
+        try
+        {
+            await db.Index<ApiKeyEntity>()
+                .Key(k => k.KeyHash, KeyType.Ascending)
+                .Option(o => o.Unique = true)
+                .CreateAsync(ct);
+        }
+        catch (MongoCommandException ex) when (ex.CodeName is "IndexOptionsConflict" or "DuplicateKey" || ex.Code == 85)
+        {
+            logger.LogDebug(ex, "ApiKeyEntity KeyHash index already present or conflicting; continuing");
+        }
+
+        try
+        {
+            await db.Index<ApiKeyEntity>()
+                .Key(k => k.Enabled, KeyType.Ascending)
+                .CreateAsync(ct);
+        }
+        catch (MongoCommandException ex) when (ex.CodeName is "IndexOptionsConflict" || ex.Code == 85)
+        {
+            logger.LogDebug(ex, "ApiKeyEntity Enabled index already present; continuing");
+        }
+    }
+
+    private async Task SeedDefaultRolesAsync(CancellationToken ct)
+    {
+        // Seed only if a role with the given name does not yet exist.
+        await EnsureRoleAsync("Admin", "Full access to all features.",
+            Permissions.All, ct);
+
+        await EnsureRoleAsync("Uploader",
+            "May download and upload symbols but cannot manage roles or delete entries.",
+            [Permissions.SymbolsDownload, Permissions.SymbolsUpload], ct);
+
+        await EnsureRoleAsync("Reader",
+            "Read-only access: may only download symbols.",
+            [Permissions.SymbolsDownload], ct);
+    }
+
+    private async Task EnsureRoleAsync(
+        string name, string description, string[] permissions, CancellationToken ct)
+    {
+        RoleEntity? existing = await db.Find<RoleEntity>().Match(r => r.Name == name).ExecuteFirstAsync(ct);
+        if (existing is not null)
+            return;
+
+        RoleEntity role = new()
+        {
+            Name = name,
+            Description = description,
+            Permissions = [.. permissions],
+            IsSystemRole = true
+        };
+        await db.SaveAsync(role, ct);
+        logger.LogInformation("Seeded default role {Role}", name);
     }
 
     /// <summary>

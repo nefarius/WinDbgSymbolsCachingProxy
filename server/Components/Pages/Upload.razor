@@ -1,5 +1,5 @@
 @page "/upload"
-@attribute [Authorize]
+@attribute [Authorize(Policy = WinDbgSymbolsCachingProxy.Core.Permissions.SymbolsUpload)]
 @using WinDbgSymbolsCachingProxy.Core
 
 <PageTitle>@PageTitleText</PageTitle>

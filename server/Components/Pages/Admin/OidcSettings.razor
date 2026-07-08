@@ -1,0 +1,95 @@
+@page "/admin/oidc"
+@attribute [Authorize(Policy = WinDbgSymbolsCachingProxy.Core.Permissions.Admin)]
+@using WinDbgSymbolsCachingProxy.Models
+
+<PageTitle>Symbols Server — OIDC Settings</PageTitle>
+
+<MudStack Spacing="3">
+    <MudText Typo="Typo.h5">OIDC / Authentication Settings</MudText>
+
+    <MudAlert Severity="Severity.Warning" Dense="true">
+        Changes are saved to the database but only take effect after a <strong>service restart</strong>.
+        The current auth mode (<em>@(_currentModeName)</em>) reflects what was loaded at startup.
+    </MudAlert>
+
+    @if (_loading)
+    {
+        <MudProgressLinear Indeterminate="true" />
+    }
+    else
+    {
+        <MudCard>
+            <MudCardContent>
+                <MudStack Spacing="3">
+                    <MudSwitch @bind-Value="_model.Enabled" Color="Color.Primary" Label="Enable OIDC (disables Basic auth on next restart)" />
+
+                    <MudTextField @bind-Value="_model.Authority"
+                                  Label="Authority URL"
+                                  HelperText="Issuer base URL, e.g. https://sso.example.com/realms/myrealm"
+                                  Variant="Variant.Outlined"
+                                  Disabled="!_model.Enabled" />
+
+                    <MudTextField @bind-Value="_model.ClientId"
+                                  Label="Client ID"
+                                  Variant="Variant.Outlined"
+                                  Disabled="!_model.Enabled" />
+
+                    <MudTextField @bind-Value="_model.ClientSecret"
+                                  Label="Client Secret"
+                                  Variant="Variant.Outlined"
+                                  InputType="InputType.Password"
+                                  HelperText="Stored as plaintext in MongoDB — secure your database accordingly."
+                                  Disabled="!_model.Enabled" />
+
+                    <MudTextField @bind-Value="_scopesText"
+                                  Label="Scopes (space-separated)"
+                                  Variant="Variant.Outlined"
+                                  HelperText="Default: openid profile email"
+                                  Disabled="!_model.Enabled" />
+
+                    <MudDivider />
+                    <MudText Typo="Typo.subtitle2">Claim mapping</MudText>
+
+                    <MudTextField @bind-Value="_model.SubjectClaimType"
+                                  Label="Subject claim type"
+                                  HelperText="Default: sub"
+                                  Variant="Variant.Outlined"
+                                  Disabled="!_model.Enabled" />
+
+                    <MudTextField @bind-Value="_model.EmailClaimType"
+                                  Label="E-mail claim type"
+                                  HelperText="Default: email"
+                                  Variant="Variant.Outlined"
+                                  Disabled="!_model.Enabled" />
+
+                    <MudTextField @bind-Value="_model.NameClaimType"
+                                  Label="Display name claim type"
+                                  HelperText="Default: name"
+                                  Variant="Variant.Outlined"
+                                  Disabled="!_model.Enabled" />
+
+                    <MudDivider />
+                    <MudText Typo="Typo.subtitle2">Bootstrap admins</MudText>
+                    <MudText Typo="Typo.caption">
+                        Subjects or e-mail addresses that automatically receive the Admin role on first login.
+                        Remove entries after the initial administrator has been provisioned.
+                    </MudText>
+                    <MudTextField @bind-Value="_bootstrapText"
+                                  Label="Bootstrap admin identifiers (one per line)"
+                                  Lines="4"
+                                  Variant="Variant.Outlined"
+                                  Disabled="!_model.Enabled" />
+                </MudStack>
+            </MudCardContent>
+            <MudCardActions>
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Save"
+                           OnClick="SaveAsync"
+                           Disabled="_saving">
+                    @(_saving ? "Saving…" : "Save")
+                </MudButton>
+            </MudCardActions>
+        </MudCard>
+    }
+</MudStack>

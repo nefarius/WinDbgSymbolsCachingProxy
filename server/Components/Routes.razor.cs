@@ -5,14 +5,23 @@ namespace WinDbgSymbolsCachingProxy.Components;
 
 public partial class Routes
 {
-    [Inject]
-    private NavigationManager Navigation { get; set; } = null!;
-    
+    // NavigationManager and OidcConfigProvider are injected via @inject in Routes.razor.
+
     [Inject]
     private IJSRuntime Js { get; set; } = null!;
 
     /// <summary>
-    ///     Forces a request to a protected API route so the browser can re-run Basic Auth challenge, then returns to this page.
+    ///     Navigates to the OIDC login endpoint with the current page as the return URL.
+    /// </summary>
+    private void NavigateToLogin()
+    {
+        string returnUrl = Uri.EscapeDataString(new Uri(Navigation.Uri).PathAndQuery);
+        Navigation.NavigateTo($"/account/login?returnUrl={returnUrl}", forceLoad: true);
+    }
+
+    /// <summary>
+    ///     Forces a request to a protected API route so the browser can re-run the Basic Auth challenge,
+    ///     then returns to this page. Only used in Basic-auth mode.
     /// </summary>
     private async Task RetryCurrentRouteWithFullLoad()
     {

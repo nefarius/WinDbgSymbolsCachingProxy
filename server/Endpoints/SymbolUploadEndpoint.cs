@@ -24,7 +24,9 @@ internal sealed class SymbolUploadEndpoint(DB db, ILogger<SymbolUploadEndpoint> 
         Post("/api/uploads/symbol");
         AllowFileUploads(true);
         Options(x => x.WithTags("Symbols"));
-        Policy(p => p.RequireAuthenticatedUser());
+        // In Basic-auth mode: any authenticated user may upload.
+        // In OIDC mode: caller must carry the symbols.upload permission (Cookie or X-Api-Key).
+        Policies(Core.Permissions.SymbolsUpload);
     }
 
     /// <summary>

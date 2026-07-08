@@ -34,10 +34,17 @@ public sealed class AuthenticationConfig : IEquatable<AuthenticationConfig>
 [UsedImplicitly]
 public sealed class ServerConfig : IEquatable<ServerConfig>
 {
-    /// <summary>
-    ///     Upload server authentication details.
-    /// </summary>
-    public AuthenticationConfig Authentication { get; set; } = new();
+/// <summary>
+///     Upload server authentication details (used in Basic-auth mode).
+///     Ignored when <see cref="ApiKey"/> is set.
+/// </summary>
+public AuthenticationConfig Authentication { get; set; } = new();
+
+/// <summary>
+///     Optional API key for OIDC-secured servers.
+///     When set, sent as the <c>X-Api-Key</c> HTTP header instead of Basic auth credentials.
+/// </summary>
+public string? ApiKey { get; set; }
 
     /// <summary>
     ///     The upload server URL.
