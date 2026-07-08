@@ -1,0 +1,116 @@
+@page "/admin/api-keys"
+@attribute [Authorize(Policy = WinDbgSymbolsCachingProxy.Core.Permissions.Admin)]
+@using WinDbgSymbolsCachingProxy.Models
+
+<PageTitle>Symbols Server — API Keys</PageTitle>
+
+<MudStack Spacing="3">
+    <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudText Typo="Typo.h5">API Keys</MudText>
+        <MudSpacer />
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="OpenCreateDialog">
+            New Key
+        </MudButton>
+    </MudStack>
+
+    <MudText Typo="Typo.body2">
+        API keys are used by non-interactive clients (harvesting agents, WinDbg via <code>?apiKey=…</code> or <code>X-Api-Key</code> header).
+        The plaintext key is shown <strong>exactly once</strong> at creation time.
+    </MudText>
+
+    @if (!string.IsNullOrEmpty(_newKeyPlaintext))
+    {
+        <MudAlert Severity="Severity.Success" Icon="@Icons.Material.Filled.Key">
+            <strong>New key created — copy it now, it will not be shown again:</strong>
+            <br />
+            <code style="word-break:break-all;">@_newKeyPlaintext</code>
+        </MudAlert>
+    }
+
+    @if (_loading)
+    {
+        <MudProgressLinear Indeterminate="true" />
+    }
+    else if (_keys.Count == 0)
+    {
+        <MudText Typo="Typo.body2" Color="Color.Secondary">No API keys configured.</MudText>
+    }
+    else
+    {
+        <MudTable Items="_keys" Hover="true" Dense="true" Breakpoint="Breakpoint.Sm">
+            <HeaderContent>
+                <MudTh>Name</MudTh>
+                <MudTh>Owner</MudTh>
+                <MudTh>Roles</MudTh>
+                <MudTh>Expires</MudTh>
+                <MudTh>Last used</MudTh>
+                <MudTh>Status</MudTh>
+                <MudTh></MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Name"><strong>@context.Name</strong></MudTd>
+                <MudTd DataLabel="Owner">@(context.Owner ?? "-")</MudTd>
+                <MudTd DataLabel="Roles">
+                    @foreach (string r in context.RoleNames)
+                    {
+                        <MudChip T="string" Size="Size.Small" Class="ma-1">@r</MudChip>
+                    }
+                </MudTd>
+                <MudTd DataLabel="Expires">@(context.ExpiresAt?.ToString("u") ?? "Never")</MudTd>
+                <MudTd DataLabel="Last used">@(context.LastUsedAt?.ToString("u") ?? "Never")</MudTd>
+                <MudTd DataLabel="Status">
+                    @if (context.Enabled)
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Success">Active</MudChip>
+                    }
+                    else
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Error">Revoked</MudChip>
+                    }
+                </MudTd>
+                <MudTd>
+                    @if (context.Enabled)
+                    {
+                        <MudIconButton Icon="@Icons.Material.Filled.Block"
+                                       Color="Color.Warning" Size="Size.Small"
+                                       aria-label="Revoke"
+                                       OnClick="() => RevokeKeyAsync(context)" />
+                    }
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                   Color="Color.Error" Size="Size.Small"
+                                   OnClick="() => DeleteKeyAsync(context)" />
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+</MudStack>
+
+@* Create dialog *@
+<MudDialog @bind-Visible="_dialogOpen" Options="_dialogOptions">
+    <TitleContent>
+        <MudText Typo="Typo.h6">Create API Key</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="2">
+            <MudTextField @bind-Value="_newName" Label="Name" Variant="Variant.Outlined"
+                          HelperText="A descriptive label, e.g. HarvestingAgent-prod" />
+            <MudTextField @bind-Value="_newOwner" Label="Owner (optional)" Variant="Variant.Outlined" />
+            <MudTextField @bind-Value="_newExpiryText" Label="Expires (yyyy-MM-dd, blank = never)"
+                          Variant="Variant.Outlined" />
+            <MudText Typo="Typo.subtitle2">Roles</MudText>
+            @foreach (RoleEntity role in _roles)
+            {
+                bool selected = _newRoles.Contains(role.Name);
+                <MudCheckBox Value="selected"
+                             ValueChanged="(bool v) => ToggleNewRole(role.Name, v)"
+                             Label="@role.Name" Color="Color.Primary" />
+            }
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _dialogOpen = false">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateKeyAsync">Create</MudButton>
+    </DialogActions>
+</MudDialog>

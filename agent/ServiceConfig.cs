@@ -35,9 +35,16 @@ public sealed class AuthenticationConfig : IEquatable<AuthenticationConfig>
 public sealed class ServerConfig : IEquatable<ServerConfig>
 {
     /// <summary>
-    ///     Upload server authentication details.
+    ///     Upload server authentication details (used in Basic-auth mode).
+    ///     Ignored when <see cref="ApiKey"/> is set.
     /// </summary>
     public AuthenticationConfig Authentication { get; set; } = new();
+
+    /// <summary>
+    ///     Optional API key for OIDC-secured servers.
+    ///     When set, sent as the <c>X-Api-Key</c> HTTP header instead of Basic auth credentials.
+    /// </summary>
+    public string? ApiKey { get; set; }
 
     /// <summary>
     ///     The upload server URL.
@@ -84,7 +91,8 @@ public sealed class ServerConfig : IEquatable<ServerConfig>
         return other is not null &&
                EqualityComparer<Uri?>.Default.Equals(ServerUrl, other.ServerUrl) &&
                EqualityComparer<AuthenticationConfig>.Default.Equals(Authentication, other.Authentication) &&
-               string.Equals(DisplayName, other.DisplayName, StringComparison.Ordinal);
+               string.Equals(DisplayName, other.DisplayName, StringComparison.Ordinal) &&
+               string.Equals(ApiKey, other.ApiKey, StringComparison.Ordinal);
     }
 
     public override bool Equals(object? obj)
@@ -98,6 +106,7 @@ public sealed class ServerConfig : IEquatable<ServerConfig>
         hash.Add(ServerUrl);
         hash.Add(Authentication);
         hash.Add(DisplayName, StringComparer.Ordinal);
+        hash.Add(ApiKey, StringComparer.Ordinal);
         return hash.ToHashCode();
     }
 }

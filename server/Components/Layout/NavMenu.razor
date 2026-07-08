@@ -1,6 +1,17 @@
+@using WinDbgSymbolsCachingProxy.Core
+
 <MudNavMenu>
     <MudNavLink Href="/status" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.MonitorHeart">Status</MudNavLink>
     <MudNavLink Href="/search" ForceLoad="true" Icon="@Icons.Material.Filled.Search">Search</MudNavLink>
     <MudNavLink Href="/upload" ForceLoad="true" Icon="@Icons.Material.Filled.CloudUpload">Upload</MudNavLink>
     <MudNavLink Href="/logs" ForceLoad="true" Icon="@Icons.Material.Filled.Article">Logs</MudNavLink>
+
+    <AuthorizeView Policy="@Permissions.Admin">
+        <MudNavGroup Title="Administration" Icon="@Icons.Material.Filled.AdminPanelSettings" Expanded="false">
+            <MudNavLink Href="/admin/oidc" Icon="@Icons.Material.Filled.Security">OIDC Settings</MudNavLink>
+            <MudNavLink Href="/admin/users" Icon="@Icons.Material.Filled.People">Users</MudNavLink>
+            <MudNavLink Href="/admin/roles" Icon="@Icons.Material.Filled.ManageAccounts">Roles</MudNavLink>
+            <MudNavLink Href="/admin/api-keys" Icon="@Icons.Material.Filled.Key">API Keys</MudNavLink>
+        </MudNavGroup>
+    </AuthorizeView>
 </MudNavMenu>

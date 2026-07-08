@@ -36,7 +36,9 @@ public sealed class SymbolsDownloadEndpoint(
     public override void Configure()
     {
         Get("/download/symbols/{Symbol}/{SymbolKey}/{FileName}");
-        AllowAnonymous();
+        // Anonymous in Basic-auth mode; requires symbols.download permission in OIDC mode.
+        // Non-interactive clients (WinDbg, CI) must supply an API key via X-Api-Key header or ?apiKey= query param.
+        Policies(Core.Permissions.SymbolsDownload);
         Options(x => x.WithTags("Symbols"));
     }
 

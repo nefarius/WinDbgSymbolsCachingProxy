@@ -2,7 +2,9 @@ using System.Text.RegularExpressions;
 
 using JetBrains.Annotations;
 
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 
@@ -11,6 +13,7 @@ using MongoDB.Entities;
 
 using MudBlazor;
 
+using WinDbgSymbolsCachingProxy.Core;
 using WinDbgSymbolsCachingProxy.Models;
 
 namespace WinDbgSymbolsCachingProxy.Components.Pages;
@@ -27,6 +30,12 @@ public partial class Search
     [Inject]
     private NavigationManager Navigation { get; set; } = null!;
 
+    [Inject]
+    private IAuthorizationService AuthorizationService { get; set; } = null!;
+
+    [Inject]
+    private AuthenticationStateProvider AuthenticationStateProvider { get; set; } = null!;
+
     private MudMenu _contextMenu = null!;
     private SymbolsEntity? _contextRow;
     private MudDataGrid<SymbolsEntity> _dataGrid;
@@ -39,14 +48,21 @@ public partial class Search
     /// <returns>A task that completes when the delete operation and grid refresh have finished.</returns>
     private async Task OnDeleteClick(MouseEventArgs obj)
     {
-        if (_contextRow is not null)
-        {
-            await Db.DeleteAsync<SymbolsEntity>(_contextRow.ID);
+        if (_contextRow is null)
+            return;
 
-            Snackbar.Add($"Deleted {_contextRow.IndexPrefix}", Severity.Success);
+        // Server-side permission re-check: the page is accessible with SymbolsDownload,
+        // so we must verify SymbolsDelete before performing the destructive action.
+        AuthenticationState state = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        AuthorizationResult authResult = await AuthorizationService.AuthorizeAsync(
+            state.User, null, Permissions.SymbolsDelete);
 
-            await _dataGrid.ReloadServerData();
-        }
+        if (!authResult.Succeeded)
+            return;
+
+        await Db.DeleteAsync<SymbolsEntity>(_contextRow.ID);
+        Snackbar.Add($"Deleted {_contextRow.IndexPrefix}", Severity.Success);
+        await _dataGrid.ReloadServerData();
     }
 
     private async Task OpenMenuContent(DataGridRowClickEventArgs<SymbolsEntity> args)

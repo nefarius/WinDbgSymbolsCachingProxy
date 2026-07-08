@@ -8,11 +8,10 @@ using Coravel;
 using FastEndpoints;
 using FastEndpoints.Swagger;
 
-using idunno.Authentication.Basic;
-
-using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components.Authorization;
-using Microsoft.Extensions.Options;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.SymbolStore;
 
 using MongoDB.Bson;
@@ -32,6 +31,7 @@ using Serilog;
 
 using WinDbgSymbolsCachingProxy.Components;
 using WinDbgSymbolsCachingProxy.Core;
+using WinDbgSymbolsCachingProxy.Core.Auth;
 using WinDbgSymbolsCachingProxy.Jobs;
 using WinDbgSymbolsCachingProxy.Logging;
 using WinDbgSymbolsCachingProxy.Models;
@@ -83,6 +83,25 @@ builder.Services.Configure<ServiceConfig>(builder.Configuration.GetSection(nameo
 
 #endregion
 
+#region Database
+
+// Database must be initialized before auth setup so that OidcConfigEntity can be loaded.
+Log.Logger.Information("Initializing database connection");
+
+BsonSerializer.RegisterSerializer(new GuidSerializer(GuidRepresentation.Standard));
+
+DB db = await DB.InitAsync(serviceConfig.DatabaseName,
+    MongoClientSettings.FromConnectionString(serviceConfig.ConnectionString));
+
+builder.Services.AddSingleton(db);
+
+// Load OIDC configuration (single document) from MongoDB.
+OidcConfigEntity? oidcConfigDoc = await db.Find<OidcConfigEntity>().ExecuteFirstAsync();
+OidcConfigProvider oidcConfigProvider = new(oidcConfigDoc);
+builder.Services.AddSingleton(oidcConfigProvider);
+
+#endregion
+
 #region Core Services
 
 builder.Services.AddSingleton<IBadgeFactory, BadgeFactory>();
@@ -97,6 +116,11 @@ builder.Services.AddSingleton<SymbolParsingService>();
 builder.Services.AddSingleton<ICachedSymbolOverviewProvider, CachedSymbolOverviewProvider>();
 builder.Services.AddSingleton<IStatusOpenGraphImageRenderer, StatusOpenGraphImageRenderer>();
 builder.Services.AddSingleton(logBuffer);
+
+// Auth-related services
+builder.Services.AddSingleton<RoleService>();
+builder.Services.AddSingleton<UserService>();
+builder.Services.AddSingleton<ApiKeyService>();
 
 #endregion
 
@@ -157,62 +181,19 @@ builder.Services.AddHttpClient("MicrosoftSymbolServer",
     .AddTransientHttpErrorPolicy(pb =>
         pb.WaitAndRetryAsync(Backoff.DecorrelatedJitterBackoffV2(TimeSpan.FromSeconds(3), 10)));
 
-// adds Basic Auth for protected endpoints
-builder.Services.AddAuthentication(BasicAuthenticationDefaults.AuthenticationScheme)
-    .AddBasic(options =>
-    {
-        options.Realm = "Basic Authentication";
-        // idunno returns 421 (not 401) on HTTP unless this is true — it will not emit WWW-Authenticate over cleartext.
-        // Use only on trusted networks; prefer HTTPS when exposed beyond the LAN.
-        options.AllowInsecureProtocol = true;
-        options.Events = new BasicAuthenticationEvents
-        {
-            OnValidateCredentials = context =>
-            {
-                // valid credentials pulled from appsettings.json
-                ServiceConfig config = context.HttpContext.RequestServices
-                    .GetRequiredService<IOptions<ServiceConfig>>()
-                    .Value;
+#region Authentication & Authorization
 
-                BasicAuthCredentials credential = new() { Username = context.Username, Password = context.Password };
+// Persist Data Protection keys so the cookie auth ticket survives service restarts.
+// On Windows this defaults to a per-user DPAPI key; force file-system persistence for
+// predictable behaviour across accounts (e.g. running as SYSTEM as a Windows Service).
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(AppContext.BaseDirectory, "dp-keys")));
 
-                if (config.BasicAuthCredentials == null ||
-                    !config.BasicAuthCredentials.Contains(credential))
-                {
-                    return Task.CompletedTask;
-                }
-
-                Claim[] claims =
-                [
-                    new Claim(ClaimTypes.NameIdentifier, context.Username, ClaimValueTypes.String,
-                        context.Options.ClaimsIssuer),
-                    new Claim(ClaimTypes.Name, context.Username, ClaimValueTypes.String,
-                        context.Options.ClaimsIssuer)
-                ];
-
-                context.Principal = new ClaimsPrincipal(new ClaimsIdentity(claims, context.Scheme.Name));
-                context.Success();
-
-                return Task.CompletedTask;
-            }
-        };
-    });
-
+// Conditionally registers Basic auth (when OIDC is off) or Cookie+OIDC+ApiKey (when on).
 // Do not use a global fallback RequireAuthenticatedUser: it also applies to Blazor's interactive
 // server endpoints (circuit/negotiate), which cannot all be opted out via MapRazorComponents.
-// FastEndpoints are secure by default unless AllowAnonymous() is called; Blazor uses [Authorize] / [AllowAnonymous] on pages.
-builder.Services.AddAuthorization();
-
-#region Database
-
-Log.Logger.Information("Initializing database connection");
-
-BsonSerializer.RegisterSerializer(new GuidSerializer(GuidRepresentation.Standard));
-
-DB db = await DB.InitAsync(serviceConfig.DatabaseName,
-    MongoClientSettings.FromConnectionString(serviceConfig.ConnectionString));
-
-builder.Services.AddSingleton(db);
+// FastEndpoints are secured via Policy(...) per endpoint; Blazor uses [Authorize] on pages.
+builder.Services.AddAuthSetup(oidcConfigDoc);
 
 #endregion
 
@@ -238,6 +219,36 @@ app.UseSwaggerGen();
 app.UseAuthentication();
 app.UseAuthorization();
 
+// OIDC login/logout minimal-API endpoints.
+// These are registered even in Basic-auth mode (they just return 404 / redirect-to-home harmlessly).
+app.MapGet("/account/login", (HttpContext ctx, string? returnUrl) =>
+{
+    if (!oidcConfigProvider.IsOidcEnabled)
+        return Results.Redirect("/");
+
+    // Reject external URLs to prevent open-redirect attacks.
+    string safeReturn = IsLocalUrl(ctx.Request, returnUrl) ? returnUrl! : "/";
+
+    if (ctx.User.Identity?.IsAuthenticated == true)
+        return Results.Redirect(safeReturn);
+
+    AuthenticationProperties props = new() { RedirectUri = safeReturn };
+    return Results.Challenge(props, [Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectDefaults.AuthenticationScheme]);
+}).AllowAnonymous();
+
+app.MapGet("/account/logout", async (HttpContext ctx) =>
+{
+    if (!oidcConfigProvider.IsOidcEnabled)
+    {
+        ctx.Response.Redirect("/");
+        return;
+    }
+
+    await ctx.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+    await ctx.SignOutAsync(Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectDefaults.AuthenticationScheme,
+        new AuthenticationProperties { RedirectUri = "/" });
+}).AllowAnonymous();
+
 app.UseFastEndpoints();
 app.UseAntiforgery();
 app.MapStaticAssets();
@@ -246,3 +257,23 @@ app.MapRazorComponents<App>()
     .AllowAnonymous();
 
 await app.RunAsync();
+
+// Returns true only when the URL is relative or points to the same host/scheme,
+// preventing open-redirect attacks via a crafted returnUrl query parameter.
+static bool IsLocalUrl(HttpRequest request, string? url)
+{
+    if (string.IsNullOrWhiteSpace(url))
+        return false;
+
+    // Relative path (most common case: "/search", "/upload")
+    if (url.StartsWith('/') && (url.Length == 1 || (url[1] != '/' && url[1] != '\\')))
+        return true;
+
+    // Absolute URL pointing to the same origin
+    if (Uri.TryCreate(url, UriKind.Absolute, out Uri? uri))
+        return string.Equals(uri.Scheme, request.Scheme, StringComparison.OrdinalIgnoreCase) &&
+               string.Equals(uri.Host, request.Host.Host, StringComparison.OrdinalIgnoreCase) &&
+               uri.Port == (request.Host.Port ?? (string.Equals(request.Scheme, "https", StringComparison.OrdinalIgnoreCase) ? 443 : 80));
+
+    return false;
+}

@@ -1,5 +1,5 @@
 @page "/search"
-@attribute [Authorize]
+@attribute [Authorize(Policy = WinDbgSymbolsCachingProxy.Core.Permissions.SymbolsDownload)]
 @using WinDbgSymbolsCachingProxy.Models
 @inject ISnackbar Snackbar
 
@@ -75,9 +75,13 @@
     <MudMenuItem Icon="@Icons.Material.Filled.Download" OnClick="OnDownloadClick" Disabled="@(_contextRow?.NotFoundAt != null)">
         Download
     </MudMenuItem>
-    <MudMenuItem Icon="@Icons.Material.Filled.DeleteForever" OnClick="OnDeleteClick">
-        Delete @_contextRow?.IndexPrefix
-    </MudMenuItem>
+    <AuthorizeView Policy="@WinDbgSymbolsCachingProxy.Core.Permissions.SymbolsDelete">
+        <Authorized>
+            <MudMenuItem Icon="@Icons.Material.Filled.DeleteForever" OnClick="OnDeleteClick">
+                Delete @_contextRow?.IndexPrefix
+            </MudMenuItem>
+        </Authorized>
+    </AuthorizeView>
     @*<MudMenuItem Icon="@Icons.Material.Filled.Info" OnClick="@ShowHiddenInfo">
         View Details for @_contextRow?.HwId
     </MudMenuItem>*@

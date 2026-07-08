@@ -1,17 +1,35 @@
+@inject WinDbgSymbolsCachingProxy.Services.OidcConfigProvider OidcConfig
+@inject NavigationManager Navigation
+
 <CascadingAuthenticationState>
     <Router AppAssembly="typeof(Program).Assembly">
         <Found Context="routeData">
             <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
                 <NotAuthorized>
                     <MudStack Spacing="2">
-                        <MudText Typo="Typo.body1">This page requires sign-in. Retry checks a protected API route to re-trigger the browser credential prompt, then returns you here.</MudText>
-                        <MudButton Variant="Variant.Filled"
-                                   Color="Color.Primary"
-                                   OnClick="RetryCurrentRouteWithFullLoad"
-                                   title="Call protected API to re-check auth and return to this page"
-                                   aria-label="Retry sign-in check">
-                            Retry sign-in check
-                        </MudButton>
+                        @if (OidcConfig.IsOidcEnabled)
+                        {
+                            <MudText Typo="Typo.body1">This page requires sign-in.</MudText>
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       StartIcon="@Icons.Material.Filled.Login"
+                                       OnClick="NavigateToLogin"
+                                       title="Sign in with your identity provider"
+                                       aria-label="Sign in">
+                                Sign in
+                            </MudButton>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.body1">This page requires sign-in. Retry checks a protected API route to re-trigger the browser credential prompt, then returns you here.</MudText>
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       OnClick="RetryCurrentRouteWithFullLoad"
+                                       title="Call protected API to re-check auth and return to this page"
+                                       aria-label="Retry sign-in check">
+                                Retry sign-in check
+                            </MudButton>
+                        }
                     </MudStack>
                 </NotAuthorized>
             </AuthorizeRouteView>

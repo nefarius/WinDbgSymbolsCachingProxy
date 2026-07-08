@@ -1,0 +1,54 @@
+@page "/admin/users"
+@attribute [Authorize(Policy = WinDbgSymbolsCachingProxy.Core.Permissions.Admin)]
+@using WinDbgSymbolsCachingProxy.Models
+
+<PageTitle>Symbols Server — User Management</PageTitle>
+
+<MudStack Spacing="3">
+    <MudText Typo="Typo.h5">User Management</MudText>
+    <MudText Typo="Typo.body2">Users are provisioned automatically on first OIDC login. Assign roles to control their permissions.</MudText>
+
+    @if (_loading)
+    {
+        <MudProgressLinear Indeterminate="true" />
+    }
+    else if (_users.Count == 0)
+    {
+        <MudText Typo="Typo.body2" Color="Color.Secondary">No users yet. Users appear here after their first sign-in.</MudText>
+    }
+    else
+    {
+        <MudTable Items="_users" Hover="true" Dense="true" Breakpoint="Breakpoint.Sm">
+            <HeaderContent>
+                <MudTh>Display name</MudTh>
+                <MudTh>Email</MudTh>
+                <MudTh>Subject</MudTh>
+                <MudTh>Roles</MudTh>
+                <MudTh>Last login</MudTh>
+                <MudTh></MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Display name">@(context.DisplayName ?? "-")</MudTd>
+                <MudTd DataLabel="Email">@(context.Email ?? "-")</MudTd>
+                <MudTd DataLabel="Subject" Style="font-family:monospace;font-size:0.75rem;">@context.Subject</MudTd>
+                <MudTd DataLabel="Roles">
+                    <MudSelect T="string" MultiSelection="true"
+                               SelectedValues="context.RoleNames"
+                               SelectedValuesChanged="vals => OnRolesChanged(context, vals)"
+                               Dense="true" Variant="Variant.Text">
+                        @foreach (RoleEntity role in _roles)
+                        {
+                            <MudSelectItem Value="@role.Name">@role.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudTd>
+                <MudTd DataLabel="Last login">@(context.LastLoginAt?.ToString("u") ?? "-")</MudTd>
+                <MudTd>
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                   Color="Color.Error" Size="Size.Small"
+                                   OnClick="() => DeleteUserAsync(context)" />
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+</MudStack>
