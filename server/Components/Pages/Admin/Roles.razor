@@ -69,7 +69,8 @@
         {
             <MudStack Spacing="2">
                 <MudTextField @bind-Value="_editingRole.Name" Label="Name" Variant="Variant.Outlined"
-                              Disabled="_editingRole.IsSystemRole" />
+                              Disabled="@(!string.IsNullOrEmpty(_editingRole.ID))"
+                              HelperText="@(string.IsNullOrEmpty(_editingRole.ID) ? null : "Role names cannot be changed after creation — users and API keys reference them by name.")" />
                 <MudTextField @bind-Value="_editingRole.Description" Label="Description" Variant="Variant.Outlined" />
                 <MudText Typo="Typo.subtitle2">Permissions</MudText>
                 @foreach (string perm in Permissions.All)

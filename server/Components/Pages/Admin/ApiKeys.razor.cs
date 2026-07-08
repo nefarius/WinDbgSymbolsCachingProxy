@@ -1,3 +1,5 @@
+using System.Globalization;
+
 using JetBrains.Annotations;
 
 using Microsoft.AspNetCore.Components;
@@ -69,9 +71,10 @@ public partial class ApiKeys
         DateTime? expiry = null;
         if (!string.IsNullOrWhiteSpace(_newExpiryText))
         {
-            if (!DateTime.TryParse(_newExpiryText, out DateTime parsed))
+            if (!DateTime.TryParseExact(_newExpiryText, "yyyy-MM-dd",
+                    CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime parsed))
             {
-                Snackbar.Add("Invalid expiry date format.", Severity.Warning);
+                Snackbar.Add("Invalid expiry date format — use yyyy-MM-dd.", Severity.Warning);
                 return;
             }
 

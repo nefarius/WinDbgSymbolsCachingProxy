@@ -208,6 +208,18 @@ internal sealed class StartupService(
         {
             logger.LogDebug(ex, "ApiKeyEntity Enabled index already present; continuing");
         }
+
+        try
+        {
+            await db.Index<RoleEntity>()
+                .Key(r => r.Name, KeyType.Ascending)
+                .Option(o => o.Unique = true)
+                .CreateAsync(ct);
+        }
+        catch (MongoCommandException ex) when (ex.CodeName is "IndexOptionsConflict" or "DuplicateKey" || ex.Code == 85)
+        {
+            logger.LogDebug(ex, "RoleEntity Name index already present or conflicting; continuing");
+        }
     }
 
     private async Task SeedDefaultRolesAsync(CancellationToken ct)
@@ -239,8 +251,17 @@ internal sealed class StartupService(
             Permissions = [.. permissions],
             IsSystemRole = true
         };
-        await db.SaveAsync(role, ct);
-        logger.LogInformation("Seeded default role {Role}", name);
+
+        try
+        {
+            await db.SaveAsync(role, ct);
+            logger.LogInformation("Seeded default role {Role}", name);
+        }
+        catch (MongoWriteException ex) when (ex.WriteError?.Category == ServerErrorCategory.DuplicateKey)
+        {
+            // Another startup instance seeded the same role concurrently — harmless.
+            logger.LogDebug(ex, "Role '{Role}' already exists (concurrent insert); continuing", name);
+        }
     }
 
     /// <summary>

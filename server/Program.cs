@@ -226,13 +226,13 @@ app.MapGet("/account/login", (HttpContext ctx, string? returnUrl) =>
     if (!oidcConfigProvider.IsOidcEnabled)
         return Results.Redirect("/");
 
-    if (ctx.User.Identity?.IsAuthenticated == true)
-        return Results.Redirect(returnUrl ?? "/");
+    // Reject external URLs to prevent open-redirect attacks.
+    string safeReturn = IsLocalUrl(ctx.Request, returnUrl) ? returnUrl! : "/";
 
-    AuthenticationProperties props = new()
-    {
-        RedirectUri = string.IsNullOrWhiteSpace(returnUrl) ? "/" : returnUrl
-    };
+    if (ctx.User.Identity?.IsAuthenticated == true)
+        return Results.Redirect(safeReturn);
+
+    AuthenticationProperties props = new() { RedirectUri = safeReturn };
     return Results.Challenge(props, [Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectDefaults.AuthenticationScheme]);
 }).AllowAnonymous();
 
@@ -257,3 +257,23 @@ app.MapRazorComponents<App>()
     .AllowAnonymous();
 
 await app.RunAsync();
+
+// Returns true only when the URL is relative or points to the same host/scheme,
+// preventing open-redirect attacks via a crafted returnUrl query parameter.
+static bool IsLocalUrl(HttpRequest request, string? url)
+{
+    if (string.IsNullOrWhiteSpace(url))
+        return false;
+
+    // Relative path (most common case: "/search", "/upload")
+    if (url.StartsWith('/') && (url.Length == 1 || (url[1] != '/' && url[1] != '\\')))
+        return true;
+
+    // Absolute URL pointing to the same origin
+    if (Uri.TryCreate(url, UriKind.Absolute, out Uri? uri))
+        return string.Equals(uri.Scheme, request.Scheme, StringComparison.OrdinalIgnoreCase) &&
+               string.Equals(uri.Host, request.Host.Host, StringComparison.OrdinalIgnoreCase) &&
+               uri.Port == (request.Host.Port ?? (string.Equals(request.Scheme, "https", StringComparison.OrdinalIgnoreCase) ? 443 : 80));
+
+    return false;
+}

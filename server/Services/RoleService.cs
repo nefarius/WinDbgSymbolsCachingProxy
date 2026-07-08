@@ -8,7 +8,8 @@ namespace WinDbgSymbolsCachingProxy.Services;
 
 /// <summary>
 ///     CRUD operations for <see cref="RoleEntity"/> records plus permission-resolution helpers.
-///     Resolved permission sets are cached in memory to reduce MongoDB round-trips.
+///     Each role's permission set is cached individually so any single-role change is immediately
+///     evictable and the union for multi-role principals is always computed from fresh per-role data.
 /// </summary>
 public sealed class RoleService(DB db, IMemoryCache cache)
 {
@@ -24,8 +25,10 @@ public sealed class RoleService(DB db, IMemoryCache cache)
         => await db.Find<RoleEntity>().MatchID(id).ExecuteFirstAsync(ct);
 
     /// <summary>
-    ///     Returns the union of all permissions granted by the given role names,
-    ///     with short-lived cache to amortise DB reads across requests.
+    ///     Returns the union of all permissions granted by the given role names.
+    ///     Each role's permission list is cached individually; the union is computed on every call
+    ///     so that changing or deleting any single role takes effect immediately without needing to
+    ///     enumerate every possible combination.
     /// </summary>
     public async Task<List<string>> GetPermissionsForRolesAsync(
         IEnumerable<string> roleNames,
@@ -35,18 +38,11 @@ public sealed class RoleService(DB db, IMemoryCache cache)
         if (names.Length == 0)
             return [];
 
-        string cacheKey = $"role-perms:{string.Join(",", names.OrderBy(n => n))}";
+        List<string> result = [];
+        foreach (string name in names)
+            result.AddRange(await GetPermissionsForRoleAsync(name, ct));
 
-        if (cache.TryGetValue(cacheKey, out List<string>? cached))
-            return cached!;
-
-        List<RoleEntity> roles = await db.Find<RoleEntity>()
-            .Match(r => names.Contains(r.Name))
-            .ExecuteAsync(ct);
-
-        List<string> perms = roles.SelectMany(r => r.Permissions).Distinct().ToList();
-        cache.Set(cacheKey, perms, CacheDuration);
-        return perms;
+        return result.Distinct().ToList();
     }
 
     public async Task SaveAsync(RoleEntity role, CancellationToken ct = default)
@@ -55,14 +51,40 @@ public sealed class RoleService(DB db, IMemoryCache cache)
         InvalidateCacheFor(role.Name);
     }
 
+    /// <summary>
+    ///     Deletes a role by id. Throws <see cref="InvalidOperationException"/> for system roles
+    ///     so that crafted requests cannot bypass the UI-side disabled check.
+    /// </summary>
     public async Task DeleteAsync(string id, CancellationToken ct = default)
-        => await db.DeleteAsync<RoleEntity>(id, ct);
-
-    public void InvalidateCacheFor(string roleName)
     {
-        // The combined key cannot be precisely evicted without a full cache scan;
-        // entries expire naturally within CacheDuration. Force immediate eviction
-        // for the single-role key used by API-key permission lookups.
-        cache.Remove($"role-perms:{roleName}");
+        RoleEntity? role = await GetByIdAsync(id, ct);
+        if (role is null)
+            return;
+
+        if (role.IsSystemRole)
+            throw new InvalidOperationException($"System role '{role.Name}' cannot be deleted.");
+
+        await db.DeleteAsync<RoleEntity>(id, ct);
+        InvalidateCacheFor(role.Name);
+    }
+
+    /// <summary>Evicts the cached permission list for a single named role.</summary>
+    public void InvalidateCacheFor(string roleName)
+        => cache.Remove(CacheKey(roleName));
+
+    // ── private helpers ───────────────────────────────────────────────────────
+
+    private static string CacheKey(string roleName) => $"role-perms:{roleName}";
+
+    private async Task<List<string>> GetPermissionsForRoleAsync(string roleName, CancellationToken ct)
+    {
+        string key = CacheKey(roleName);
+        if (cache.TryGetValue(key, out List<string>? cached))
+            return cached!;
+
+        RoleEntity? role = await GetByNameAsync(roleName, ct);
+        List<string> perms = role?.Permissions ?? [];
+        cache.Set(key, perms, CacheDuration);
+        return perms;
     }
 }

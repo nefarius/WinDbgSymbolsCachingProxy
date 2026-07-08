@@ -38,7 +38,7 @@ public sealed class ApiKeyServiceHashTests
         string key = ApiKeyService.GenerateKey();
         Assert.DoesNotContain("+", key);
         Assert.DoesNotContain("/", key);
-        Assert.True(key.Length > 0);
+        Assert.Equal(43, key.Length); // 32 random bytes → 43 base64url chars (no padding)
     }
 
     [Fact]
