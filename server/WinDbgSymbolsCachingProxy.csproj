@@ -25,7 +25,7 @@
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
         <PackageReference Include="idunno.Authentication.Basic" Version="2.4.0" />
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="9.0.6" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="9.0.17" />
         <PackageReference Include="JetBrains.Annotations" Version="2026.2.0" />
         <PackageReference Include="KaitaiStruct.Runtime.CSharp" Version="0.11.0" />
         <PackageReference Include="Microsoft.Extensions.FileSystemGlobbing" Version="10.0.9" />
