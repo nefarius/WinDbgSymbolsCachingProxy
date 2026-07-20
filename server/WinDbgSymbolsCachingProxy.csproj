@@ -28,7 +28,7 @@
         <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="9.0.17" />
         <PackageReference Include="JetBrains.Annotations" Version="2026.2.0" />
         <PackageReference Include="KaitaiStruct.Runtime.CSharp" Version="0.11.0" />
-        <PackageReference Include="Microsoft.Extensions.FileSystemGlobbing" Version="10.0.9" />
+        <PackageReference Include="Microsoft.Extensions.FileSystemGlobbing" Version="10.0.10" />
         <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.9" />
         <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.9" />
         <PackageReference Include="Microsoft.Extensions.Http.Polly" Version="10.0.8" />
