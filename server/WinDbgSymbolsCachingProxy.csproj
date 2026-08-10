@@ -32,7 +32,7 @@
         <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.10" />
         <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.10" />
         <PackageReference Include="Microsoft.Extensions.Http.Polly" Version="10.0.8" />
-        <PackageReference Include="Microsoft.FileFormats" Version="1.0.737701" />
+        <PackageReference Include="Microsoft.FileFormats" Version="1.0.740901" />
         <PackageReference Include="Microsoft.SymbolStore" Version="1.0.737701" />
         <PackageReference Include="MinVer" Version="7.0.0">
             <PrivateAssets>all</PrivateAssets>
