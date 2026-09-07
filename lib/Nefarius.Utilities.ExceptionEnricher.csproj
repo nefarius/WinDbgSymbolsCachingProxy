@@ -13,7 +13,7 @@
         <PackageReference Include="FastDeepCloner" Version="1.3.6" />
         <PackageReference Include="Microsoft.Diagnostics.Runtime" Version="4.1.741901" />
         <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.5" />
-        <PackageReference Include="MinVer" Version="7.0.0">
+        <PackageReference Include="MinVer" Version="8.0.0">
           <PrivateAssets>all</PrivateAssets>
           <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
