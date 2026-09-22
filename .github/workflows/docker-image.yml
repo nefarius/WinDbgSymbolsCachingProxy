@@ -54,6 +54,7 @@ jobs:
       run: |
         if [ "$GITHUB_REF_TYPE" = "tag" ]; then
           VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${VERSION//+/_}"
           {
             echo "push=true"
             echo "tags<<EOF"
