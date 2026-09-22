@@ -96,7 +96,7 @@ public partial class Upload
                 uploadUrl,
                 valid.Select(file => new SymbolUploadFile(
                     file.Name,
-                    file.OpenReadStream(SymbolUploadConstants.MaxUploadBytesPerFile))),
+                    () => file.OpenReadStream(SymbolUploadConstants.MaxUploadBytesPerFile))),
                 (url, form) => client.PostAsync(url, form));
             IReadOnlyList<string> failures = result.Failures;
 

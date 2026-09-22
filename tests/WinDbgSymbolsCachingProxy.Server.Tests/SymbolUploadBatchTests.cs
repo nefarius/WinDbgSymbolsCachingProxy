@@ -13,17 +13,25 @@ public sealed class SymbolUploadBatchTests
         List<string> requestedNames = [];
         int requestCount = 0;
         string uploadUrl = Upload.BuildUploadUrl("https://symbols.example/", force: true);
+        TaskCompletionSource firstUploadEntered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource releaseFirstUpload = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         byte[] payload = [1, 2, 3];
-        SymbolUploadBatchResult result = await SymbolUploadClient.UploadAsync(
+        Task<SymbolUploadBatchResult> upload = SymbolUploadClient.UploadAsync(
             uploadUrl,
             [
-                new SymbolUploadFile("foo.pdb", new MemoryStream(payload)),
-                new SymbolUploadFile("foo.pdb", new MemoryStream(payload))
+                new SymbolUploadFile("foo.pdb", () => new MemoryStream(payload)),
+                new SymbolUploadFile("foo.pdb", () => new MemoryStream(payload))
             ],
             async (url, form) =>
             {
-                requestCount++;
+                int invocation = Interlocked.Increment(ref requestCount);
+                if (invocation == 1)
+                {
+                    firstUploadEntered.SetResult();
+                    await releaseFirstUpload.Task;
+                }
+
                 Assert.Equal(uploadUrl, url);
                 HttpContent fileContent = Assert.Single(form);
                 ContentDispositionHeaderValue? header = fileContent.Headers.ContentDisposition;
@@ -39,6 +47,11 @@ public sealed class SymbolUploadBatchTests
                     Content = new StringContent("""{"detail":"already exists"}""")
                 };
             });
+
+        await firstUploadEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(1, Volatile.Read(ref requestCount));
+        releaseFirstUpload.SetResult();
+        SymbolUploadBatchResult result = await upload.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.Equal(["foo.pdb", "foo.pdb"], requestedNames);
         Assert.Equal(2, requestCount);

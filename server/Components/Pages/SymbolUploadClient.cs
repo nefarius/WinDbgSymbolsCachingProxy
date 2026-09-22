@@ -2,7 +2,7 @@ using System.Net.Http.Headers;
 
 namespace WinDbgSymbolsCachingProxy.Components.Pages;
 
-internal sealed record SymbolUploadFile(string Name, Stream Content);
+internal sealed record SymbolUploadFile(string Name, Func<Stream> OpenContent);
 
 internal sealed record SymbolUploadBatchResult(IReadOnlyList<string> Failures)
 {
@@ -22,7 +22,7 @@ internal static class SymbolUploadClient
         {
             try
             {
-                using StreamContent content = new(file.Content);
+                using StreamContent content = new(file.OpenContent());
                 content.Headers.ContentType = MediaTypeHeaderValue.Parse("application/octet-stream");
                 using MultipartFormDataContent form = new();
                 form.Add(content, "symbol", file.Name);
@@ -38,10 +38,6 @@ internal static class SymbolUploadClient
             catch (Exception ex)
             {
                 failures.Add($"{file.Name}: {ex.Message}");
-            }
-            finally
-            {
-                await file.Content.DisposeAsync();
             }
         }
 
