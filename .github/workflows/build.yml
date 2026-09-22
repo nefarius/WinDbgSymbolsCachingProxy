@@ -26,6 +26,8 @@ jobs:
 
   build-installer:
     runs-on: windows-latest
+    env:
+      SIGN_RELAY_SERVER: ${{ vars.SIGN_RELAY_SERVER }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -43,10 +45,117 @@ jobs:
           dotnet tool install --global wix --version 5.0.2
           wix extension add -g WixToolset.UI.wixext/5.0.2
 
+      - name: Require signing configuration
+        if: success() && startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          SIGN_RELAY_CI_TOKEN: ${{ secrets.SIGN_RELAY_CI_TOKEN }}
+        run: |
+          if (-not $env:SIGN_RELAY_SERVER) { throw 'Repository variable SIGN_RELAY_SERVER is not set.' }
+          if (-not $env:SIGN_RELAY_CI_TOKEN) { throw 'Repository secret SIGN_RELAY_CI_TOKEN is not set.' }
+
       - name: NUKE BuildInstaller
+        if: ${{ success() && !startsWith(github.ref, 'refs/tags/v') }}
         run: .\build.ps1 BuildInstaller
 
+      - name: Publish release binaries
+        if: success() && startsWith(github.ref, 'refs/tags/v')
+        run: .\build.ps1 PublishLocal
+
+      - name: Assert assemblies are unsigned
+        if: success() && startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $files = @(
+            'publish-x64\server\WinDbgSymbolsCachingProxy.exe'
+            'publish-x64\server\WinDbgSymbolsCachingProxy.dll'
+            'publish-x64\agent\HarvestingAgent.exe'
+            'publish-x64\agent\HarvestingAgent.dll'
+          )
+          foreach ($file in $files) {
+            if (-not (Test-Path -LiteralPath $file)) { throw "File not found: $file" }
+            $sig = Get-AuthenticodeSignature -LiteralPath $file
+            if ($sig.Status -ne 'NotSigned') {
+              throw "Expected unsigned $file but Get-AuthenticodeSignature returned $($sig.Status)."
+            }
+            Write-Output "Unsigned as required: $file"
+          }
+
+      - name: Sign assemblies
+        if: success() && startsWith(github.ref, 'refs/tags/v')
+        uses: nefarius/SignRelay@39ccbe0cef16a383237130380a5aef8db040d5d0
+        with:
+          server: ${{ env.SIGN_RELAY_SERVER }}
+          token: ${{ secrets.SIGN_RELAY_CI_TOKEN }}
+          in-place: true
+          files: |
+            publish-x64/server/WinDbgSymbolsCachingProxy.exe
+            publish-x64/server/WinDbgSymbolsCachingProxy.dll
+            publish-x64/agent/HarvestingAgent.exe
+            publish-x64/agent/HarvestingAgent.dll
+
+      - name: Verify signed assemblies
+        if: success() && startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $files = @(
+            'publish-x64\server\WinDbgSymbolsCachingProxy.exe'
+            'publish-x64\server\WinDbgSymbolsCachingProxy.dll'
+            'publish-x64\agent\HarvestingAgent.exe'
+            'publish-x64\agent\HarvestingAgent.dll'
+          )
+          foreach ($file in $files) {
+            $sig = Get-AuthenticodeSignature -LiteralPath $file
+            if ($sig.Status -ne 'Valid' -or -not $sig.SignerCertificate) {
+              throw "File is not validly signed: $file (Status=$($sig.Status))."
+            }
+            Write-Output "Signed: $file (Subject=$($sig.SignerCertificate.Subject))"
+          }
+
+      # PublishLocal already produced the signed inputs. Running it again would replace those signatures.
+      - name: Build signed MSI
+        if: success() && startsWith(github.ref, 'refs/tags/v')
+        run: .\build.ps1 BuildInstaller --skip PublishLocal
+
+      - name: Assert MSI is unsigned
+        if: success() && startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $file = 'publish-x64\installer\WinDbgSymbolsCachingProxy.msi'
+          if (-not (Test-Path -LiteralPath $file)) { throw "File not found: $file" }
+          $sig = Get-AuthenticodeSignature -LiteralPath $file
+          if ($sig.Status -ne 'NotSigned') {
+            throw "Expected unsigned $file but Get-AuthenticodeSignature returned $($sig.Status)."
+          }
+          Write-Output "Unsigned as required: $file"
+
+      - name: Sign MSI
+        if: success() && startsWith(github.ref, 'refs/tags/v')
+        uses: nefarius/SignRelay@39ccbe0cef16a383237130380a5aef8db040d5d0
+        with:
+          server: ${{ env.SIGN_RELAY_SERVER }}
+          token: ${{ secrets.SIGN_RELAY_CI_TOKEN }}
+          in-place: true
+          skip-tool-install: true
+          files: publish-x64/installer/WinDbgSymbolsCachingProxy.msi
+
+      - name: Verify signed MSI
+        if: success() && startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $file = 'publish-x64\installer\WinDbgSymbolsCachingProxy.msi'
+          $sig = Get-AuthenticodeSignature -LiteralPath $file
+          if ($sig.Status -ne 'Valid' -or -not $sig.SignerCertificate) {
+            throw "File is not validly signed: $file (Status=$($sig.Status))."
+          }
+          Write-Output "Signed: $file (Subject=$($sig.SignerCertificate.Subject))"
+
       - name: Upload MSI artifact
+        if: success() && startsWith(github.ref, 'refs/tags/v')
         id: upload-msi
         uses: actions/upload-artifact@v4
         with:

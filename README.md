@@ -147,7 +147,7 @@ wix extension add -g WixToolset.UI.wixext/5.0.2
 
 Then the Nuke target **`BuildInstaller`** publishes both applications and produces
 `publish-x64\installer\WinDbgSymbolsCachingProxy.msi` (per-machine x64 install, feature tree UI, configurable install
-directory).
+directory). A local build is unsigned.
 
 ```PowerShell
 .\build.ps1 BuildInstaller
@@ -155,7 +155,14 @@ directory).
 
 If you change the legal text in `LICENSE`, update `installer\License.rtf` so the setup UI stays in sync.
 
-GitHub Actions **`build-installer`** uploads the MSI as a workflow artifact on every run; pushes of version tags matching `v*` also POST the artifact to Buildbot when the **`WEBHOOK_URL`** repository secret is set (same pattern as other Nefarius projects).
+GitHub Actions **`build-installer`** validates that installer on pull requests and `master` without uploading the unsigned MSI. A push of a `v*` tag signs the first-party assemblies before packaging:
+
+- `publish-x64\server\WinDbgSymbolsCachingProxy.exe`
+- `publish-x64\server\WinDbgSymbolsCachingProxy.dll`
+- `publish-x64\agent\HarvestingAgent.exe`
+- `publish-x64\agent\HarvestingAgent.dll`
+
+The workflow then builds `publish-x64\installer\WinDbgSymbolsCachingProxy.msi` from those signed files and signs the MSI. It uploads the MSI artifact and POSTs the existing Buildbot payload only after every Authenticode signature verifies. Tag releases require the repository variable **`SIGN_RELAY_SERVER`**, the repository secret **`SIGN_RELAY_CI_TOKEN`**, and the **`WEBHOOK_URL`** secret used by the Buildbot mirror.
 
 <details><summary>Docker build</summary>
 
