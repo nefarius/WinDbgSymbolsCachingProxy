@@ -44,6 +44,9 @@ public partial class Upload
     /// - Honors the component's force flag when invoking the upload endpoint.
     /// - Clears the file selection and resets internal state on successful upload.
     /// </remarks>
+    internal static string BuildUploadUrl(string baseUri, bool force) =>
+        $"{baseUri.TrimEnd('/')}/api/uploads/symbol{(force ? "?force=true" : "")}";
+
     private async Task UploadAsync()
     {
         if (_files is null || _files.Count == 0)
@@ -81,42 +84,25 @@ public partial class Upload
         _uploading = true;
         try
         {
-            using MultipartFormDataContent form = new();
-            foreach (IBrowserFile file in valid)
-            {
-                Stream? stream = null;
-                StreamContent? content = null;
-                try
-                {
-                    stream = file.OpenReadStream(SymbolUploadConstants.MaxUploadBytesPerFile);
-                    content = new StreamContent(stream);
-                    stream = null;
-                    content.Headers.ContentType = MediaTypeHeaderValue.Parse("application/octet-stream");
-                    form.Add(content, "symbol", file.Name);
-                    content = null;
-                }
-                finally
-                {
-                    content?.Dispose();
-                    stream?.Dispose();
-                }
-            }
-
             HttpClient client = HttpClientFactory.CreateClient(SymbolUploadHttpClientName);
             // Must not use HttpClient.BaseAddress + relative "api/..." without a trailing slash on the base:
             // Uri resolution replaces the last segment (e.g. port "5000") and posts to the wrong host/port.
             // Match Search.razor.cs: TrimEnd('/') then join (same as Navigation.ToAbsoluteUri for typical bases).
-            string baseUri = Navigation.BaseUri.TrimEnd('/');
-            string query = _force ? "?force=true" : "";
-            string uploadUrl = $"{baseUri}/api/uploads/symbol{query}";
+            string uploadUrl = BuildUploadUrl(Navigation.BaseUri, _force);
             // Server-side loopback: the browser only sees the Blazor circuit (SignalR); this POST is not a tab Network entry.
-            using HttpResponseMessage response = await client.PostAsync(uploadUrl, form);
+            // Upload one file at a time. Opening every browser stream before the first request completes
+            // lets later streams stall while the server parses/stores the current file, which times out the circuit.
+            SymbolUploadBatchResult result = await SymbolUploadClient.UploadAsync(
+                uploadUrl,
+                valid.Select(file => new SymbolUploadFile(
+                    file.Name,
+                    file.OpenReadStream(SymbolUploadConstants.MaxUploadBytesPerFile))),
+                (url, form) => client.PostAsync(url, form));
+            IReadOnlyList<string> failures = result.Failures;
 
-            string body = await response.Content.ReadAsStringAsync();
-
-            if (response.IsSuccessStatusCode)
+            if (failures.Count == 0)
             {
-                Snackbar.Add(string.IsNullOrWhiteSpace(body) ? "Upload complete." : body.Trim('"'), Severity.Success);
+                Snackbar.Add("Upload complete.", Severity.Success);
                 if (_fileUpload is not null)
                 {
                     await _fileUpload.ClearAsync();
@@ -126,8 +112,7 @@ public partial class Upload
                 return;
             }
 
-            string message = TryParseErrorBody(body);
-            Snackbar.Add(message, Severity.Error);
+            Snackbar.Add(string.Join(Environment.NewLine, failures), Severity.Error);
         }
         catch (Exception ex)
         {
@@ -144,7 +129,7 @@ public partial class Upload
     /// </summary>
     /// <param name="body">Raw response body returned by the server.</param>
     /// <returns>`"Upload failed."` if <paramref name="body"/> is null or whitespace; otherwise a parsed message extracted from JSON `errors` (aggregated), or from `detail`, `message`, or `title` fields in that order; if no recognized JSON fields are present or parsing fails, returns the original <paramref name="body"/>.</returns>
-    private static string TryParseErrorBody(string body)
+    public static string TryParseErrorBody(string body)
     {
         if (string.IsNullOrWhiteSpace(body))
         {
