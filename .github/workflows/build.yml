@@ -28,7 +28,6 @@ jobs:
     runs-on: windows-latest
     env:
       SIGN_RELAY_SERVER: ${{ vars.SIGN_RELAY_SERVER }}
-      SIGN_RELAY_CI_TOKEN: ${{ secrets.SIGN_RELAY_CI_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -49,6 +48,8 @@ jobs:
       - name: Require signing configuration
         if: success() && startsWith(github.ref, 'refs/tags/v')
         shell: pwsh
+        env:
+          SIGN_RELAY_CI_TOKEN: ${{ secrets.SIGN_RELAY_CI_TOKEN }}
         run: |
           if (-not $env:SIGN_RELAY_SERVER) { throw 'Repository variable SIGN_RELAY_SERVER is not set.' }
           if (-not $env:SIGN_RELAY_CI_TOKEN) { throw 'Repository secret SIGN_RELAY_CI_TOKEN is not set.' }
@@ -86,7 +87,7 @@ jobs:
         uses: nefarius/SignRelay@39ccbe0cef16a383237130380a5aef8db040d5d0
         with:
           server: ${{ env.SIGN_RELAY_SERVER }}
-          token: ${{ env.SIGN_RELAY_CI_TOKEN }}
+          token: ${{ secrets.SIGN_RELAY_CI_TOKEN }}
           in-place: true
           files: |
             publish-x64/server/WinDbgSymbolsCachingProxy.exe
@@ -136,7 +137,7 @@ jobs:
         uses: nefarius/SignRelay@39ccbe0cef16a383237130380a5aef8db040d5d0
         with:
           server: ${{ env.SIGN_RELAY_SERVER }}
-          token: ${{ env.SIGN_RELAY_CI_TOKEN }}
+          token: ${{ secrets.SIGN_RELAY_CI_TOKEN }}
           in-place: true
           skip-tool-install: true
           files: publish-x64/installer/WinDbgSymbolsCachingProxy.msi
