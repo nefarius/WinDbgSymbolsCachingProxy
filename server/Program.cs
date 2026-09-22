@@ -140,7 +140,11 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<AuthenticationStateProvider, HttpContextAuthenticationStateProvider>();
 builder.Services.AddTransient<ForwardAuthorizationHttpMessageHandler>();
-builder.Services.AddHttpClient("SymbolUploadApi")
+builder.Services.AddHttpClient("SymbolUploadApi", client =>
+    {
+        // Large symbols can take longer than HttpClient's default 100-second timeout to transfer and process.
+        client.Timeout = TimeSpan.FromMinutes(30);
+    })
     .AddHttpMessageHandler<ForwardAuthorizationHttpMessageHandler>();
 
 builder.Services.AddMudServices();
