@@ -3,6 +3,7 @@ name: Docker Image CI
 on:
   push:
     branches: [ "master" ]
+    tags: [ "v*" ]
     paths-ignore:
       - 'lib/**'
       - 'agent/**'
@@ -41,13 +42,40 @@ jobs:
         echo "version=$VERSION" >> "$GITHUB_OUTPUT"
         echo "Using MINVERVERSIONOVERRIDE=$VERSION"
 
+    - name: Log in to Docker Hub
+      if: github.ref_type == 'tag'
+      uses: docker/login-action@v3
+      with:
+        username: containinger
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Set image publish tags
+      id: image
+      run: |
+        if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${VERSION//+/_}"
+          {
+            echo "push=true"
+            echo "tags<<EOF"
+            echo "containinger/wdscp:latest"
+            echo "containinger/wdscp:${VERSION}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+        else
+          {
+            echo "push=false"
+            echo "tags=wdscp:${GITHUB_SHA}"
+          } >> "$GITHUB_OUTPUT"
+        fi
+
     - name: Build the Docker image
       uses: docker/build-push-action@v6
       with:
         context: .
         file: Dockerfile
-        push: false
-        tags: wdscp:${{ github.sha }}
+        push: ${{ steps.image.outputs.push == 'true' }}
+        tags: ${{ steps.image.outputs.tags }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
         build-args: |
