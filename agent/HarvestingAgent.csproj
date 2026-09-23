@@ -42,6 +42,10 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\shared\WinDbgSymbolsCachingProxy.UpdateCheck\WinDbgSymbolsCachingProxy.UpdateCheck.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
       <None Remove="logs\**" />
     </ItemGroup>
 

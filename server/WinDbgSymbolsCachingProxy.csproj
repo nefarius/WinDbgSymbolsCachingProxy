@@ -65,4 +65,8 @@
         <InternalsVisibleTo Include="WinDbgSymbolsCachingProxy.Server.Tests" />
     </ItemGroup>
 
+    <ItemGroup>
+        <ProjectReference Include="..\shared\WinDbgSymbolsCachingProxy.UpdateCheck\WinDbgSymbolsCachingProxy.UpdateCheck.csproj" />
+    </ItemGroup>
+
 </Project>

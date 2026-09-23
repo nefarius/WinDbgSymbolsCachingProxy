@@ -1,4 +1,6 @@
 @inherits LayoutComponentBase
+@inject LatestMsiVersionChecker VersionChecker
+@inject IJSRuntime Js
 
 <MudThemeProvider Theme="@_theme" IsDarkMode="_isDarkMode" />
 <MudPopoverProvider />
@@ -9,7 +11,19 @@
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@DrawerToggle" />
         <MudText Typo="Typo.h5" Class="ml-3">Symbol Harvesting Agent</MudText>
         <MudSpacer />
-        <MudIconButton Icon="@DarkLightModeButtonIcon" Color="Color.Inherit" OnClick="@DarkModeToggle" />
+        @if (_versionStatus?.HasLocalVersion == true)
+        {
+            <MudTooltip Text="@_versionStatus.Tooltip">
+                <MudChip T="string"
+                         Size="Size.Small"
+                         Color="@(_versionStatus.UpdateAvailable ? Color.Warning : Color.Default)"
+                         Variant="Variant.Outlined"
+                         Class="mr-2"
+                         Style="@VersionChipStyle"
+                         OnClick="@OpenLatestDownloadAsync">@_versionStatus.ChipLabel</MudChip>
+            </MudTooltip>
+        }
+        <MudIconButton Icon="@DarkLightModeButtonIcon" Color="Color.Inherit" Edge="Edge.End" OnClick="@DarkModeToggle" />
     </MudAppBar>
     <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
         <NavMenu />
@@ -28,10 +42,13 @@
 @code {
     private bool _drawerOpen = true;
     private bool _isDarkMode = true;
+    private bool _versionCheckStarted;
     private MudTheme? _theme;
+    private VersionCheckStatus? _versionStatus;
 
     protected override void OnInitialized()
     {
+        _versionStatus = VersionChecker.GetLocalStatus();
         _theme = new MudTheme
         {
             PaletteLight = _lightPalette,
@@ -48,6 +65,33 @@
     private void DarkModeToggle()
     {
         _isDarkMode = !_isDarkMode;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _versionCheckStarted)
+            return;
+
+        _versionCheckStarted = true;
+        try
+        {
+            _versionStatus = await VersionChecker.GetStatusAsync();
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception)
+        {
+            // The local version chip remains visible when the latest-version lookup fails.
+        }
+    }
+
+    private string? VersionChipStyle => _versionStatus?.UpdateAvailable == true ? "cursor: pointer;" : null;
+
+    private async Task OpenLatestDownloadAsync()
+    {
+        if (_versionStatus?.DownloadUri is not Uri downloadUri)
+            return;
+
+        await Js.InvokeVoidAsync("open", downloadUri.ToString(), "_blank");
     }
 
     private readonly PaletteLight _lightPalette = new()

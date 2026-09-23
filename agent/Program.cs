@@ -4,6 +4,8 @@ using HarvestingAgent;
 using HarvestingAgent.Components;
 using HarvestingAgent.Logging;
 
+using WinDbgSymbolsCachingProxy.UpdateCheck;
+
 using MudBlazor.Services;
 
 using Polly;
@@ -49,6 +51,8 @@ builder.Services.AddHostedService<HarvestingHostedService>();
 builder.Services.AddHttpClient("Server")
     .AddTransientHttpErrorPolicy(pb =>
         pb.WaitAndRetryAsync(Backoff.DecorrelatedJitterBackoffV2(TimeSpan.FromSeconds(1), 5)));
+builder.Services.AddSingleton<ILocalAssemblyVersionSource, AgentAssemblyVersionSource>();
+builder.Services.AddLatestMsiVersionCheck();
 
 builder.Services.AddMudServices();
 builder.Services.AddRazorComponents()
