@@ -15,9 +15,11 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 COPY nuget.config .
 COPY server/WinDbgSymbolsCachingProxy.csproj server/
+COPY shared/WinDbgSymbolsCachingProxy.UpdateCheck/WinDbgSymbolsCachingProxy.UpdateCheck.csproj shared/WinDbgSymbolsCachingProxy.UpdateCheck/
 RUN --mount=type=cache,target=/root/.nuget/packages \
     dotnet restore "server/WinDbgSymbolsCachingProxy.csproj"
 COPY server/ ./server/
+COPY shared/WinDbgSymbolsCachingProxy.UpdateCheck/ ./shared/WinDbgSymbolsCachingProxy.UpdateCheck/
 # docker build <git-url> omits .git from the context; a local clone includes it. MinVer reads /src/.git when present.
 COPY . /tmp/buildctx/
 RUN if [ -d /tmp/buildctx/.git ]; then cp -a /tmp/buildctx/.git /src/.git; fi \

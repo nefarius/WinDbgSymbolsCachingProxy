@@ -31,6 +31,7 @@ using Serilog;
 
 using WinDbgSymbolsCachingProxy.Components;
 using WinDbgSymbolsCachingProxy.Core;
+using WinDbgSymbolsCachingProxy.UpdateCheck;
 using WinDbgSymbolsCachingProxy.Core.Auth;
 using WinDbgSymbolsCachingProxy.Jobs;
 using WinDbgSymbolsCachingProxy.Logging;
@@ -146,6 +147,8 @@ builder.Services.AddHttpClient("SymbolUploadApi", client =>
         client.Timeout = TimeSpan.FromMinutes(30);
     })
     .AddHttpMessageHandler<ForwardAuthorizationHttpMessageHandler>();
+builder.Services.AddSingleton<ILocalAssemblyVersionSource, ServerAssemblyVersionSource>();
+builder.Services.AddLatestMsiVersionCheck();
 
 builder.Services.AddMudServices();
 builder.Services.AddRazorComponents()
