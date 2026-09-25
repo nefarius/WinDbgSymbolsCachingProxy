@@ -1,6 +1,5 @@
 @inherits LayoutComponentBase
 @inject LatestMsiVersionChecker VersionChecker
-@inject IJSRuntime Js
 
 <MudThemeProvider Theme="@_theme" IsDarkMode="_isDarkMode" />
 <MudPopoverProvider />
@@ -19,8 +18,8 @@
                          Color="@(_versionStatus.UpdateAvailable ? Color.Warning : Color.Default)"
                          Variant="Variant.Outlined"
                          Class="mr-2"
-                         Style="@VersionChipStyle"
-                         OnClick="@OpenLatestDownloadAsync">@_versionStatus.ChipLabel</MudChip>
+                         Href="@_versionStatus.DownloadUri?.ToString()"
+                         Target="@(_versionStatus.DownloadUri is null ? null : "_blank")">@_versionStatus.ChipLabel</MudChip>
             </MudTooltip>
         }
         <MudIconButton Icon="@DarkLightModeButtonIcon" Color="Color.Inherit" Edge="Edge.End" OnClick="@DarkModeToggle" />
@@ -82,16 +81,6 @@
         {
             // The local version chip remains visible when the latest-version lookup fails.
         }
-    }
-
-    private string? VersionChipStyle => _versionStatus?.UpdateAvailable == true ? "cursor: pointer;" : null;
-
-    private async Task OpenLatestDownloadAsync()
-    {
-        if (_versionStatus?.DownloadUri is not Uri downloadUri)
-            return;
-
-        await Js.InvokeVoidAsync("open", downloadUri.ToString(), "_blank");
     }
 
     private readonly PaletteLight _lightPalette = new()
