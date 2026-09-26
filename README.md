@@ -61,6 +61,33 @@ I'll never sell your data out to the big bois 😉
 If you like this idea and want to keep my public instance happy and running,
 [consider making a donation](https://docs.nefarius.at/Community-Support/) 💸
 
+## Troubleshooting WinDbg Basic-auth prompts
+
+Symbol download is **anonymous in Basic-auth mode**. A Windows credential dialog usually means the client hit a
+**protected** route, used the wrong symbol URL, or a reverse proxy added auth in front of the app.
+
+1. **Use the download prefix, not the site root.** WinDbg must point at `/download/symbols`:
+
+    ```text
+    .sympath cache*D:\symbols;srv*https://symbols.nefarius.at/download/symbols
+    ```
+
+    `https://symbols.nefarius.at/` is the status dashboard. Requests that miss `/download/symbols/{Symbol}/{SymbolKey}/{FileName}` never reach the anonymous download endpoint.
+
+2. **Only these HTTP APIs require Basic auth** (when OIDC is off): `GET /auth-challenge` (browser sign-in probe) and
+   `POST /api/uploads/symbol` (upload API / harvesting agent). Search, Upload, and Logs in the web UI also expect
+   credentials. Successful cached-symbol lines in the same window as challenge logs are usually **different**
+   requests.
+
+3. **Correlate challenges in the application log.** A Basic 401 now emits a warning with method, path, endpoint name,
+   remote IP, user agent, trace ID, and whether an `Authorization` header was *present*. Rejected credentials produce a
+   separate warning (`usernamePresent=true`) with **no** username, password, or header value. The framework line
+   `AuthenticationScheme: Basic was challenged.` still has no path; use the new warning next to it.
+
+4. **Reverse-proxy challenges never appear here.** If Traefik/nginx/IIS issues `WWW-Authenticate` before the request
+   reaches Kestrel, this process cannot log the path. Check the proxy access log. App-generated challenges use realm
+   `Basic Authentication`.
+
 ## Features
 
 - Caching! Pretty much the main purpose 😁

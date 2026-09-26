@@ -86,6 +86,7 @@ internal static class AuthSetupExtensions
                         if (config.BasicAuthCredentials == null ||
                             !config.BasicAuthCredentials.Contains(credential))
                         {
+                            LogRejectedCredentials(context);
                             return Task.CompletedTask;
                         }
 
@@ -107,6 +108,30 @@ internal static class AuthSetupExtensions
                     }
                 };
             });
+    }
+
+    /// <summary>
+    ///     Logs that supplied Basic credentials were rejected, without recording username or password.
+    /// </summary>
+    private static void LogRejectedCredentials(ValidateCredentialsContext context)
+    {
+        ILogger logger = context.HttpContext.RequestServices
+            .GetRequiredService<ILoggerFactory>()
+            .CreateLogger("WinDbgSymbolsCachingProxy.Core.Auth.BasicAuth");
+
+        BasicAuthChallengeInfo info = BasicAuthChallengeDiagnostics.Capture(
+            context.HttpContext,
+            usernamePresent: !string.IsNullOrEmpty(context.Username));
+
+        logger.LogWarning(
+            BasicAuthChallengeDiagnostics.RejectionMessageTemplate,
+            info.Method,
+            info.Path,
+            info.UsernamePresent,
+            info.AuthorizationHeaderPresent,
+            info.RemoteIp,
+            info.UserAgent,
+            info.TraceId);
     }
 
     // ── OIDC + Cookie + ApiKey ───────────────────────────────────────────────

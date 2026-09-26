@@ -31,6 +31,7 @@ using Serilog;
 
 using WinDbgSymbolsCachingProxy.Components;
 using WinDbgSymbolsCachingProxy.Core;
+using WinDbgSymbolsCachingProxy.Endpoints;
 using WinDbgSymbolsCachingProxy.UpdateCheck;
 using WinDbgSymbolsCachingProxy.Core.Auth;
 using WinDbgSymbolsCachingProxy.Jobs;
@@ -223,6 +224,9 @@ app.UseMiddleware<CustomExceptionHandlerMiddleware>();
 
 app.UseSwaggerGen();
 
+// Observe completed responses so Basic 401 challenges include path/method context.
+app.UseMiddleware<BasicAuthChallengeDiagnosticsMiddleware>();
+
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -256,7 +260,23 @@ app.MapGet("/account/logout", async (HttpContext ctx) =>
         new AuthenticationProperties { RedirectUri = "/" });
 }).AllowAnonymous();
 
-app.UseFastEndpoints();
+app.UseFastEndpoints(c =>
+{
+    // FastEndpoints adds a generated policy that always RequireAuthenticatedUser() when
+    // Policies() is set and AllowAnonymous() is not. That would prompt WinDbg for Basic
+    // auth on /download/symbols even though PermissionAuthorizationHandler allows
+    // anonymous downloads in Basic-auth mode. Keep the generated policy in OIDC mode.
+    if (!oidcConfigProvider.IsOidcEnabled)
+    {
+        c.Endpoints.Configurator = ep =>
+        {
+            if (ep.EndpointType == typeof(SymbolsDownloadEndpoint))
+            {
+                ep.AllowAnonymous();
+            }
+        };
+    }
+});
 app.UseAntiforgery();
 app.MapStaticAssets();
 app.MapRazorComponents<App>()

@@ -55,8 +55,12 @@ dotnet run --project server/WinDbgSymbolsCachingProxy.csproj
 
 When no OIDC configuration exists in MongoDB (or `Enabled` is `false`), the server behaves exactly as before:
 
-- Symbol download is **anonymous**.
+- Symbol download is **anonymous** (`AllowAnonymous` is applied at startup so FastEndpoints does not also require a
+  logged-in user). WinDbg should use `/download/symbols/…`; see the repository README troubleshooting section.
 - Upload and admin Blazor pages require HTTP Basic auth via `ServiceConfig.BasicAuthCredentials`.
+- A 401 with `WWW-Authenticate: Basic` is logged as a warning with method, path, and client context (never the
+  Authorization value). Rejected credentials log a separate warning without username or password. Challenges issued
+  only by a reverse proxy do not appear in these logs.
 
 ### OIDC mode
 
