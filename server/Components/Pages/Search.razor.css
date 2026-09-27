@@ -50,7 +50,7 @@
     min-width: 0;
 }
 
-.search-file-cell .search-ellipsis-text {
+.search-file-cell ::deep .search-file-tooltip {
     flex: 1;
     min-width: 0;
 }

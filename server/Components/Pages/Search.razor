@@ -43,7 +43,7 @@
                             InitialDirection="SortDirection.Ascending" CellClass="search-ellipsis">
                 <CellTemplate>
                     <div class="search-file-cell">
-                        <MudTooltip Text="@context.Item.FileName">
+                        <MudTooltip Text="@context.Item.FileName" RootClass="search-file-tooltip">
                             <span class="search-ellipsis-text">@context.Item.FileName</span>
                         </MudTooltip>
                         @if (context.Item.AlternateRequestSymbols is { Count: > 0 } aliases)
