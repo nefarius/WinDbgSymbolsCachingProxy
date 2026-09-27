@@ -22,4 +22,84 @@
 /* Enforce column widths so they don't jump when sorting changes content */
 .search-grid-container ::deep table.mud-table {
     table-layout: fixed;
+    width: 100%;
+}
+
+.search-grid-container ::deep .search-status-select {
+    width: 10rem;
+    margin-right: 0.75rem;
+}
+
+.search-grid-container ::deep .search-ellipsis {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 0;
+}
+
+.search-ellipsis-text {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.search-file-cell {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+
+.search-file-cell ::deep .search-file-tooltip {
+    flex: 1;
+    min-width: 0;
+}
+
+.search-grid-container ::deep .search-alias-chip {
+    flex-shrink: 0;
+}
+
+.search-mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.8125rem;
+}
+
+.search-grid-container ::deep .search-numeric {
+    text-align: right;
+}
+
+.search-detail {
+    padding: 1rem 1.25rem 1.25rem;
+}
+
+.search-detail-grid {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 0.4rem 1.25rem;
+    align-items: center;
+    margin: 0;
+}
+
+.search-detail-label {
+    margin: 0;
+    color: var(--mud-palette-text-secondary);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.search-detail-value {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    min-width: 0;
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.search-alias-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    min-width: 0;
 }

@@ -14,58 +14,241 @@
         <ToolBarContent>
             <MudText Typo="Typo.h6">Stored Symbols</MudText>
             <MudSpacer/>
-            <MudTextField T="string" Value="_searchString" ValueChanged="OnSearch" Placeholder="Search (filters server-side)"
+            <MudSelect T="SymbolStatusFilter" Value="_statusFilter" ValueChanged="OnStatusFilterChanged"
+                       Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined"
+                       Label="Status" Class="search-status-select mt-0">
+                <MudSelectItem Value="@SymbolStatusFilter.All">All</MudSelectItem>
+                <MudSelectItem Value="@SymbolStatusFilter.Cached">Cached</MudSelectItem>
+                <MudSelectItem Value="@SymbolStatusFilter.Custom">Custom</MudSelectItem>
+                <MudSelectItem Value="@SymbolStatusFilter.NotFound">Not found</MudSelectItem>
+            </MudSelect>
+            <MudTextField T="string" Value="_searchString" ValueChanged="OnSearch"
+                          Placeholder="Search (filters server-side)"
                           Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
-                          IconSize="Size.Medium" Class="mt-0" Immediate="true"/>
+                          IconSize="Size.Medium" Class="mt-0" Immediate="true" DebounceInterval="300"/>
             <MudIconButton Icon="@Icons.Material.Filled.Refresh" OnClick="OnRefreshClick" title="Refresh data" aria-label="Refresh data" Class="mt-0"/>
         </ToolBarContent>
         <ColGroup>
-            <col style="width: 12%;"/>
-            <col style="width: 12%;"/>
-            <col style="width: 14%;"/>
-            <col style="width: 12%;"/>
-            <col style="width: 10%;"/>
-            <col style="width: 8%;"/>
-            <col style="width: 8%;"/>
-            <col style="width: 8%;"/>
-            <col style="width: 8%;"/>
-            <col style="width: 4%;"/>
-            <col style="width: 4%;"/>
+            <col style="width: 3rem;"/>
+            <col/>
+            <col/>
+            <col style="width: 8rem;"/>
+            <col style="width: 10rem;"/>
+            <col style="width: 10rem;"/>
+            <col style="width: 7rem;"/>
         </ColGroup>
         <Columns>
-            <PropertyColumn Property="x => x.FileName" Title="Filename" Sortable="true" InitialDirection="SortDirection.Ascending" CellStyle="overflow: hidden; text-overflow: ellipsis; max-width: 0; white-space: nowrap;"/>
-            <TemplateColumn Title="Aliases" Sortable="false" CellStyle="overflow: hidden; text-overflow: ellipsis; max-width: 0; white-space: nowrap;">
+            <HierarchyColumn T="SymbolsEntity"/>
+            <PropertyColumn Property="x => x.FileName" Title="File name" Sortable="true"
+                            InitialDirection="SortDirection.Ascending" CellClass="search-ellipsis">
                 <CellTemplate>
-                    @if (context.Item.AlternateRequestSymbols is { Count: > 0 } aliases)
+                    <div class="search-file-cell">
+                        <MudTooltip Text="@context.Item.FileName" RootClass="search-file-tooltip">
+                            <span class="search-ellipsis-text">@context.Item.FileName</span>
+                        </MudTooltip>
+                        @if (context.Item.AlternateRequestSymbols is { Count: > 0 } aliases)
+                        {
+                            <MudTooltip Text="@string.Join(", ", aliases)">
+                                <MudChip T="string" Size="Size.Small" Class="ml-1 search-alias-chip">+@aliases.Count</MudChip>
+                            </MudTooltip>
+                        }
+                    </div>
+                </CellTemplate>
+            </PropertyColumn>
+            <PropertyColumn Property="x => x.SymbolKey" Title="Symbol key" Sortable="true" CellClass="search-ellipsis">
+                <CellTemplate>
+                    <MudTooltip Text="@context.Item.SymbolKey">
+                        <span class="search-ellipsis-text search-mono">@context.Item.SymbolKey</span>
+                    </MudTooltip>
+                </CellTemplate>
+            </PropertyColumn>
+            <TemplateColumn Title="Status" Sortable="false">
+                <CellTemplate>
+                    @if (context.Item.NotFoundAt.HasValue)
                     {
-                        <span title="@string.Join(", ", aliases)">@string.Join(", ", aliases)</span>
+                        <MudTooltip Text="@FormatTimestamp(context.Item.NotFoundAt)">
+                            <MudChip T="string" Color="Color.Warning" Size="Size.Small">Not found</MudChip>
+                        </MudTooltip>
+                    }
+                    else if (context.Item.IsCustom)
+                    {
+                        <MudChip T="string" Color="Color.Success" Size="Size.Small">Custom</MudChip>
                     }
                     else
                     {
-                        <span class="mud-text-secondary">—</span>
+                        <MudChip T="string" Color="Color.Default" Size="Size.Small">Cached</MudChip>
                     }
                 </CellTemplate>
             </TemplateColumn>
-            <PropertyColumn Property="x => x.SymbolKey" Title="Symbol key" Sortable="true" CellStyle="overflow: hidden; text-overflow: ellipsis; max-width: 0; white-space: nowrap;"/>
-            <PropertyColumn Property="x => x.IndexPrefix" Title="Index prefix" Sortable="true" CellStyle="overflow: hidden; text-overflow: ellipsis; max-width: 0; white-space: nowrap;"/>
-            <PropertyColumn Property="x => x.UpstreamFileName" Title="Upstream filename" Sortable="true" CellStyle="overflow: hidden; text-overflow: ellipsis; max-width: 0; white-space: nowrap;"/>
-            <PropertyColumn Property="x => x.CreatedAt" Title="Creation timestamp" Sortable="true"/>
-            <PropertyColumn Property="x => x.UploadedAt" Title="Upload timestamp" Sortable="true"/>
-            <PropertyColumn Property="x => x.NotFoundAt" Title="Not found timestamp" Sortable="true"/>
-            <PropertyColumn Property="x => x.IsCustom" Title="Is custom" Sortable="true">
+            <PropertyColumn Property="x => x.CreatedAt" Title="Created" Sortable="true">
                 <CellTemplate>
-                    @if (context.Item.IsCustom)
+                    @if (context.Item.CreatedAt is { } created)
                     {
-                        <MudChip Color="Color.Success" Size="Size.Small">Yes</MudChip>
-                    }
-                    else
-                    {
-                        <MudChip Color="Color.Dark" Size="Size.Small">No</MudChip>
+                        <MudTooltip Text="@FormatTimestamp(created)">
+                            <span>@created.ToString(CompactTimestampFormat)</span>
+                        </MudTooltip>
                     }
                 </CellTemplate>
             </PropertyColumn>
-            <PropertyColumn Property="x => x.AccessedCount" Title="Download count" Sortable="true"/>
+            <PropertyColumn Property="x => x.LastAccessedAt" Title="Last accessed" Sortable="true">
+                <CellTemplate>
+                    @if (context.Item.LastAccessedAt is { } accessed)
+                    {
+                        <MudTooltip Text="@FormatTimestamp(accessed)">
+                            <span>@accessed.ToString(CompactTimestampFormat)</span>
+                        </MudTooltip>
+                    }
+                </CellTemplate>
+            </PropertyColumn>
+            <PropertyColumn Property="x => x.AccessedCount" Title="Downloads" Sortable="true" CellClass="search-numeric">
+                <CellTemplate>
+                    @(context.Item.AccessedCount ?? 0)
+                </CellTemplate>
+            </PropertyColumn>
         </Columns>
+        <ChildRowContent>
+            <div class="search-detail">
+                <MudStack Row="true" Spacing="2" Class="mb-3">
+                    <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.Download"
+                               Disabled="@(context.Item.NotFoundAt != null)"
+                               OnClick="() => DownloadAsync(context.Item)">
+                        Download
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.ContentCopy"
+                               Disabled="@(context.Item.NotFoundAt != null)"
+                               OnClick="() => CopyDownloadLinkAsync(context.Item)">
+                        Copy full download link
+                    </MudButton>
+                </MudStack>
+                <dl class="search-detail-grid">
+                    @if (!string.IsNullOrEmpty(context.Item.IndexPrefix))
+                    {
+                        <dt class="search-detail-label">Index prefix</dt>
+                        <dd class="search-detail-value">
+                            <span class="search-mono">@context.Item.IndexPrefix</span>
+                            <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Size="Size.Small"
+                                           title="Copy index prefix" aria-label="Copy index prefix"
+                                           OnClick="() => CopyFieldAsync(context.Item.IndexPrefix)"/>
+                        </dd>
+                    }
+                    @if (!string.IsNullOrEmpty(context.Item.SymbolKey))
+                    {
+                        <dt class="search-detail-label">Symbol key</dt>
+                        <dd class="search-detail-value">
+                            <span class="search-mono">@context.Item.SymbolKey</span>
+                            <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Size="Size.Small"
+                                           title="Copy symbol key" aria-label="Copy symbol key"
+                                           OnClick="() => CopyFieldAsync(context.Item.SymbolKey)"/>
+                        </dd>
+                    }
+                    @if (!string.IsNullOrEmpty(context.Item.FileName))
+                    {
+                        <dt class="search-detail-label">File name</dt>
+                        <dd class="search-detail-value">
+                            <span class="search-mono">@context.Item.FileName</span>
+                            <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Size="Size.Small"
+                                           title="Copy file name" aria-label="Copy file name"
+                                           OnClick="() => CopyFieldAsync(context.Item.FileName)"/>
+                        </dd>
+                    }
+                    @if (context.Item.AlternateRequestSymbols is { Count: > 0 } aliases)
+                    {
+                        <dt class="search-detail-label">Aliases</dt>
+                        <dd class="search-detail-value">
+                            <span class="search-alias-list">
+                                @foreach (string alias in aliases)
+                                {
+                                    <MudChip T="string" Size="Size.Small">@alias</MudChip>
+                                }
+                            </span>
+                            <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Size="Size.Small"
+                                           title="Copy aliases" aria-label="Copy aliases"
+                                           OnClick="() => CopyAliasesAsync(aliases)"/>
+                        </dd>
+                    }
+                    @if (!string.IsNullOrEmpty(context.Item.UpstreamFileName))
+                    {
+                        <dt class="search-detail-label">Upstream filename</dt>
+                        <dd class="search-detail-value">
+                            <span class="search-mono">@context.Item.UpstreamFileName</span>
+                            <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Size="Size.Small"
+                                           title="Copy upstream filename" aria-label="Copy upstream filename"
+                                           OnClick="() => CopyFieldAsync(context.Item.UpstreamFileName)"/>
+                        </dd>
+                    }
+                    @if (context.Item.Signature is { } signature)
+                    {
+                        <dt class="search-detail-label">Signature</dt>
+                        <dd class="search-detail-value">
+                            <span class="search-mono">@signature</span>
+                            <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Size="Size.Small"
+                                           title="Copy signature" aria-label="Copy signature"
+                                           OnClick="() => CopyFieldAsync(signature.ToString())"/>
+                        </dd>
+                    }
+                    @if (context.Item.Age is { } age)
+                    {
+                        <dt class="search-detail-label">Age</dt>
+                        <dd class="search-detail-value">
+                            <span class="search-mono">@age</span>
+                            <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Size="Size.Small"
+                                           title="Copy age" aria-label="Copy age"
+                                           OnClick="() => CopyFieldAsync(age.ToString())"/>
+                        </dd>
+                    }
+                    @if (context.Item.NewSignature is { } newSignature)
+                    {
+                        <dt class="search-detail-label">New signature</dt>
+                        <dd class="search-detail-value">
+                            <span class="search-mono">@newSignature</span>
+                            <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Size="Size.Small"
+                                           title="Copy new signature" aria-label="Copy new signature"
+                                           OnClick="() => CopyFieldAsync(newSignature.ToString())"/>
+                        </dd>
+                    }
+                    @if (FormatTimestamp(context.Item.CreatedAt) is { } created)
+                    {
+                        <dt class="search-detail-label">Created</dt>
+                        <dd class="search-detail-value">
+                            <span class="search-mono">@created</span>
+                            <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Size="Size.Small"
+                                           title="Copy created" aria-label="Copy created"
+                                           OnClick="() => CopyFieldAsync(created)"/>
+                        </dd>
+                    }
+                    @if (FormatTimestamp(context.Item.UploadedAt) is { } uploaded)
+                    {
+                        <dt class="search-detail-label">Uploaded</dt>
+                        <dd class="search-detail-value">
+                            <span class="search-mono">@uploaded</span>
+                            <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Size="Size.Small"
+                                           title="Copy uploaded" aria-label="Copy uploaded"
+                                           OnClick="() => CopyFieldAsync(uploaded)"/>
+                        </dd>
+                    }
+                    @if (FormatTimestamp(context.Item.NotFoundAt) is { } notFound)
+                    {
+                        <dt class="search-detail-label">Not found</dt>
+                        <dd class="search-detail-value">
+                            <span class="search-mono">@notFound</span>
+                            <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Size="Size.Small"
+                                           title="Copy not found" aria-label="Copy not found"
+                                           OnClick="() => CopyFieldAsync(notFound)"/>
+                        </dd>
+                    }
+                    @if (FormatTimestamp(context.Item.LastAccessedAt) is { } lastAccessed)
+                    {
+                        <dt class="search-detail-label">Last accessed</dt>
+                        <dd class="search-detail-value">
+                            <span class="search-mono">@lastAccessed</span>
+                            <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Size="Size.Small"
+                                           title="Copy last accessed" aria-label="Copy last accessed"
+                                           OnClick="() => CopyFieldAsync(lastAccessed)"/>
+                        </dd>
+                    }
+                </dl>
+            </div>
+        </ChildRowContent>
         <PagerContent>
             <MudDataGridPager T="SymbolsEntity" showrowsperpage="true" rowsperpagestring="Rows per page:"/>
         </PagerContent>
@@ -75,6 +258,9 @@
     <MudMenuItem Icon="@Icons.Material.Filled.Download" OnClick="OnDownloadClick" Disabled="@(_contextRow?.NotFoundAt != null)">
         Download
     </MudMenuItem>
+    <MudMenuItem Icon="@Icons.Material.Filled.ContentCopy" OnClick="OnCopyDownloadLinkClick" Disabled="@(_contextRow?.NotFoundAt != null)">
+        Copy full download link
+    </MudMenuItem>
     <AuthorizeView Policy="@WinDbgSymbolsCachingProxy.Core.Permissions.SymbolsDelete">
         <Authorized>
             <MudMenuItem Icon="@Icons.Material.Filled.DeleteForever" OnClick="OnDeleteClick">
@@ -82,7 +268,4 @@
             </MudMenuItem>
         </Authorized>
     </AuthorizeView>
-    @*<MudMenuItem Icon="@Icons.Material.Filled.Info" OnClick="@ShowHiddenInfo">
-        View Details for @_contextRow?.HwId
-    </MudMenuItem>*@
 </MudMenu>
