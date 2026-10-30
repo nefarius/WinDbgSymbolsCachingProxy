@@ -24,7 +24,11 @@ jobs:
       - name: Build
         run: dotnet build -c Release
 
+      - name: Test
+        run: dotnet test -c Release --no-build --verbosity normal
+
   build-installer:
+    needs: build
     runs-on: windows-latest
     env:
       SIGN_RELAY_SERVER: ${{ vars.SIGN_RELAY_SERVER }}

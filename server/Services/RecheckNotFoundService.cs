@@ -73,7 +73,39 @@ public sealed class RecheckNotFoundService(
             MaxDegreeOfParallelism = Convert.ToInt32(Math.Ceiling(Environment.ProcessorCount * 0.75 * 1.0))
         };
 
+        DateTime now = DateTime.UtcNow;
+        // Honor the configured recheck period instead of hitting upstream for every placeholder daily.
+        notFoundSymbols = notFoundSymbols
+            .Where(s => (s.LastCheckedAt ?? s.NotFoundAt ?? DateTime.MinValue) + options.Value.UpstreamRecheckPeriod <= now)
+            .ToList();
+
         await Parallel.ForEachAsync(notFoundSymbols, opts, async (symbol, innerToken) =>
+        {
+            try
+            {
+                await RecheckOneAsync(symbol, shadowIndex, shadowRemoved, innerToken);
+            }
+            catch (OperationCanceledException) when (innerToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "RecheckNotFound failed for {Symbol}; continuing with remaining symbols", symbol);
+            }
+        });
+
+        logger.LogInformation(
+            "RecheckNotFound finished: removed {ShadowRemoved} placeholders as alias-shadowed without upstream fetch",
+            shadowRemoved.Count);
+    }
+
+    private async Task RecheckOneAsync(
+        SymbolsEntity symbol,
+        HashSet<(string SymbolKey, string Alias)> shadowIndex,
+        ConcurrentBag<int> shadowRemoved,
+        CancellationToken innerToken)
+    {
         {
             if (SymbolAliasLookupService.TryParseSymbolFromIndexPrefix(symbol.IndexPrefix, out string symbolSeg) &&
                 !string.IsNullOrEmpty(symbol.SymbolKey))
@@ -90,17 +122,20 @@ public sealed class RecheckNotFoundService(
                 }
             }
 
-            using HttpClient client = clientFactory.CreateClient("MicrosoftSymbolServer");
+            HttpClient client = clientFactory.CreateClient("MicrosoftSymbolServer");
 
-            using HttpResponseMessage response =
-                await client.GetAsync($"download/symbols/{symbol.RelativeUri}", innerToken);
+            using HttpResponseMessage response = await client.GetAsync(
+                $"download/symbols/{symbol.RelativeUri}", HttpCompletionOption.ResponseHeadersRead, innerToken);
 
-            if (response is { IsSuccessStatusCode: false, StatusCode: HttpStatusCode.NotFound })
+            if (response is { IsSuccessStatusCode: false, StatusCode: HttpStatusCode.NotFound or HttpStatusCode.Gone })
             {
                 logger.LogInformation("Requested symbol {Symbol} not found upstream", symbol);
 
-                symbol.NotFoundAt = DateTime.UtcNow;
-                await db.SaveAsync(symbol, cancellation: innerToken);
+                // NotFoundAt intentionally stays untouched so cleanup can measure how long the symbol has been missing.
+                await db.Update<SymbolsEntity>()
+                    .MatchID(symbol.ID)
+                    .Modify(b => b.Set(e => e.LastCheckedAt, DateTime.UtcNow))
+                    .ExecuteAsync(innerToken);
                 return;
             }
 
@@ -137,15 +172,16 @@ public sealed class RecheckNotFoundService(
 
             await symbol.Data(db).UploadAsync(upstreamContent, cancellation: innerToken);
             symbol.NotFoundAt = null;
+            symbol.LastCheckedAt = null;
+            symbol.UpstreamFileName = upstreamFilename;
             await db.SaveAsync(symbol, cancellation: innerToken);
+
+            // drop the cached 404 so clients see the symbol right away
+            memoryCache.Remove(symbol.RelativeUri);
 
             logger.LogInformation("Symbol {Symbol} ({Filename}) cached",
                 symbol, upstreamFilename);
-        });
-
-        logger.LogInformation(
-            "RecheckNotFound finished: removed {ShadowRemoved} placeholders as alias-shadowed without upstream fetch",
-            shadowRemoved.Count);
+        }
     }
 
     /// <summary>

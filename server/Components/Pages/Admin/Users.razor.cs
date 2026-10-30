@@ -22,17 +22,24 @@ public partial class Users
 
     protected override async Task OnInitializedAsync()
     {
-        _users = await UserService.GetAllAsync();
-        _roles = await RoleService.GetAllAsync();
+        try
+        {
+            _users = await UserService.GetAllAsync();
+            _roles = await RoleService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to load users: {ex.Message}", Severity.Error);
+        }
+
         _loading = false;
     }
 
     private async Task OnRolesChanged(UserEntity user, IEnumerable<string> newRoles)
     {
-        user.RoleNames = newRoles.ToList();
         try
         {
-            await UserService.SaveAsync(user);
+            await UserService.SetRolesAsync(user, newRoles.ToList());
             Snackbar.Add($"Roles updated for {user.DisplayName ?? user.Subject}.", Severity.Success);
         }
         catch (Exception ex)

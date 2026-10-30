@@ -99,6 +99,24 @@ builder.Services.AddSingleton(db);
 
 // Load OIDC configuration (single document) from MongoDB.
 OidcConfigEntity? oidcConfigDoc = await db.Find<OidcConfigEntity>().ExecuteFirstAsync();
+
+// An incomplete OIDC configuration would lock everyone out; fall back to Basic auth instead.
+if (oidcConfigDoc is { Enabled: true } &&
+    (!Uri.TryCreate(oidcConfigDoc.Authority, UriKind.Absolute, out _) ||
+     string.IsNullOrWhiteSpace(oidcConfigDoc.ClientId)))
+{
+    Log.Logger.Error(
+        "OIDC is enabled but Authority or ClientId is missing/invalid; falling back to Basic authentication");
+    oidcConfigDoc = null;
+}
+
+if (oidcConfigDoc is not { Enabled: true } &&
+    serviceConfig.BasicAuthCredentials?.Any(c => c is { Username: "admin", Password: "admin" }) == true)
+{
+    Log.Logger.Warning(
+        "Default Basic-auth credentials admin/admin are active; change them in appsettings before exposing this service");
+}
+
 OidcConfigProvider oidcConfigProvider = new(oidcConfigDoc);
 builder.Services.AddSingleton(oidcConfigProvider);
 
@@ -292,15 +310,13 @@ static bool IsLocalUrl(HttpRequest request, string? url)
     if (string.IsNullOrWhiteSpace(url))
         return false;
 
+    // Browsers strip tabs/newlines, so "/\t/evil.com" would become "//evil.com"; reject control characters.
+    if (url.Any(char.IsControl))
+        return false;
+
     // Relative path (most common case: "/search", "/upload")
     if (url.StartsWith('/') && (url.Length == 1 || (url[1] != '/' && url[1] != '\\')))
         return true;
-
-    // Absolute URL pointing to the same origin
-    if (Uri.TryCreate(url, UriKind.Absolute, out Uri? uri))
-        return string.Equals(uri.Scheme, request.Scheme, StringComparison.OrdinalIgnoreCase) &&
-               string.Equals(uri.Host, request.Host.Host, StringComparison.OrdinalIgnoreCase) &&
-               uri.Port == (request.Host.Port ?? (string.Equals(request.Scheme, "https", StringComparison.OrdinalIgnoreCase) ? 443 : 80));
 
     return false;
 }

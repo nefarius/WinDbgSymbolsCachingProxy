@@ -64,6 +64,12 @@ public class SymbolsEntity : FileEntity<SymbolsEntity>
     public DateTime? NotFoundAt { get; set; }
 
     /// <summary>
+    ///     The last time the recheck job confirmed the symbol is still missing upstream. Kept separate from
+    ///     <see cref="NotFoundAt" /> so cleanup can still tell how long a symbol has been unavailable.
+    /// </summary>
+    public DateTime? LastCheckedAt { get; set; }
+
+    /// <summary>
     ///     The file name that the upstream server originally returned. This will most likely differ since most symbol path
     ///     requests upstream will end in a redirect.
     /// </summary>

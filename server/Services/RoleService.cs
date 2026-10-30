@@ -84,7 +84,12 @@ public sealed class RoleService(DB db, IMemoryCache cache)
 
         RoleEntity? role = await GetByNameAsync(roleName, ct);
         List<string> perms = role?.Permissions ?? [];
-        cache.Set(key, perms, CacheDuration);
+        // The shared cache has a SizeLimit, so every entry must declare a Size.
+        cache.Set(key, perms, new MemoryCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = CacheDuration,
+            Size = 1
+        });
         return perms;
     }
 }

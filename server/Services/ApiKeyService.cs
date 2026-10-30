@@ -69,7 +69,11 @@ public sealed class ApiKeyService(DB db, RoleService roleService)
             return null;
 
         entity.LastUsedAt = DateTime.UtcNow;
-        await db.SaveAsync(entity, ct);
+        // Partial update, matching only still-enabled keys, so a concurrent revoke is never reverted.
+        await db.Update<ApiKeyEntity>()
+            .Match(k => k.ID == entity.ID && k.Enabled)
+            .Modify(b => b.Set(k => k.LastUsedAt, entity.LastUsedAt))
+            .ExecuteAsync(ct);
         return entity;
     }
 
@@ -83,10 +87,10 @@ public sealed class ApiKeyService(DB db, RoleService roleService)
 
     public async Task RevokeAsync(string id, CancellationToken ct = default)
     {
-        ApiKeyEntity? key = await db.Find<ApiKeyEntity>().MatchID(id).ExecuteFirstAsync(ct);
-        if (key is null) return;
-        key.Enabled = false;
-        await db.SaveAsync(key, ct);
+        await db.Update<ApiKeyEntity>()
+            .MatchID(id)
+            .Modify(b => b.Set(k => k.Enabled, false))
+            .ExecuteAsync(ct);
     }
 
     public async Task DeleteAsync(string id, CancellationToken ct = default)

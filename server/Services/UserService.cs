@@ -22,6 +22,17 @@ public sealed class UserService(DB db, RoleService roleService)
         string? email,
         string? displayName,
         CancellationToken ct = default)
+        => (await GetOrCreateWithStatusAsync(subject, email, displayName, ct)).User;
+
+    /// <summary>
+    ///     Same as <see cref="GetOrCreateAsync"/> but also reports whether the user record was just created.
+    ///     Existing users are updated with partial updates so concurrent role edits are never overwritten.
+    /// </summary>
+    public async Task<(UserEntity User, bool Created)> GetOrCreateWithStatusAsync(
+        string subject,
+        string? email,
+        string? displayName,
+        CancellationToken ct = default)
     {
         UserEntity? user = await FindBySubjectAsync(subject, ct);
 
@@ -30,8 +41,14 @@ public sealed class UserService(DB db, RoleService roleService)
             user.LastLoginAt = DateTime.UtcNow;
             if (email is not null) user.Email = email;
             if (displayName is not null) user.DisplayName = displayName;
-            await db.SaveAsync(user, ct);
-            return user;
+
+            Update<UserEntity> update = db.Update<UserEntity>()
+                .MatchID(user.ID)
+                .Modify(b => b.Set(u => u.LastLoginAt, user.LastLoginAt));
+            if (email is not null) update = update.Modify(b => b.Set(u => u.Email, email));
+            if (displayName is not null) update = update.Modify(b => b.Set(u => u.DisplayName, displayName));
+            await update.ExecuteAsync(ct);
+            return (user, false);
         }
 
         user = new UserEntity
@@ -44,7 +61,32 @@ public sealed class UserService(DB db, RoleService roleService)
             LastLoginAt = DateTime.UtcNow
         };
         await db.SaveAsync(user, ct);
-        return user;
+        return (user, true);
+    }
+
+    /// <summary>Replaces only the role list of a user (partial update).</summary>
+    public async Task SetRolesAsync(UserEntity user, List<string> roleNames, CancellationToken ct = default)
+    {
+        await db.Update<UserEntity>()
+            .MatchID(user.ID)
+            .Modify(b => b.Set(u => u.RoleNames, roleNames))
+            .ExecuteAsync(ct);
+        user.RoleNames = roleNames;
+    }
+
+    /// <summary>Returns whether any user currently holds the Admin role.</summary>
+    public async Task<bool> AnyAdminAsync(CancellationToken ct = default)
+        => (await db.Find<UserEntity>().Match(u => u.RoleNames.Contains("Admin")).ExecuteAnyAsync(ct));
+
+    /// <summary>Atomically adds a role to a user without rewriting the whole document.</summary>
+    public async Task AddRoleAsync(UserEntity user, string roleName, CancellationToken ct = default)
+    {
+        await db.Update<UserEntity>()
+            .MatchID(user.ID)
+            .Modify(b => b.AddToSet(u => u.RoleNames, roleName))
+            .ExecuteAsync(ct);
+        if (!user.RoleNames.Contains(roleName))
+            user.RoleNames.Add(roleName);
     }
 
     public async Task<List<string>> GetEffectivePermissionsAsync(string subject, CancellationToken ct = default)

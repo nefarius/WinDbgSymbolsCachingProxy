@@ -23,6 +23,7 @@ public partial class OidcSettings
     private string _bootstrapText = "";
     private bool _loading = true;
     private bool _saving;
+    private string? _existingSecret;
     private string _currentModeName = "Basic auth";
 
     protected override async Task OnInitializedAsync()
@@ -33,6 +34,9 @@ public partial class OidcSettings
         if (existing is not null)
         {
             _model = existing;
+            // The secret is write-only: never render it back to the browser.
+            _existingSecret = existing.ClientSecret;
+            _model.ClientSecret = "";
         }
 
         _scopesText = string.Join(" ", _model.Scopes);
@@ -53,7 +57,30 @@ public partial class OidcSettings
                 .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 .ToList();
 
+            if (string.IsNullOrEmpty(_model.ClientSecret))
+            {
+                _model.ClientSecret = _existingSecret;
+            }
+
+            if (_model.Enabled)
+            {
+                if (!Uri.TryCreate(_model.Authority, UriKind.Absolute, out Uri? authority)
+                    || authority.Scheme is not ("https" or "http"))
+                {
+                    Snackbar.Add("Authority must be an absolute http(s) URL; refusing to enable OIDC.", Severity.Error);
+                    return;
+                }
+
+                if (string.IsNullOrWhiteSpace(_model.ClientId))
+                {
+                    Snackbar.Add("Client ID is required; refusing to enable OIDC.", Severity.Error);
+                    return;
+                }
+            }
+
             await Db.SaveAsync(_model);
+            _existingSecret = _model.ClientSecret;
+            _model.ClientSecret = "";
             Snackbar.Add("Settings saved. Restart the service to apply.", Severity.Success);
         }
         catch (Exception ex)
