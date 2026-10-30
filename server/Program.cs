@@ -220,8 +220,16 @@ builder.Services.AddHttpClient("MicrosoftSymbolServer",
 // Persist Data Protection keys so the cookie auth ticket survives service restarts.
 // On Windows this defaults to a per-user DPAPI key; force file-system persistence for
 // predictable behaviour across accounts (e.g. running as SYSTEM as a Windows Service).
-builder.Services.AddDataProtection()
-    .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(AppContext.BaseDirectory, "dp-keys")));
+DirectoryInfo dataProtectionKeys = DataProtectionSetup.ResolveKeysDirectory(serviceConfig.DataProtectionKeysPath);
+IDataProtectionBuilder dataProtection = builder.Services.AddDataProtection()
+    .SetApplicationName("WinDbgSymbolsCachingProxy")
+    .PersistKeysToFileSystem(dataProtectionKeys);
+
+if (OperatingSystem.IsWindows())
+{
+    // Encrypt keys at rest so reading the key directory is not enough to forge auth cookies.
+    dataProtection.ProtectKeysWithDpapi(protectToLocalMachine: true);
+}
 
 // Conditionally registers Basic auth (when OIDC is off) or Cookie+OIDC+ApiKey (when on).
 // Do not use a global fallback RequireAuthenticatedUser: it also applies to Blazor's interactive

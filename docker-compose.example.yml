@@ -1,17 +1,22 @@
-﻿version: "2.4"
-
 services:
   wdscp-app:
     image: nefarius.azurecr.io/wdscp:latest
     container_name: wdscp-app
     restart: unless-stopped
     depends_on:
-      - wdscp-db
+      wdscp-db:
+        condition: service_healthy
     volumes:
       - ./data/logs:/app/logs
-      - ./data/keys:/root/.aspnet
+      # ASP.NET Core Data Protection keys (keeps users logged in across container re-creation)
+      - ./data/keys:/data/keys
     environment:
       - TZ=Europe/Vienna
+      # The image listens on 8080 (ASPNETCORE_HTTP_PORTS); there is no baked-in appsettings.Production.json.
+      - ServiceConfig__ConnectionString=mongodb://wdscp-db:27017/
+      # Replace the default Basic-auth credentials before exposing the service:
+      # - ServiceConfig__BasicAuthCredentials__0__Username=changeme
+      # - ServiceConfig__BasicAuthCredentials__0__Password=changeme
     networks:
       - database
       - web
@@ -21,14 +26,14 @@ services:
       - traefik.http.routers.wdscp-app.entrypoints=web-secure
       - traefik.http.routers.wdscp-app.tls=true
       - traefik.http.routers.wdscp-app.tls.certresolver=le
-      - traefik.http.services.wdscp-app.loadbalancer.server.port=80
+      - traefik.http.services.wdscp-app.loadbalancer.server.port=8080
     logging:
       options:
         max-size: "10m"
         max-file: "3"
 
   wdscp-db:
-    image: mongo:5
+    image: mongo:8
     container_name: wdscp-db
     restart: unless-stopped
     volumes:
@@ -36,6 +41,12 @@ services:
       - ./data/mongo/config:/data/configdb
     environment:
       - TZ=Europe/Vienna
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     networks:
       - database
     labels:
@@ -50,12 +61,14 @@ services:
     container_name: wdscp-db-ui
     restart: unless-stopped
     depends_on:
-      - wdscp-db
+      wdscp-db:
+        condition: service_healthy
     environment:
       - TZ=Europe/Vienna
       - ME_CONFIG_MONGODB_URL=mongodb://wdscp-db:27017/
-      - ME_CONFIG_SITE_COOKIESECRET=1111
-      - ME_CONFIG_SITE_SESSIONSECRET=1111
+      # Generate your own random secrets; do not reuse these placeholders.
+      - ME_CONFIG_SITE_COOKIESECRET=change-me-cookie-secret
+      - ME_CONFIG_SITE_SESSIONSECRET=change-me-session-secret
     networks:
       - database
     ports:

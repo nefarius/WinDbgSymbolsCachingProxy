@@ -19,6 +19,19 @@ static class Program
 
     const string Manufacturer = "Nefarius Software Solutions";
 
+    /// <summary>
+    ///     Both services run as LocalService instead of LocalSystem. Settings, keys and logs live under
+    ///     %ProgramData%; the agent needs read (and, for delete-after-upload, modify) access to watched folders.
+    /// </summary>
+    const string LowPrivilegeServiceAccount = @"NT AUTHORITY\LocalService";
+
+    static Dir LogsDir() => new Dir("logs", new DirPermission
+    {
+        User = "LocalService",
+        Domain = "NT AUTHORITY",
+        GenericAll = true,
+    });
+
     static bool IncludeInPublishedFile(string path)
     {
         string leaf = Path.GetFileName(path);
@@ -72,6 +85,7 @@ static class Program
                         DisplayName = "WinDbg Symbols Caching Proxy",
                         Description =
                             "Web UI, REST API, and symbol store for the WinDbg Symbols Caching Proxy.",
+                        Account = LowPrivilegeServiceAccount,
                         Start = SvcStartType.auto,
                         StartOn = SvcEvent.Install,
                         StopOn = SvcEvent.InstallUninstall_Wait,
@@ -92,6 +106,7 @@ static class Program
                         DisplayName = AgentWindowsServiceName,
                         Description =
                             "Watches configured directories and uploads debug symbols to a WinDbg Symbols Caching Proxy server.",
+                        Account = LowPrivilegeServiceAccount,
                         Start = SvcStartType.auto,
                         StartOn = SvcEvent.Install,
                         StopOn = SvcEvent.InstallUninstall_Wait,
@@ -104,8 +119,8 @@ static class Program
                 "WinDbg Symbols Caching Proxy",
                 new Dir(
                     @"%ProgramFiles64Folder%\Nefarius Software Solutions\WinDbg Symbols Caching Proxy",
-                    new Dir("Server", serverFiles),
-                    new Dir("Agent", agentFiles)))
+                    new Dir("Server", serverFiles, LogsDir()),
+                    new Dir("Agent", agentFiles, LogsDir())))
             {
                 GUID = new Guid("a4f8b2c1-3d5e-4a7b-8c9d-0e1f2a3b4c5d"),
                 UpgradeCode = new Guid("e7a3c8f2-1b4d-4c9e-9f6a-0d2e8b5c7a91"),
@@ -115,7 +130,9 @@ static class Program
                 LicenceFile = licensePath,
                 Version = ReadProductVersion(options.ServerPublishDir),
                 OutDir = options.OutputDir,
-                OutFileName = "WinDbgSymbolsCachingProxy"
+                OutFileName = "WinDbgSymbolsCachingProxy",
+                // Replace older versions in place instead of installing side by side.
+                MajorUpgrade = MajorUpgrade.Default,
             };
 
             project.ControlPanelInfo.Manufacturer = Manufacturer;
@@ -139,11 +156,14 @@ static class Program
     {
         string exePath = Path.Combine(serverPublishDir, "WinDbgSymbolsCachingProxy.exe");
         if (!System.IO.File.Exists(exePath))
-            return new Version(1, 0, 0);
+            throw new FileNotFoundException($"Cannot determine product version, file not found: {exePath}");
 
         var info = FileVersionInfo.GetVersionInfo(exePath);
         string? raw = info.ProductVersion ?? info.FileVersion;
-        return TryParseVersion(raw, out Version? v) ? v : new Version(1, 0, 0);
+        // Fail instead of silently falling back to 1.0.0, which would break upgrades.
+        return TryParseVersion(raw, out Version? v)
+            ? v
+            : throw new InvalidOperationException($"Cannot parse product version from '{raw}' ({exePath}).");
     }
 
     static bool TryParseVersion(string? raw, [NotNullWhen(true)] out Version? version)
@@ -237,7 +257,7 @@ static class Program
         static void PrintHelp()
         {
             Console.WriteLine("""
-                WinDbg Symbols Caching Proxy — MSI builder (WixSharp / WiX 4)
+                WinDbg Symbols Caching Proxy — MSI builder (WixSharp / WiX 5)
 
                 Options:
                   --server, -s <dir>   Published server output (default: ./publish-x64/server)

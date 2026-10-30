@@ -5,17 +5,21 @@ on:
     tags:
       - v*
 
+permissions:
+  contents: read
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
           submodules: true
 
       - name: Setup .Net SDK
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
 
@@ -26,6 +30,6 @@ jobs:
         run: dotnet pack -c Release ./lib/Nefarius.Utilities.ExceptionEnricher.csproj
 
       - name: Publish To Nuget
-        run: dotnet nuget push ./lib/bin/*.nupkg -k $NUGET_AUTH_TOKEN -s https://api.nuget.org/v3/index.json
+        run: dotnet nuget push ./lib/bin/*.nupkg -k $NUGET_AUTH_TOKEN -s https://api.nuget.org/v3/index.json --skip-duplicate
         env:
           NUGET_AUTH_TOKEN: ${{ secrets.NUGET_API_KEY }}

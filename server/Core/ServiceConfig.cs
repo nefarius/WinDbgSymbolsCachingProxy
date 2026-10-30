@@ -39,6 +39,13 @@ public sealed class ServiceConfig
     public long MemoryCacheSizeLimit { get; set; } = 512 * 1024 * 1024;
 
     /// <summary>
+    ///     Directory where ASP.NET Core Data Protection keys (cookie/antiforgery protection) are persisted.
+    ///     Defaults to <c>%ProgramData%\WinDbgSymbolsCachingProxy\Server\dp-keys</c> on Windows and
+    ///     <c>dp-keys</c> next to the application elsewhere. Containers should point this at a mounted volume.
+    /// </summary>
+    public string? DataProtectionKeysPath { get; set; }
+
+    /// <summary>
     ///     Option list of Basic Auth credentials for protected endpoints.
     /// </summary>
     public List<BasicAuthCredentials>? BasicAuthCredentials { get; set; }
