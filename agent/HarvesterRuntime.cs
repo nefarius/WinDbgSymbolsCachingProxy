@@ -84,6 +84,29 @@ public sealed class HarvesterRuntime : IDisposable
     /// </summary>
     private static readonly TimeSpan FileEventDebounceInterval = TimeSpan.FromSeconds(1);
 
+    /// <summary>
+    ///     Dedicated folder for upload snapshots so leftovers from crashes can be identified and removed safely.
+    /// </summary>
+    private static readonly string SnapshotDirectory =
+        Path.Combine(Path.GetTempPath(), "WinDbgSymbolsHarvester");
+
+    /// <summary>
+    ///     Maximum number of files being waited on, snapshotted and uploaded at the same time.
+    /// </summary>
+    private const int MaxConcurrentFileProcessing = 4;
+
+    /// <summary>
+    ///     Large buffer so bursts of build output do not overflow the watcher (default is 8 KB; the maximum is 64 KB).
+    /// </summary>
+    private const int WatcherInternalBufferSize = 64 * 1024;
+
+    private readonly SemaphoreSlim _processingSlots = new(MaxConcurrentFileProcessing, MaxConcurrentFileProcessing);
+
+    /// <summary>
+    ///     Last file version that was uploaded successfully to all servers, per path; identical re-notifications are skipped.
+    /// </summary>
+    private readonly Dictionary<string, SymbolFileVersion> _uploadedVersions = new(StringComparer.OrdinalIgnoreCase);
+
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<HarvesterRuntime> _logger;
     private readonly AgentSettingsStore _store;
@@ -110,6 +133,72 @@ public sealed class HarvesterRuntime : IDisposable
         _health = health;
         _lifetime = lifetime;
         _maps = new Dictionary<FileSystemWatcher, WatcherBinding>();
+        CleanupStaleSnapshots();
+    }
+
+    /// <summary>
+    ///     Removes snapshot files left behind by a previous process that crashed or was killed mid-upload.
+    /// </summary>
+    private void CleanupStaleSnapshots()
+    {
+        try
+        {
+            if (!Directory.Exists(SnapshotDirectory))
+            {
+                return;
+            }
+
+            foreach (string file in Directory.EnumerateFiles(SnapshotDirectory, "harvester-*"))
+            {
+                try
+                {
+                    File.Delete(file);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    _logger.LogDebug(ex, "Could not delete stale snapshot {Path}", file);
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogDebug(ex, "Could not enumerate stale snapshots in {Directory}", SnapshotDirectory);
+        }
+    }
+
+    private static bool IsUploadErrorSidecar(string fileName)
+    {
+        return fileName.Contains(".upload-error", StringComparison.OrdinalIgnoreCase) &&
+               fileName.EndsWith(".txt", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void WatcherOnError(object sender, ErrorEventArgs e)
+    {
+        Exception ex = e.GetException();
+        _logger.LogError(ex, "File system watcher error (events may have been lost); rebuilding watchers");
+        _health.RecordError($"Watcher error: {ex.Message}");
+
+        // Buffer overflows and vanished network shares leave the watcher unusable; recreate all watchers.
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(5), _lifetime.ApplicationStopping);
+                await RebuildWatchersAsync(_lifetime.ApplicationStopping);
+            }
+            catch (OperationCanceledException)
+            {
+                // shutting down
+            }
+            catch (ObjectDisposedException)
+            {
+                // disposed while waiting
+            }
+            catch (Exception rebuildEx)
+            {
+                _logger.LogError(rebuildEx, "Rebuilding watchers after a watcher error failed");
+            }
+        });
     }
 
     private static SymbolFileVersion GetSymbolFileVersion(string fullPath)
@@ -371,8 +460,9 @@ public sealed class HarvesterRuntime : IDisposable
         SymbolFileVersion versionAfterWait,
         CancellationToken cancellationToken)
     {
+        Directory.CreateDirectory(SnapshotDirectory);
         string tempName = $"harvester-{Guid.NewGuid():N}-{Path.GetFileName(sourcePath)}";
-        string tempPath = Path.Combine(Path.GetTempPath(), tempName);
+        string tempPath = Path.Combine(SnapshotDirectory, tempName);
 
         SymbolFileVersion versionBeforeOpen = GetSymbolFileVersion(sourcePath);
         if (versionBeforeOpen != versionAfterWait)
@@ -460,6 +550,8 @@ public sealed class HarvesterRuntime : IDisposable
             cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
             InvalidatePendingFileEventsLocked();
+            // Configuration may have added servers; previously uploaded files must be eligible again.
+            _uploadedVersions.Clear();
 
             AgentSettingsDocument doc = _store.GetSnapshot();
             ServiceConfig serviceConfig = doc.ToServiceConfig();
@@ -528,7 +620,8 @@ public sealed class HarvesterRuntime : IDisposable
                                            | NotifyFilters.FileName
                                            | NotifyFilters.LastWrite
                                            | NotifyFilters.Size,
-                            IncludeSubdirectories = item.Key.Recursive
+                            IncludeSubdirectories = item.Key.Recursive,
+                            InternalBufferSize = WatcherInternalBufferSize
                         };
 
                         foreach (string pattern in item.Value.Filters)
@@ -571,6 +664,7 @@ public sealed class HarvesterRuntime : IDisposable
                     w.Created += WatcherOnFileEvent;
                     w.Changed += WatcherOnFileEvent;
                     w.Renamed += WatcherOnRenamed;
+                    w.Error += WatcherOnError;
                     w.EnableRaisingEvents = enable;
                     status.Add(new WatcherStatusEntry
                     {
@@ -690,6 +784,7 @@ public sealed class HarvesterRuntime : IDisposable
             map.Key.Created -= WatcherOnFileEvent;
             map.Key.Changed -= WatcherOnFileEvent;
             map.Key.Renamed -= WatcherOnRenamed;
+            map.Key.Error -= WatcherOnError;
             map.Key.EnableRaisingEvents = false;
             map.Key.Dispose();
         }
@@ -751,7 +846,7 @@ public sealed class HarvesterRuntime : IDisposable
 
             string path = e.FullPath;
             string fileName = Path.GetFileName(path);
-            if (string.IsNullOrWhiteSpace(fileName))
+            if (string.IsNullOrWhiteSpace(fileName) || IsUploadErrorSidecar(fileName))
             {
                 return;
             }
@@ -840,9 +935,17 @@ public sealed class HarvesterRuntime : IDisposable
 
                 try
                 {
-                    await ProcessDetectedFileAsync(binding, pending.Path, pending.FileName, cancellationToken);
+                    await _processingSlots.WaitAsync(cancellationToken);
+                    try
+                    {
+                        await ProcessDetectedFileAsync(binding, pending.Path, pending.FileName, cancellationToken);
+                    }
+                    finally
+                    {
+                        _processingSlots.Release();
+                    }
                 }
-                catch (OperationCanceledException)
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
                     throw;
                 }
@@ -918,6 +1021,15 @@ public sealed class HarvesterRuntime : IDisposable
         {
             versionAfterWait = await WaitForFileReadyAsync(path, stopping);
 
+            lock (_gate)
+            {
+                if (_uploadedVersions.TryGetValue(path, out SymbolFileVersion uploaded) && uploaded == versionAfterWait)
+                {
+                    _logger.LogDebug("Skipping {Path}: this version was already uploaded", path);
+                    return;
+                }
+            }
+
             try
             {
                 (snapshotPath, snapshottedVersion) =
@@ -986,6 +1098,19 @@ public sealed class HarvesterRuntime : IDisposable
             }
 
             bool allSucceeded = results.All(r => r.Success);
+            if (allSucceeded)
+            {
+                lock (_gate)
+                {
+                    if (_uploadedVersions.Count > 10_000)
+                    {
+                        _uploadedVersions.Clear();
+                    }
+
+                    _uploadedVersions[path] = snapshottedVersion;
+                }
+            }
+
             bool shouldDelete = ShouldDeleteAfterAllSuccess(binding.WatchRules, fileName);
 
             if (allSucceeded && shouldDelete)
@@ -1105,7 +1230,9 @@ public sealed class HarvesterRuntime : IDisposable
                 snapshottedSourceVersion);
 
             using HttpClient client = _httpClientFactory.CreateClient("Server");
-            client.BaseAddress = serverConfig.ServerUrl;
+            // A trailing slash keeps the relative upload path below the configured base path (reverse proxies / sub-paths).
+            string baseUrl = serverConfig.ServerUrl.ToString();
+            client.BaseAddress = baseUrl.EndsWith('/') ? serverConfig.ServerUrl : new Uri(baseUrl + "/", UriKind.Absolute);
 
             if (!string.IsNullOrWhiteSpace(serverConfig.ApiKey))
             {
@@ -1133,7 +1260,7 @@ public sealed class HarvesterRuntime : IDisposable
             form.Add(fileContent, "symbol", fileName);
 
             using HttpResponseMessage response = await client.PostAsync(
-                "/api/uploads/symbol?force=true",
+                "api/uploads/symbol?force=true",
                 form,
                 cancellationToken);
 
@@ -1163,12 +1290,13 @@ public sealed class HarvesterRuntime : IDisposable
                 ErrorDetails = $"HTTP {(int)response.StatusCode}: {body}"
             };
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             throw;
         }
         catch (Exception ex)
         {
+            // Includes request timeouts (TaskCanceledException without caller cancellation), which must count as failures.
             _logger.LogError(ex, "Symbol upload exception for {ServerUrl}", serverUrl);
             _health.RecordUploadFailure(ex.Message);
             return new UploadAttemptResult

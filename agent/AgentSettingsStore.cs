@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -27,7 +28,9 @@ public sealed class AgentSettingsStore
     /// </summary>
     public static AgentSettingsDocument LoadOrCreate(string filePath)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
+        string settingsDirectory = Path.GetDirectoryName(filePath)!;
+        Directory.CreateDirectory(settingsDirectory);
+        AgentSettingsPaths.RestrictSettingsDirectory(settingsDirectory);
 
         if (!File.Exists(filePath))
         {
@@ -53,6 +56,19 @@ public sealed class AgentSettingsStore
         {
             Console.Error.WriteLine(
                 $"[HarvestingAgent] Failed to load settings from {filePath}: {ex.GetType().Name}: {ex.Message}");
+
+            // Keep the unreadable file so the next save does not silently destroy the user's configuration.
+            try
+            {
+                string backup = $"{filePath}.corrupt-{DateTime.UtcNow:yyyyMMddHHmmss}";
+                File.Copy(filePath, backup, overwrite: false);
+                Console.Error.WriteLine($"[HarvestingAgent] Preserved the unreadable settings file as {backup}");
+            }
+            catch (Exception backupEx)
+            {
+                Console.Error.WriteLine($"[HarvestingAgent] Could not back up the unreadable settings file: {backupEx.Message}");
+            }
+
             return AgentSettingsDocument.CreateDefault();
         }
     }
@@ -72,6 +88,23 @@ public sealed class AgentSettingsStore
             AgentSettingsDocument cloned = Clone(document);
             ApplyMigrations(cloned);
             _document = cloned;
+            SaveToPath(_filePath, _document);
+        }
+    }
+
+    /// <summary>
+    ///     Replaces only the configured servers, leaving other settings (such as the harvesting toggle) untouched so a stale
+    ///     configuration page cannot overwrite concurrent changes.
+    /// </summary>
+    public void ReplaceServers(IEnumerable<ServerConfig> servers)
+    {
+        AgentSettingsDocument incoming = new() { Servers = servers.ToList() };
+        AgentSettingsDocument cloned = Clone(incoming);
+        ApplyMigrations(cloned);
+
+        lock (_lock)
+        {
+            _document.Servers = cloned.Servers;
             SaveToPath(_filePath, _document);
         }
     }
@@ -96,7 +129,14 @@ public sealed class AgentSettingsStore
 
         try
         {
-            File.WriteAllText(tempPath, json);
+            // Flush to disk before the rename so a power loss cannot leave a truncated settings file.
+            using (FileStream stream = new(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                byte[] bytes = new UTF8Encoding(false).GetBytes(json);
+                stream.Write(bytes, 0, bytes.Length);
+                stream.Flush(flushToDisk: true);
+            }
+
             File.Move(tempPath, filePath, overwrite: true);
         }
         finally

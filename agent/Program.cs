@@ -8,6 +8,9 @@ using WinDbgSymbolsCachingProxy.UpdateCheck;
 
 using MudBlazor.Services;
 
+using Microsoft.AspNetCore.Authentication.Negotiate;
+using Microsoft.AspNetCore.Authorization;
+
 using Serilog;
 
 WebApplicationOptions opts = new() { Args = args, ContentRootPath = AppContext.BaseDirectory };
@@ -61,6 +64,24 @@ builder.Services.AddHttpClient("Server", client =>
 builder.Services.AddSingleton<ILocalAssemblyVersionSource, AgentAssemblyVersionSource>();
 builder.Services.AddLatestMsiVersionCheck();
 
+// The agent UI can edit upload credentials and delete files after upload, so it must not be reachable by every local
+// process/user (or by a hostile web page via DNS rebinding). On Windows, require an authenticated member of the local
+// Administrators group; AllowedHosts (appsettings.json) restricts the Host header to loopback names.
+bool requireWindowsAuth = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+if (requireWindowsAuth)
+{
+    builder.Services.AddAuthentication(NegotiateDefaults.AuthenticationScheme).AddNegotiate();
+    builder.Services.AddAuthorizationBuilder()
+        .SetFallbackPolicy(new AuthorizationPolicyBuilder()
+            .RequireAuthenticatedUser()
+            .RequireAssertion(context => LocalAdministratorCheck.IsLocalAdministrator(context.User))
+            .Build());
+}
+else
+{
+    builder.Services.AddAuthorization();
+}
+
 builder.Services.AddMudServices();
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
@@ -72,6 +93,8 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
 }
 
+app.UseAuthentication();
+app.UseAuthorization();
 app.UseAntiforgery();
 
 app.MapStaticAssets();

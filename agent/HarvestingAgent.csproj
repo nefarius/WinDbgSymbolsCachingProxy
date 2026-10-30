@@ -15,6 +15,7 @@
 
     <ItemGroup>
         <PackageReference Include="JetBrains.Annotations" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" />
         <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" />
         <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
         <PackageReference Include="MimeTypeMapOfficial" />
