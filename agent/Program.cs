@@ -8,9 +8,6 @@ using WinDbgSymbolsCachingProxy.UpdateCheck;
 
 using MudBlazor.Services;
 
-using Polly;
-using Polly.Contrib.WaitAndRetry;
-
 using Serilog;
 
 WebApplicationOptions opts = new() { Args = args, ContentRootPath = AppContext.BaseDirectory };
@@ -48,9 +45,19 @@ builder.Services.AddSingleton<HarvesterRuntime>();
 builder.Services.AddSingleton(logBuffer);
 builder.Services.AddHostedService<HarvestingHostedService>();
 
-builder.Services.AddHttpClient("Server")
-    .AddTransientHttpErrorPolicy(pb =>
-        pb.WaitAndRetryAsync(Backoff.DecorrelatedJitterBackoffV2(TimeSpan.FromSeconds(1), 5)));
+builder.Services.AddHttpClient("Server", client =>
+        // Timeouts are enforced by the resilience pipeline below; the default 100 s would cut off large uploads.
+        client.Timeout = Timeout.InfiniteTimeSpan)
+    .AddStandardResilienceHandler(options =>
+    {
+        options.Retry.MaxRetryAttempts = 4;
+        options.Retry.Delay = TimeSpan.FromSeconds(1);
+        options.Retry.UseJitter = true;
+        options.AttemptTimeout.Timeout = TimeSpan.FromMinutes(10);
+        options.TotalRequestTimeout.Timeout = TimeSpan.FromMinutes(45);
+        // sampling duration must be at least twice the attempt timeout
+        options.CircuitBreaker.SamplingDuration = TimeSpan.FromMinutes(20);
+    });
 builder.Services.AddSingleton<ILocalAssemblyVersionSource, AgentAssemblyVersionSource>();
 builder.Services.AddLatestMsiVersionCheck();
 

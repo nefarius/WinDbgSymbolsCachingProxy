@@ -24,9 +24,6 @@ using MudBlazor.Services;
 
 using Nefarius.Utilities.AspNetCore;
 
-using Polly;
-using Polly.Contrib.WaitAndRetry;
-
 using Serilog;
 
 using WinDbgSymbolsCachingProxy.Components;
@@ -198,14 +195,25 @@ builder.Services.AddFastEndpoints().SwaggerDocument(o =>
 builder.Services.AddHttpClient("MicrosoftSymbolServer",
         client =>
         {
+            AssemblyName entryName = typeof(Program).Assembly.GetName();
             client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue(
-                Assembly.GetEntryAssembly()?.GetName().Name!,
-                Assembly.GetEntryAssembly()?.GetName().Version!.ToString()));
+                entryName.Name ?? "WinDbgSymbolsCachingProxy",
+                entryName.Version?.ToString()));
 
             client.BaseAddress = new Uri(serviceConfig.UpstreamUrl);
+            // Timeouts are enforced by the resilience pipeline below.
+            client.Timeout = Timeout.InfiniteTimeSpan;
         })
-    .AddTransientHttpErrorPolicy(pb =>
-        pb.WaitAndRetryAsync(Backoff.DecorrelatedJitterBackoffV2(TimeSpan.FromSeconds(3), 10)));
+    .AddStandardResilienceHandler(options =>
+    {
+        // Bounded retries plus a circuit breaker avoid retry storms during upstream outages.
+        options.Retry.MaxRetryAttempts = 4;
+        options.Retry.Delay = TimeSpan.FromSeconds(3);
+        options.Retry.UseJitter = true;
+        options.AttemptTimeout.Timeout = TimeSpan.FromMinutes(2);
+        options.TotalRequestTimeout.Timeout = TimeSpan.FromMinutes(8);
+        options.CircuitBreaker.SamplingDuration = TimeSpan.FromMinutes(4);
+    });
 
 #region Authentication & Authorization
 

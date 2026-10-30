@@ -1,0 +1,10 @@
+<Project>
+
+    <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+    <PropertyGroup>
+        <!-- xUnit v3 test projects are executables (Microsoft.Testing.Platform). Demo apps override this. -->
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+</Project>

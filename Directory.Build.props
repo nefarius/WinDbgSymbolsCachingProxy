@@ -1,0 +1,14 @@
+<Project>
+
+    <!-- Shared defaults for the application, test and tooling projects. -->
+    <!-- Note: lib/ and build/ ship their own Directory.Build.props and intentionally do not inherit these. -->
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <LangVersion>latest</LangVersion>
+        <IsPackable>false</IsPackable>
+        <MinVerTagPrefix>v</MinVerTagPrefix>
+    </PropertyGroup>
+
+</Project>

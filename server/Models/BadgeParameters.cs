@@ -18,12 +18,12 @@ public class BadgeParameters
     /// <summary>
     ///     The left hand label/text of the badge.
     /// </summary>
-    public string Label { get; set; }
+    public string Label { get; set; } = string.Empty;
     
     /// <summary>
     ///     The right hand label/value of the badge.
     /// </summary>
-    public string Result { get; set; }
+    public string Result { get; set; } = string.Empty;
     
     /// <summary>
     ///     Right hand side color as hex string.

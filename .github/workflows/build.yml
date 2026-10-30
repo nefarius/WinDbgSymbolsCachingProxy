@@ -1,4 +1,4 @@
-name: .NET
+﻿name: .NET
 
 on:
   push:
@@ -25,7 +25,7 @@ jobs:
         run: dotnet build -c Release
 
       - name: Test
-        run: dotnet test -c Release --no-build --verbosity normal
+        run: dotnet test --solution WinDbgSymbolsCachingProxy.sln -c Release --no-build
 
   build-installer:
     needs: build

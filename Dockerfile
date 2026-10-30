@@ -1,11 +1,11 @@
 # syntax=docker/dockerfile:1
 
-FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-bookworm-slim AS base
 WORKDIR /app
 EXPOSE 80
 EXPOSE 443
 
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0-bookworm-slim AS build
 # Optional: force version when MinVer cannot read tags (e.g. no .git or shallow clone). CI sets this; git-URL docker builds have no .git in context.
 ARG MINVERVERSIONOVERRIDE
 WORKDIR /src
@@ -13,7 +13,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends git \
     && git config --global --add safe.directory /src \
     && rm -rf /var/lib/apt/lists/*
-COPY nuget.config .
+COPY nuget.config global.json Directory.Build.props Directory.Packages.props ./
 COPY server/WinDbgSymbolsCachingProxy.csproj server/
 COPY shared/WinDbgSymbolsCachingProxy.UpdateCheck/WinDbgSymbolsCachingProxy.UpdateCheck.csproj shared/WinDbgSymbolsCachingProxy.UpdateCheck/
 RUN --mount=type=cache,target=/root/.nuget/packages \
