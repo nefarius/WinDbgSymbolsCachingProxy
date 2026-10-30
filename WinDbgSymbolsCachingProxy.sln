@@ -54,6 +54,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinDbgSymbolsCachingProxy.U
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinDbgSymbolsCachingProxy.UpdateCheck.Tests", "tests\WinDbgSymbolsCachingProxy.UpdateCheck.Tests\WinDbgSymbolsCachingProxy.UpdateCheck.Tests.csproj", "{F654239F-979B-4810-95BB-D9C36D3EF232}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nefarius.Utilities.ExceptionEnricher.Tests", "tests\Nefarius.Utilities.ExceptionEnricher.Tests\Nefarius.Utilities.ExceptionEnricher.Tests.csproj", "{467A93D3-9BA5-4564-BCD9-157C9326C7C4}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -193,6 +195,18 @@ Global
 		{F654239F-979B-4810-95BB-D9C36D3EF232}.Release|x64.Build.0 = Release|Any CPU
 		{F654239F-979B-4810-95BB-D9C36D3EF232}.Release|x86.ActiveCfg = Release|Any CPU
 		{F654239F-979B-4810-95BB-D9C36D3EF232}.Release|x86.Build.0 = Release|Any CPU
+		{467A93D3-9BA5-4564-BCD9-157C9326C7C4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{467A93D3-9BA5-4564-BCD9-157C9326C7C4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{467A93D3-9BA5-4564-BCD9-157C9326C7C4}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{467A93D3-9BA5-4564-BCD9-157C9326C7C4}.Debug|x64.Build.0 = Debug|Any CPU
+		{467A93D3-9BA5-4564-BCD9-157C9326C7C4}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{467A93D3-9BA5-4564-BCD9-157C9326C7C4}.Debug|x86.Build.0 = Debug|Any CPU
+		{467A93D3-9BA5-4564-BCD9-157C9326C7C4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{467A93D3-9BA5-4564-BCD9-157C9326C7C4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{467A93D3-9BA5-4564-BCD9-157C9326C7C4}.Release|x64.ActiveCfg = Release|Any CPU
+		{467A93D3-9BA5-4564-BCD9-157C9326C7C4}.Release|x64.Build.0 = Release|Any CPU
+		{467A93D3-9BA5-4564-BCD9-157C9326C7C4}.Release|x86.ActiveCfg = Release|Any CPU
+		{467A93D3-9BA5-4564-BCD9-157C9326C7C4}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -208,5 +222,6 @@ Global
 		{CF587E38-8820-40BC-9002-B8B0FA44E3EC} = {31214E1B-4CF4-44C7-9DCB-901A06D4AE3D}
 		{C5F7D9A0-C918-4F29-9E63-E9DF44737EFC} = {4F52FD11-658E-A102-6CD3-7D7C16FFA15B}
 		{F654239F-979B-4810-95BB-D9C36D3EF232} = {31214E1B-4CF4-44C7-9DCB-901A06D4AE3D}
+		{467A93D3-9BA5-4564-BCD9-157C9326C7C4} = {31214E1B-4CF4-44C7-9DCB-901A06D4AE3D}
 	EndGlobalSection
 EndGlobal

@@ -10,12 +10,12 @@
         <PackageIconUrl/>
         <PackageReadmeFile>README.md</PackageReadmeFile>
 
-        <!-- Common solution settings -->
-        <OutputPath>$(SolutionDir)bin\</OutputPath>
+        <!-- Common settings -->
         <LangVersion>latest</LangVersion>
 
         <!-- Docs and symbols generation -->
-        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <!-- packing happens explicitly (dotnet pack); not on every build -->
+        <PackageOutputPath>$(MSBuildThisFileDirectory)artifacts</PackageOutputPath>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <IncludeSymbols>true</IncludeSymbols>
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>

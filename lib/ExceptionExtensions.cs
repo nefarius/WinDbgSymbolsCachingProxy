@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Reflection;
@@ -10,7 +11,6 @@ using System.Text;
 
 using Mono.Cecil;
 using Mono.Cecil.Cil;
-using Mono.Collections.Generic;
 
 namespace Nefarius.Utilities.ExceptionEnricher;
 
@@ -21,7 +21,14 @@ namespace Nefarius.Utilities.ExceptionEnricher;
 public static class ExceptionExtensions
 {
     /// <summary>
+    ///     Hidden sequence points (compiler generated code) are marked with this line number.
+    /// </summary>
+    private const int HiddenLine = 0xFEEFEE;
+
+    /// <summary>
     ///     Rebuilds the provided exception with debug information fetched from an online symbol server.
+    ///     This method never throws because of a failed symbol lookup; frames that cannot be resolved are annotated
+    ///     instead, so it is safe to call from exception handlers.
     /// </summary>
     /// <param name="exception">The <see cref="Exception" /> object to enrich/rebuild.</param>
     /// <param name="provider">The <see cref="OnlineServerSymbolsResolver" /> to be used for symbol lookup.</param>
@@ -29,64 +36,35 @@ public static class ExceptionExtensions
     public static EnrichedException ToRemotelyEnrichedException(this Exception exception,
         OnlineServerSymbolsResolver provider)
     {
-        StackTrace stackTrace = new(exception, true);
+        ArgumentNullException.ThrowIfNull(exception);
+        ArgumentNullException.ThrowIfNull(provider);
+
         StringBuilder enrichedStack = new();
+        // One read assembly per module for the whole stack trace; they are released (file handles!) at the end.
+        Dictionary<string, AssemblyDefinition?> assemblies = new(StringComparer.OrdinalIgnoreCase);
 
-        foreach (StackFrame frame in stackTrace.GetFrames())
+        try
         {
-            MethodBase? method = GetOriginalMethod(frame.GetMethod());
+            StackFrame[] frames = new StackTrace(exception, true).GetFrames() ?? [];
 
-            if (method is null)
+            foreach (StackFrame frame in frames)
             {
-                enrichedStack.Append("   at <Method not found.>");
-                continue;
-            }
-
-            enrichedStack.Append($"   at {GetParameterString(method)}");
-
-            // Try to resolve file and line numbers
-            Module module = method.Module;
-            string moduleName = module.FullyQualifiedName;
-
-            AssemblyDefinition? assembly = AssemblyDefinition.ReadAssembly(
-                moduleName,
-                new ReaderParameters { ReadSymbols = true, SymbolReaderProvider = provider });
-
-            if (assembly is null)
-            {
-                enrichedStack.AppendLine(" in <Failed to resolve assembly definition.>");
-                continue;
-            }
-
-            if (method.DeclaringType is null)
-            {
-                enrichedStack.AppendLine(" in <Declaring type not found.>");
-                continue;
-            }
-
-            // Find the method in the assembly
-            TypeDefinition? type = assembly.MainModule.GetType(method.DeclaringType.FullName);
-            MethodDefinition? methodDef = type?.Methods.FirstOrDefault(m => m.Name == method.Name);
-
-            if (methodDef is not null)
-            {
-                // Resolve line number information from the PDB
-                Collection<SequencePoint>? sequencePoints = methodDef.DebugInformation.SequencePoints;
-                SequencePoint? firstSequencePoint = sequencePoints.FirstOrDefault();
-
-                if (firstSequencePoint is not null)
+                try
                 {
-                    enrichedStack.AppendLine(
-                        $" in {firstSequencePoint.Document.Url} (line {firstSequencePoint.StartLine + 1})");
+                    AppendFrame(enrichedStack, frame, provider, assemblies);
                 }
-                else
+                catch (Exception ex) when (ex is not OutOfMemoryException)
                 {
-                    enrichedStack.AppendLine(" in <No sequence point found, async method?>");
+                    // never let a symbol lookup problem mask the original exception
+                    enrichedStack.AppendLine($" in <Symbol lookup failed: {ex.GetType().Name}: {ex.Message}>");
                 }
             }
-            else
+        }
+        finally
+        {
+            foreach (AssemblyDefinition? assembly in assemblies.Values)
             {
-                enrichedStack.AppendLine(" in <Method not found in the PDB.>");
+                assembly?.Dispose();
             }
         }
 
@@ -101,53 +79,163 @@ public static class ExceptionExtensions
     /// <returns>A new <see cref="EnrichedException" /> object with debug information added.</returns>
     public static EnrichedException ToRemotelyEnrichedException(this Exception exception, HttpClient httpClient)
     {
-        using OnlineServerSymbolsResolver provider = new(httpClient);
+        // Missing symbols must not turn into a new exception while another one is being reported.
+        using OnlineServerSymbolsResolver provider = new(httpClient, false);
 
         return ToRemotelyEnrichedException(exception, provider);
     }
 
-    private static MethodInfo? GetOriginalMethod(MethodBase? method)
+    private static void AppendFrame(StringBuilder sb, StackFrame frame, OnlineServerSymbolsResolver provider,
+        Dictionary<string, AssemblyDefinition?> assemblies)
     {
-        // Check if the method belongs to a state machine
-        if (method is not { DeclaringType: not null, Name: "MoveNext" })
+        MethodBase? actualMethod = frame.GetMethod();
+
+        if (actualMethod is null)
         {
-            return method as MethodInfo;
+            sb.AppendLine("   at <Method not found.>");
+            return;
         }
 
-        // Look for the original method that points to this state machine
-        Type? stateMachineType = method.DeclaringType;
+        // Show the name the developer wrote (not the state machine's MoveNext) ...
+        MethodBase displayMethod = GetOriginalMethod(actualMethod);
+        sb.Append($"   at {GetParameterString(displayMethod)}");
 
-        // Iterate over all methods in the assembly to find the one pointing to this state machine
-        foreach (Type type in method.DeclaringType.Assembly.GetTypes())
+        // ... but sequence points live in the method that actually executed.
+        string? localFile = frame.GetFileName();
+        int localLine = frame.GetFileLineNumber();
+        if (!string.IsNullOrEmpty(localFile) && localLine > 0)
         {
-            foreach (MethodInfo candidate in type.GetMethods(BindingFlags.Instance | BindingFlags.Static |
-                                                             BindingFlags.Public | BindingFlags.NonPublic))
-            {
-                AsyncStateMachineAttribute? asyncAttribute = candidate.GetCustomAttribute<AsyncStateMachineAttribute>();
-                if (asyncAttribute?.StateMachineType == stateMachineType)
-                {
-                    return candidate;
-                }
+            sb.AppendLine($" in {localFile} (line {localLine})");
+            return;
+        }
 
-                IteratorStateMachineAttribute? iteratorAttribute =
-                    candidate.GetCustomAttribute<IteratorStateMachineAttribute>();
-                if (iteratorAttribute?.StateMachineType == stateMachineType)
+        string modulePath = actualMethod.Module.FullyQualifiedName;
+        if (!File.Exists(modulePath))
+        {
+            sb.AppendLine(" in <Module file not found.>");
+            return;
+        }
+
+        if (!assemblies.TryGetValue(modulePath, out AssemblyDefinition? assembly))
+        {
+            try
+            {
+                assembly = AssemblyDefinition.ReadAssembly(
+                    modulePath,
+                    new ReaderParameters { ReadSymbols = true, SymbolReaderProvider = provider });
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                assembly = null;
+                sb.Append($" <Failed to load symbols: {ex.Message}>");
+            }
+
+            assemblies[modulePath] = assembly;
+        }
+
+        if (assembly is null)
+        {
+            sb.AppendLine(" in <Failed to resolve assembly definition.>");
+            return;
+        }
+
+        MethodDefinition? methodDef = FindMethodDefinition(assembly.MainModule, actualMethod);
+        if (methodDef is null)
+        {
+            sb.AppendLine(" in <Method not found in the PDB.>");
+            return;
+        }
+
+        SequencePoint? sequencePoint = FindSequencePoint(methodDef, frame.GetILOffset());
+        if (sequencePoint is null)
+        {
+            sb.AppendLine(" in <No sequence point found.>");
+            return;
+        }
+
+        sb.AppendLine($" in {sequencePoint.Document.Url} (line {sequencePoint.StartLine})");
+    }
+
+    private static MethodDefinition? FindMethodDefinition(ModuleDefinition module, MethodBase method)
+    {
+        // The metadata token identifies the exact method, including overloads, generics and compiler generated members.
+        if (method.MetadataToken != 0 &&
+            module.LookupToken(method.MetadataToken) is MethodDefinition byToken)
+        {
+            return byToken;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    ///     Finds the sequence point covering the given IL offset (the last one starting at or before it).
+    /// </summary>
+    private static SequencePoint? FindSequencePoint(MethodDefinition method, int ilOffset)
+    {
+        List<SequencePoint> points = method.DebugInformation.SequencePoints
+            .Where(p => p.StartLine != HiddenLine)
+            .OrderBy(p => p.Offset)
+            .ToList();
+
+        if (points.Count == 0)
+        {
+            return null;
+        }
+
+        if (ilOffset < 0)
+        {
+            return points[0];
+        }
+
+        SequencePoint? match = null;
+        foreach (SequencePoint point in points)
+        {
+            if (point.Offset > ilOffset)
+            {
+                break;
+            }
+
+            match = point;
+        }
+
+        return match ?? points[0];
+    }
+
+    private static MethodBase GetOriginalMethod(MethodBase method)
+    {
+        // Only compiler generated state machines need mapping back to the method that was written in source.
+        if (method is not { Name: "MoveNext", DeclaringType: { DeclaringType: { } containingType } stateMachineType })
+        {
+            return method;
+        }
+
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public |
+                                   BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
+
+        try
+        {
+            foreach (MethodInfo candidate in containingType.GetMethods(flags))
+            {
+                if (candidate.GetCustomAttribute<AsyncStateMachineAttribute>()?.StateMachineType == stateMachineType ||
+                    candidate.GetCustomAttribute<IteratorStateMachineAttribute>()?.StateMachineType == stateMachineType)
                 {
                     return candidate;
                 }
             }
         }
+        catch (Exception ex) when (ex is TypeLoadException or NotSupportedException or FileNotFoundException)
+        {
+            // fall through to the state machine method itself
+        }
 
-        // Return the method itself if it is not part of a state machine
-        return method as MethodInfo;
+        return method;
     }
 
     private static string GetParameterString(MethodBase method)
     {
-        ArgumentNullException.ThrowIfNull(method);
-
         ParameterInfo[] parameters = method.GetParameters();
-        List<string> parameterStrings = new();
+        List<string> parameterStrings = new(parameters.Length);
 
         foreach (ParameterInfo param in parameters)
         {

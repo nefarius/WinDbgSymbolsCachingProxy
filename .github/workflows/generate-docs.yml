@@ -28,10 +28,10 @@ jobs:
         run: dotnet tool install -g Nefarius.Tools.XMLDoc2Markdown
 
       - name: Build
-        run: dotnet build -c Release
+        run: dotnet build -c Release ./lib/Nefarius.Utilities.ExceptionEnricher.csproj
 
       - name: Generate API docs
-        run: xmldoc2md ./bin/net8.0/Nefarius.Utilities.ExceptionEnricher.dll ./docs/
+        run: xmldoc2md ./lib/bin/Release/net10.0/Nefarius.Utilities.ExceptionEnricher.dll ./docs/
 
       - name: Check for changes
         id: check-for-changes

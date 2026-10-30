@@ -8,7 +8,6 @@
     <ItemGroup>
         <PackageVersion Include="Coravel" Version="6.0.2" />
         <PackageVersion Include="coverlet.collector" Version="10.1.0" />
-        <PackageVersion Include="FastDeepCloner" Version="1.3.6" />
         <PackageVersion Include="FastEndpoints" Version="8.3.0" />
         <PackageVersion Include="FastEndpoints.Swagger" Version="8.3.0" />
         <PackageVersion Include="Fody" Version="6.9.3" />
@@ -17,7 +16,6 @@
         <PackageVersion Include="KaitaiStruct.Runtime.CSharp" Version="0.11.0" />
         <PackageVersion Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="10.0.14" />
         <PackageVersion Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.12" />
-        <PackageVersion Include="Microsoft.Diagnostics.Runtime" Version="4.1.747802" />
         <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
         <PackageVersion Include="Microsoft.Extensions.FileSystemGlobbing" Version="10.0.12" />
         <PackageVersion Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.12" />

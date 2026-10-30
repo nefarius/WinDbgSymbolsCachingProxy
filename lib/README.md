@@ -21,11 +21,16 @@ Symbols are held in memory until application termination to reduce the required 
 
 ## Limitations
 
-### `<No sequence point found, async method?>`
+### Symbol lookup never throws
 
-Currently, file names and line numbers cannot be looked up correctly for asynchronous methods
-through [the use of Mono.Cecil](https://github.com/jbevain/cecil/issues/805) alone, so you will get this "error"
-instead.
+`ToRemotelyEnrichedException` is meant to be called from exception handlers, so it does not throw when symbols cannot be
+found or downloaded; the affected stack frames are annotated instead (for example `in <Method not found in the PDB.>`).
+Async methods and iterators are resolved through their compiler-generated state machines.
+
+### Portable PDBs
+
+Symbols are requested from the symbol server using the portable PDB key (`<guid>FFFFFFFF`) first, then the age recorded in
+the assembly (Windows PDBs). Embedded PDBs and `.pdb` files next to the assembly are used before any download.
 
 ### Improvement ideas
 
@@ -62,7 +67,7 @@ System.InvalidOperationException: Test exception
 - Add or adjust the debug type for your release build in your `.csproj` like so:
     ```xml
         <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
-          <DebugType>full</DebugType>
+          <DebugType>portable</DebugType>
         </PropertyGroup>
     ```
 - Use the [harvesting agent](../agent) (or whatever method you prefer) to collect the resulting `.pdb` files and upload
@@ -77,6 +82,4 @@ System.InvalidOperationException: Test exception
 
 ## Sources & 3rd party credits
 
-- [Microsoft.Diagnostics.Runtime](https://github.com/microsoft/clrmd)
 - [Mono.Cecil](https://www.mono-project.com/docs/tools+libraries/libraries/Mono.Cecil/)
-- [FastDeepCloner](https://github.com/AlenToma/FastDeepCloner)

@@ -1,7 +1,6 @@
 ﻿using System;
+using System.Collections;
 using System.Diagnostics.CodeAnalysis;
-
-using FastDeepCloner;
 
 namespace Nefarius.Utilities.ExceptionEnricher;
 
@@ -11,16 +10,32 @@ namespace Nefarius.Utilities.ExceptionEnricher;
 [SuppressMessage("ReSharper", "MemberCanBePrivate.Global")]
 public class EnrichedException : Exception
 {
+    private readonly string _message;
+    private readonly string _stackTrace;
+
     internal EnrichedException(Exception originalException, string stackTrace)
+        : base(originalException.Message, originalException.InnerException)
     {
+        OriginalException = originalException;
         OriginalType = originalException.GetType();
 
-        // this way we conveniently keep all the other interesting exception details
-        originalException.CloneTo(this);
+        // carry over the other interesting exception details
+        HResult = originalException.HResult;
+        Source = originalException.Source;
+        HelpLink = originalException.HelpLink;
+        foreach (DictionaryEntry entry in originalException.Data)
+        {
+            Data[entry.Key] = entry.Value;
+        }
 
-        Message = originalException.Message;
-        StackTrace = stackTrace;
+        _message = originalException.Message;
+        _stackTrace = stackTrace;
     }
+
+    /// <summary>
+    ///     Gets the <see cref="Exception" /> this <see cref="EnrichedException" /> was created from.
+    /// </summary>
+    public Exception OriginalException { get; }
 
     /// <summary>
     ///     Gets the <see cref="Type" /> this <see cref="EnrichedException" /> is based on.
@@ -28,10 +43,10 @@ public class EnrichedException : Exception
     public Type OriginalType { get; }
 
     /// <inheritdoc />
-    public override string Message { get; }
+    public override string Message => _message;
 
     /// <inheritdoc />
-    public override string StackTrace { get; }
+    public override string StackTrace => _stackTrace;
 
     /// <inheritdoc />
     public override string ToString()
