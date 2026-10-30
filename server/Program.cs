@@ -8,8 +8,6 @@ using Coravel;
 using FastEndpoints;
 using FastEndpoints.Swagger;
 
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.SymbolStore;
@@ -121,23 +119,7 @@ builder.Services.AddSingleton(oidcConfigProvider);
 
 #region Core Services
 
-builder.Services.AddSingleton<IBadgeFactory, BadgeFactory>();
-builder.Services.AddSingleton<IBadgeService, BadgeService>();
-builder.Services.AddSingleton<ISvgService, SvgService>();
-builder.Services.AddTransient<RecheckNotFoundJob>();
-builder.Services.AddSingleton<SymbolAliasLookupService>();
-builder.Services.AddSingleton<RecheckNotFoundService>();
-builder.Services.AddTransient<SymStoreService>();
-builder.Services.AddTransient<ITracer, Tracer>();
-builder.Services.AddSingleton<SymbolParsingService>();
-builder.Services.AddSingleton<ICachedSymbolOverviewProvider, CachedSymbolOverviewProvider>();
-builder.Services.AddSingleton<IStatusOpenGraphImageRenderer, StatusOpenGraphImageRenderer>();
-builder.Services.AddSingleton(logBuffer);
-
-// Auth-related services
-builder.Services.AddSingleton<RoleService>();
-builder.Services.AddSingleton<UserService>();
-builder.Services.AddSingleton<ApiKeyService>();
+builder.Services.AddSymbolProxyServices(logBuffer);
 
 #endregion
 
@@ -264,35 +246,7 @@ app.UseMiddleware<BasicAuthChallengeDiagnosticsMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// OIDC login/logout minimal-API endpoints.
-// These are registered even in Basic-auth mode (they just return 404 / redirect-to-home harmlessly).
-app.MapGet("/account/login", (HttpContext ctx, string? returnUrl) =>
-{
-    if (!oidcConfigProvider.IsOidcEnabled)
-        return Results.Redirect("/");
-
-    // Reject external URLs to prevent open-redirect attacks.
-    string safeReturn = IsLocalUrl(ctx.Request, returnUrl) ? returnUrl! : "/";
-
-    if (ctx.User.Identity?.IsAuthenticated == true)
-        return Results.Redirect(safeReturn);
-
-    AuthenticationProperties props = new() { RedirectUri = safeReturn };
-    return Results.Challenge(props, [Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectDefaults.AuthenticationScheme]);
-}).AllowAnonymous();
-
-app.MapGet("/account/logout", async (HttpContext ctx) =>
-{
-    if (!oidcConfigProvider.IsOidcEnabled)
-    {
-        ctx.Response.Redirect("/");
-        return;
-    }
-
-    await ctx.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-    await ctx.SignOutAsync(Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectDefaults.AuthenticationScheme,
-        new AuthenticationProperties { RedirectUri = "/" });
-}).AllowAnonymous();
+app.MapAccountEndpoints(oidcConfigProvider);
 
 app.UseFastEndpoints(c =>
 {
@@ -318,21 +272,3 @@ app.MapRazorComponents<App>()
     .AllowAnonymous();
 
 await app.RunAsync();
-
-// Returns true only when the URL is relative or points to the same host/scheme,
-// preventing open-redirect attacks via a crafted returnUrl query parameter.
-static bool IsLocalUrl(HttpRequest request, string? url)
-{
-    if (string.IsNullOrWhiteSpace(url))
-        return false;
-
-    // Browsers strip tabs/newlines, so "/\t/evil.com" would become "//evil.com"; reject control characters.
-    if (url.Any(char.IsControl))
-        return false;
-
-    // Relative path (most common case: "/search", "/upload")
-    if (url.StartsWith('/') && (url.Length == 1 || (url[1] != '/' && url[1] != '\\')))
-        return true;
-
-    return false;
-}
