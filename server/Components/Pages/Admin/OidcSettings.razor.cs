@@ -57,11 +57,6 @@ public partial class OidcSettings
                 .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 .ToList();
 
-            if (string.IsNullOrEmpty(_model.ClientSecret))
-            {
-                _model.ClientSecret = _existingSecret;
-            }
-
             if (_model.Enabled)
             {
                 if (!Uri.TryCreate(_model.Authority, UriKind.Absolute, out Uri? authority)
@@ -78,9 +73,14 @@ public partial class OidcSettings
                 }
             }
 
+            // Keep the stored secret when the (write-only) field was left empty; restore it only for the save itself.
+            if (string.IsNullOrEmpty(_model.ClientSecret))
+            {
+                _model.ClientSecret = _existingSecret;
+            }
+
             await Db.SaveAsync(_model);
             _existingSecret = _model.ClientSecret;
-            _model.ClientSecret = "";
             Snackbar.Add("Settings saved. Restart the service to apply.", Severity.Success);
         }
         catch (Exception ex)
@@ -89,6 +89,8 @@ public partial class OidcSettings
         }
         finally
         {
+            // Never leave the secret in the bound model, whatever the outcome.
+            _model.ClientSecret = "";
             _saving = false;
         }
     }

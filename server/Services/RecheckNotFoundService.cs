@@ -76,7 +76,7 @@ public sealed class RecheckNotFoundService(
         DateTime now = DateTime.UtcNow;
         // Honor the configured recheck period instead of hitting upstream for every placeholder daily.
         notFoundSymbols = notFoundSymbols
-            .Where(s => (s.LastCheckedAt ?? s.NotFoundAt ?? DateTime.MinValue) + options.Value.UpstreamRecheckPeriod <= now)
+            .Where(s => LastActivity(s) + options.Value.UpstreamRecheckPeriod <= now)
             .ToList();
 
         await Parallel.ForEachAsync(notFoundSymbols, opts, async (symbol, innerToken) =>
@@ -98,6 +98,25 @@ public sealed class RecheckNotFoundService(
         logger.LogInformation(
             "RecheckNotFound finished: removed {ShadowRemoved} placeholders as alias-shadowed without upstream fetch",
             shadowRemoved.Count);
+    }
+
+    /// <summary>
+    ///     The later of the last upstream check and the first not-found time; a missing timestamp counts as absent.
+    /// </summary>
+    private static DateTime LastActivity(SymbolsEntity symbol)
+    {
+        DateTime last = DateTime.MinValue;
+        if (symbol.LastCheckedAt is { } checkedAt && checkedAt > last)
+        {
+            last = checkedAt;
+        }
+
+        if (symbol.NotFoundAt is { } notFoundAt && notFoundAt > last)
+        {
+            last = notFoundAt;
+        }
+
+        return last;
     }
 
     private async Task RecheckOneAsync(
@@ -171,10 +190,14 @@ public sealed class RecheckNotFoundService(
             await using Stream upstreamContent = await response.Content.ReadAsStreamAsync(innerToken);
 
             await symbol.Data(db).UploadAsync(upstreamContent, cancellation: innerToken);
-            symbol.NotFoundAt = null;
-            symbol.LastCheckedAt = null;
-            symbol.UpstreamFileName = upstreamFilename;
-            await db.SaveAsync(symbol, cancellation: innerToken);
+            // Targeted update: saving the whole loaded entity could overwrite concurrent access-count/timestamp updates.
+            await db.Update<SymbolsEntity>()
+                .MatchID(symbol.ID)
+                .Modify(b => b
+                    .Set(e => e.NotFoundAt, (DateTime?)null)
+                    .Set(e => e.LastCheckedAt, (DateTime?)null)
+                    .Set(e => e.UpstreamFileName, upstreamFilename))
+                .ExecuteAsync(innerToken);
 
             // drop the cached 404 so clients see the symbol right away
             memoryCache.Remove(symbol.RelativeUri);
