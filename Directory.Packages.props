@@ -26,7 +26,7 @@
         <PackageVersion Include="Microsoft.SymbolStore" Version="1.0.747701" />
         <PackageVersion Include="MimeTypeMapOfficial" Version="1.0.17" />
         <PackageVersion Include="MinVer" Version="8.0.0" />
-        <PackageVersion Include="MongoDB.Entities" Version="25.1.0" />
+        <PackageVersion Include="MongoDB.Entities" Version="26.0.0" />
         <PackageVersion Include="Mono.Cecil" Version="0.11.6" />
         <PackageVersion Include="MudBlazor" Version="9.12.0" />
         <PackageVersion Include="Nefarius.Shared.PdbUtils" Version="1.0.0" />
