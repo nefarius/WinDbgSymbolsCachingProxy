@@ -7,9 +7,11 @@ services:
       wdscp-db:
         condition: service_healthy
     volumes:
-      - ./data/logs:/app/logs
+      # Named volumes inherit the image's ownership (appuser); host bind mounts would be root-owned and not writable.
+      # If you prefer bind mounts, chown the host directories to the container user's uid/gid first.
+      - wdscp-logs:/app/logs
       # ASP.NET Core Data Protection keys (keeps users logged in across container re-creation)
-      - ./data/keys:/data/keys
+      - wdscp-keys:/data/keys
     environment:
       - TZ=Europe/Vienna
       # The image listens on 8080 (ASPNETCORE_HTTP_PORTS); there is no baked-in appsettings.Production.json.
@@ -33,6 +35,10 @@ services:
         max-file: "3"
 
   wdscp-db:
+    # Upgrading an existing data directory: MongoDB only supports stepping one major version at a time.
+    # From 5.x go 5 -> 6 -> 7 -> 8: start each intermediate image, wait until it is healthy, and set
+    # `db.adminCommand({ setFeatureCompatibilityVersion: "<version>", confirm: true })` before switching to the next.
+    # Take a backup first. Fresh deployments can use this tag as is.
     image: mongo:8
     container_name: wdscp-db
     restart: unless-stopped
@@ -82,3 +88,7 @@ networks:
   database:
   web:
     external: true
+
+volumes:
+  wdscp-logs:
+  wdscp-keys:
