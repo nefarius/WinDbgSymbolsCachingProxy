@@ -8,6 +8,8 @@ using Microsoft.Extensions.Options;
 
 using MongoDB.Driver;
 using MongoDB.Entities;
+using Polly.CircuitBreaker;
+using Polly.Timeout;
 
 using WinDbgSymbolsCachingProxy.Core;
 using WinDbgSymbolsCachingProxy.Mappers;
@@ -269,6 +271,18 @@ public sealed class SymbolsDownloadEndpoint(
         catch (OperationCanceledException) when (HttpContext.RequestAborted.IsCancellationRequested)
         {
             logger.LogDebug("Client disconnected during upstream fetch for {Request}", req.ToString());
+            return;
+        }
+        catch (Exception ex) when (ex is BrokenCircuitException or TimeoutRejectedException or HttpRequestException)
+        {
+            // Resilience pipeline gave up (open circuit, timeout) or transport failed: report an upstream failure, not a 500.
+            logger.LogWarning(ex, "Upstream symbol fetch failed for {Request}", req.ToString());
+            if (!HttpContext.Response.HasStarted)
+            {
+                HttpContext.Response.StatusCode = 502;
+                await HttpContext.Response.WriteAsync("Upstream symbol server unavailable.", CancellationToken.None);
+            }
+
             return;
         }
 
