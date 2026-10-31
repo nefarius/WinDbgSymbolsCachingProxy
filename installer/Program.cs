@@ -25,12 +25,28 @@ static class Program
     /// </summary>
     const string LowPrivilegeServiceAccount = @"NT AUTHORITY\LocalService";
 
-    static Dir LogsDir() => new Dir("logs", new DirPermission
-    {
-        User = "LocalService",
-        Domain = "NT AUTHORITY",
-        GenericAll = true,
-    });
+    /// <summary>
+    ///     Public MSI property selecting the service account (<c>msiexec ... WDSCP_SERVICE_ACCOUNT="NT AUTHORITY\NetworkService"</c>).
+    ///     LocalService has no network credentials, so agents watching UNC/SMB shares should use NetworkService
+    ///     (the computer account). Only the two built-in, password-less accounts are supported.
+    /// </summary>
+    const string ServiceAccountProperty = "WDSCP_SERVICE_ACCOUNT";
+
+    static readonly string[] SupportedServiceAccounts = ["LocalService", "NetworkService"];
+
+    /// <summary>Grants both supported service accounts full control so the choice can be made at install time.</summary>
+    static DirPermission[] ServiceAccountPermissions() =>
+        SupportedServiceAccounts
+            .Select(account => new DirPermission
+            {
+                User = account,
+                Domain = "NT AUTHORITY",
+                GenericAll = true,
+            })
+            .ToArray();
+
+    /// <summary>Logs directory whose permission component is installed with the owning feature.</summary>
+    static Dir LogsDir(Feature feature) => new Dir(feature, "logs", ServiceAccountPermissions());
 
     static bool IncludeInPublishedFile(string path)
     {
@@ -85,7 +101,7 @@ static class Program
                         DisplayName = "WinDbg Symbols Caching Proxy",
                         Description =
                             "Web UI, REST API, and symbol store for the WinDbg Symbols Caching Proxy.",
-                        Account = LowPrivilegeServiceAccount,
+                        Account = $"[{ServiceAccountProperty}]",
                         Start = SvcStartType.auto,
                         StartOn = SvcEvent.Install,
                         StopOn = SvcEvent.InstallUninstall_Wait,
@@ -106,7 +122,7 @@ static class Program
                         DisplayName = AgentWindowsServiceName,
                         Description =
                             "Watches configured directories and uploads debug symbols to a WinDbg Symbols Caching Proxy server.",
-                        Account = LowPrivilegeServiceAccount,
+                        Account = $"[{ServiceAccountProperty}]",
                         Start = SvcStartType.auto,
                         StartOn = SvcEvent.Install,
                         StopOn = SvcEvent.InstallUninstall_Wait,
@@ -119,8 +135,13 @@ static class Program
                 "WinDbg Symbols Caching Proxy",
                 new Dir(
                     @"%ProgramFiles64Folder%\Nefarius Software Solutions\WinDbg Symbols Caching Proxy",
-                    new Dir("Server", serverFiles, LogsDir()),
-                    new Dir("Agent", agentFiles, LogsDir())))
+                    new Dir("Server", serverFiles, LogsDir(featureServer)),
+                    new Dir("Agent", agentFiles, LogsDir(featureAgent))),
+                // Upgrades keep the settings directory created by the previous (LocalSystem) service; the new service
+                // account needs write access to it and, through inheritance, to the existing settings file.
+                new Dir(featureAgent, @"%CommonAppDataFolder%\WinDbgSymbolsCachingProxy\HarvestingAgent",
+                    ServiceAccountPermissions()),
+                new PublicProperty(ServiceAccountProperty, LowPrivilegeServiceAccount))
             {
                 GUID = new Guid("a4f8b2c1-3d5e-4a7b-8c9d-0e1f2a3b4c5d"),
                 UpgradeCode = new Guid("e7a3c8f2-1b4d-4c9e-9f6a-0d2e8b5c7a91"),
@@ -139,6 +160,8 @@ static class Program
 
             // Align with WiX 5.x + WixToolset.UI.wixext/5.0.x (see GitHub workflow); avoids WiX 6 / mismatched UI extension.
             WixExtension.UI.PreferredVersion = "5.0.2";
+            // DirPermission compiles to util:PermissionEx; pin the Util extension to the same version.
+            WixExtension.Util.PreferredVersion = "5.0.2";
 
             string msiPath = project.BuildMsi();
             Console.WriteLine(msiPath);
@@ -264,10 +287,13 @@ static class Program
                   --agent,  -a <dir>   Published agent output (default: ./publish-x64/agent)
                   --out,    -o <dir>   MSI output directory (default: ./publish-x64/installer)
 
-                Requires Windows, WiX 5.0.2 CLI + WixToolset.UI.wixext/5.0.2, and prior dotnet publish of both apps.
+                Requires Windows, WiX 5.0.2 CLI + WixToolset.UI.wixext/5.0.2 + WixToolset.Util.wixext/5.0.2, and prior dotnet publish of both apps.
 
                 Environment (optional; used by NUKE BuildInstaller):
                   WDSCP_INSTALLER_SERVER, WDSCP_INSTALLER_AGENT, WDSCP_INSTALLER_OUT
+
+                MSI property (at install time): WDSCP_SERVICE_ACCOUNT = "NT AUTHORITY\LocalService" (default) or
+                "NT AUTHORITY\NetworkService" (network credentials for UNC/SMB watcher paths).
                 """);
             Environment.Exit(0);
         }
