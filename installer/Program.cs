@@ -147,7 +147,8 @@ static class Program
                 new Dir(featureAgent, @"%CommonAppDataFolder%\WinDbgSymbolsCachingProxy\HarvestingAgent",
                     ServiceAccountPermissions()),
                 // No default here: the effective account is resolved by the SetProperty actions below.
-                new PublicProperty(ServiceAccountProperty, string.Empty),
+                // Secure so the value survives elevated (managed) installs; validated by the launch condition below.
+                new PublicProperty(ServiceAccountProperty, string.Empty) { Secure = true },
                 // Remember the chosen account per feature so upgrades keep it.
                 new RegValue(RegistryHive.LocalMachine, SettingsRegistryKey + @"\Server", PersistedAccountValue,
                     $"[{ServiceAccountProperty}]") { Feature = featureServer, Win64 = true },
@@ -179,6 +180,11 @@ static class Program
                 // Replace older versions in place instead of installing side by side.
                 MajorUpgrade = MajorUpgrade.Default,
             };
+
+            // Only the two built-in, password-less accounts are supported (MSI string comparison is case-insensitive).
+            project.LaunchConditions.Add(new LaunchCondition(
+                $"Installed OR {ServiceAccountProperty}=\"{LowPrivilegeServiceAccount}\" OR {ServiceAccountProperty}=\"NT AUTHORITY\\NetworkService\"",
+                $"{ServiceAccountProperty} must be \"{LowPrivilegeServiceAccount}\" or \"NT AUTHORITY\\NetworkService\"."));
 
             project.ControlPanelInfo.Manufacturer = Manufacturer;
 
