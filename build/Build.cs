@@ -3,20 +3,15 @@ using System.Linq;
 
 using JetBrains.Annotations;
 
-using Nuke.Common;
-using Nuke.Common.IO;
-using Nuke.Common.ProjectModel;
-using Nuke.Common.Tools.Docker;
-using Nuke.Common.Tools.DotNet;
+using Fallout.Common;
+using Fallout.Common.IO;
+using Fallout.Common.ProjectModel;
+using Fallout.Common.Tools.Docker;
+using Fallout.Common.Tools.DotNet;
+using Project = Fallout.Solutions.Project;
 
-class Build : NukeBuild
+class Build : FalloutBuild
 {
-    /// Support plugins are available for:
-    ///     - JetBrains ReSharper        https://nuke.build/resharper
-    ///     - JetBrains Rider            https://nuke.build/rider
-    ///     - Microsoft VisualStudio     https://nuke.build/visualstudio
-    ///     - Microsoft VSCode           https://nuke.build/vscode
-
     public static int Main() => Execute<Build>(x => x.Compile);
 
     [Parameter("Configuration to build - Default is 'Debug' (local) or 'Release' (server)")]

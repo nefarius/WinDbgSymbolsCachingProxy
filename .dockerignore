@@ -34,7 +34,7 @@ publish-x64/
 installer/
 docs/
 Bruno/
-.nuke/
+.fallout/
 assets/
 # Machine/installer specific settings (Kestrel :5000, default credentials) must not be baked into the image.
 server/appsettings.Production.json
