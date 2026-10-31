@@ -223,6 +223,7 @@ public sealed class OnlineServerSymbolsResolver : ISymbolReaderProvider, IDispos
                 }
 
                 // Treated like a transient failure: nothing cached, the caller moves on to the next candidate key.
+                status = null;
                 return null;
             }
 
