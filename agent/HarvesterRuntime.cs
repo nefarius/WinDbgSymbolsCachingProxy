@@ -1455,27 +1455,35 @@ public sealed class HarvesterRuntime : IDisposable
             bool allSucceeded = results.All(r => r.Success);
 
             // Remember per server what was delivered so a partial failure only retries the missing destinations.
-            string? uploadedHash = results.Any(r => r.Success) && snapshotPath is not null
-                ? await ComputeContentHashAsync(snapshotPath, stopping)
-                : null;
+            // With no successful upload in this pass the existing record (and its per-server tracking) stays untouched.
+            string[] succeededServers = results.Where(r => r.Success && r.ServerUrl is not null)
+                .Select(r => r.ServerUrl!).ToArray();
 
-            lock (_gate)
+            if (succeededServers.Length > 0)
             {
-                if (_uploadedVersions.Count > 10_000)
-                {
-                    _uploadedVersions.Clear();
-                }
+                string? uploadedHash = snapshotPath is not null
+                    ? await ComputeContentHashAsync(snapshotPath, stopping)
+                    : null;
 
-                if (!_uploadedVersions.TryGetValue(path, out UploadedRecord? record) ||
-                    record.Version != snapshottedVersion || record.ContentHash != uploadedHash)
+                lock (_gate)
                 {
-                    record = new UploadedRecord(snapshottedVersion, uploadedHash, new HashSet<string>(StringComparer.Ordinal));
-                    _uploadedVersions[path] = record;
-                }
+                    if (_uploadedVersions.Count > 10_000)
+                    {
+                        _uploadedVersions.Clear();
+                    }
 
-                foreach (UploadAttemptResult result in results.Where(r => r.Success && r.ServerUrl is not null))
-                {
-                    record.Servers.Add(result.ServerUrl!);
+                    if (!_uploadedVersions.TryGetValue(path, out UploadedRecord? record) ||
+                        record.Version != snapshottedVersion || record.ContentHash != uploadedHash)
+                    {
+                        record = new UploadedRecord(snapshottedVersion, uploadedHash,
+                            new HashSet<string>(StringComparer.Ordinal));
+                        _uploadedVersions[path] = record;
+                    }
+
+                    foreach (string serverUrl in succeededServers)
+                    {
+                        record.Servers.Add(serverUrl);
+                    }
                 }
             }
 
