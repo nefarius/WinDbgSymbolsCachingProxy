@@ -119,11 +119,17 @@ public sealed class OnlineServerSymbolsResolver : ISymbolReaderProvider, IDispos
                 {
                     return new PdbReaderProvider().GetSymbolReader(module, new MemoryStream(data, false));
                 }
-                catch (Exception ex) when (!_throwIfNoSymbol &&
-                                           ex is not OutOfMemoryException and not OperationCanceledException)
+                catch (Exception ex) when (ex is not OutOfMemoryException and not OperationCanceledException)
                 {
-                    // Unusable symbol data must not stay cached; try the next candidate key.
+                    // Unusable symbol data must not stay cached, whichever policy applies.
                     _symbolCache.TryRemove($"{pdbFileName}/{key}", out _);
+
+                    if (_throwIfNoSymbol)
+                    {
+                        throw;
+                    }
+
+                    // Suppressed: try the next candidate key.
                     continue;
                 }
             }
