@@ -132,7 +132,41 @@ public sealed class HarvesterRuntime : IDisposable
     /// <summary>
     ///     Last file version that was uploaded successfully to all servers, per path; identical re-notifications are skipped.
     /// </summary>
-    private readonly Dictionary<string, SymbolFileVersion> _uploadedVersions = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, UploadedRecord> _uploadedVersions = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>File version of a path plus the servers (by URL) that already received exactly that version.</summary>
+    private sealed record UploadedRecord(SymbolFileVersion Version, HashSet<string> Servers);
+
+    private static string ServerKey(ServerConfig server) => server.ServerUrl?.ToString() ?? string.Empty;
+
+    /// <summary>Held while snapshotting/uploading/deleting; deliberately not held while waiting for file readiness.</summary>
+    private sealed class ProcessingSlot(SemaphoreSlim semaphore)
+    {
+        private bool _held;
+
+        public async Task AcquireAsync(CancellationToken cancellationToken)
+        {
+            if (_held)
+            {
+                return;
+            }
+
+            await semaphore.WaitAsync(cancellationToken);
+            _held = true;
+        }
+
+        public void Release()
+        {
+            if (_held)
+            {
+                _held = false;
+                semaphore.Release();
+            }
+        }
+    }
+
+    private int _unavailablePaths;
+    private int _recoveryRunning;
 
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<HarvesterRuntime> _logger;
@@ -206,24 +240,67 @@ public sealed class HarvesterRuntime : IDisposable
         _health.RecordError($"Watcher error: {ex.Message}");
 
         // Buffer overflows and vanished network shares leave the watcher unusable; recreate all watchers.
+        StartWatcherRecovery(force: true);
+    }
+
+    /// <summary>
+    ///     Rebuilds the watchers with growing delays until every configured path could be watched, e.g. when a
+    ///     network share that went away comes back. Only one recovery loop runs at a time.
+    /// </summary>
+    private void StartWatcherRecovery(bool force = false)
+    {
+        if (!force && Volatile.Read(ref _unavailablePaths) == 0)
+        {
+            return;
+        }
+
+        if (Interlocked.Exchange(ref _recoveryRunning, 1) == 1)
+        {
+            return;
+        }
+
+        CancellationToken stopping = _lifetime.ApplicationStopping;
         _ = Task.Run(async () =>
         {
+            TimeSpan delay = TimeSpan.FromSeconds(5);
             try
             {
-                await Task.Delay(TimeSpan.FromSeconds(5), _lifetime.ApplicationStopping);
-                await RebuildWatchersAsync(_lifetime.ApplicationStopping);
+                while (!stopping.IsCancellationRequested)
+                {
+                    await Task.Delay(delay, stopping);
+
+                    try
+                    {
+                        await RebuildWatchersAsync(stopping);
+                    }
+                    catch (OperationCanceledException) when (stopping.IsCancellationRequested)
+                    {
+                        return;
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                        return;
+                    }
+                    catch (Exception rebuildEx)
+                    {
+                        _logger.LogError(rebuildEx, "Rebuilding watchers failed; will retry");
+                    }
+
+                    if (Volatile.Read(ref _unavailablePaths) == 0)
+                    {
+                        return;
+                    }
+
+                    delay = TimeSpan.FromSeconds(Math.Min(delay.TotalSeconds * 2, 60));
+                }
             }
             catch (OperationCanceledException)
             {
                 // shutting down
             }
-            catch (ObjectDisposedException)
+            finally
             {
-                // disposed while waiting
-            }
-            catch (Exception rebuildEx)
-            {
-                _logger.LogError(rebuildEx, "Rebuilding watchers after a watcher error failed");
+                Volatile.Write(ref _recoveryRunning, 0);
             }
         });
     }
@@ -583,6 +660,7 @@ public sealed class HarvesterRuntime : IDisposable
             AgentSettingsDocument doc = _store.GetSnapshot();
             ServiceConfig serviceConfig = doc.ToServiceConfig();
             Dictionary<FileSystemWatcher, WatcherBinding> newMaps = new();
+            int unavailable = 0;
             Dictionary<FileSystemWatcher, WatcherBinding> oldMaps = _maps ?? new Dictionary<FileSystemWatcher, WatcherBinding>();
 
             try
@@ -674,6 +752,7 @@ public sealed class HarvesterRuntime : IDisposable
                     catch (Exception ex)
                     {
                         _logger.LogWarning(ex, "Skipping invalid watcher path {Path}", item.Key.Path);
+                        unavailable++;
                         watcher?.Dispose();
                     }
                 }
@@ -702,6 +781,7 @@ public sealed class HarvesterRuntime : IDisposable
                 }
 
                 // Publish only after the new collection is fully initialized.
+                _unavailablePaths = unavailable;
                 _maps = newMaps;
                 DisposeWatchersLocked(oldMaps);
                 _health.SetRuntimeState(enable, status.AsReadOnly());
@@ -721,6 +801,9 @@ public sealed class HarvesterRuntime : IDisposable
                 throw;
             }
         }
+
+        // Paths that are unavailable now (offline share, missing folder) are retried in the background.
+        StartWatcherRecovery();
     }
 
     public Task SetHarvestingEnabledAsync(bool enabled, CancellationToken cancellationToken = default)
@@ -960,19 +1043,13 @@ public sealed class HarvesterRuntime : IDisposable
                     {
                         continue;
                     }
+
+                    binding = MergeBindings(pending.Bindings);
                 }
 
                 try
                 {
-                    await _processingSlots.WaitAsync(cancellationToken);
-                    try
-                    {
-                        await ProcessDetectedFileAsync(binding, pending.Path, pending.FileName, cancellationToken);
-                    }
-                    finally
-                    {
-                        _processingSlots.Release();
-                    }
+                    await ProcessDetectedFileAsync(binding, pending.Path, pending.FileName, cancellationToken);
                 }
                 catch (UploadDeferredException deferred) when (++deferrals <= MaxCircuitDeferrals)
                 {
@@ -1050,9 +1127,24 @@ public sealed class HarvesterRuntime : IDisposable
     private async Task ProcessDetectedFileAsync(WatcherBinding binding, string path, string fileName,
         CancellationToken stopping)
     {
+        ProcessingSlot slot = new(_processingSlots);
+        try
+        {
+            await ProcessDetectedFileCoreAsync(binding, path, fileName, slot, stopping);
+        }
+        finally
+        {
+            slot.Release();
+        }
+    }
+
+    private async Task ProcessDetectedFileCoreAsync(WatcherBinding binding, string path, string fileName,
+        ProcessingSlot slot, CancellationToken stopping)
+    {
         _health.RecordFileDetected(path);
 
         string? snapshotPath = null;
+        List<ServerConfig> targets = binding.Servers.ToList();
         SymbolFileVersion snapshottedVersion = default;
         SymbolFileVersion versionAfterWait = default;
 
@@ -1060,14 +1152,25 @@ public sealed class HarvesterRuntime : IDisposable
         {
             versionAfterWait = await WaitForFileReadyAsync(path, stopping);
 
+            // Only servers that have not yet received exactly this version need an upload.
             lock (_gate)
             {
-                if (_uploadedVersions.TryGetValue(path, out SymbolFileVersion uploaded) && uploaded == versionAfterWait)
-                {
-                    _logger.LogDebug("Skipping {Path}: this version was already uploaded", path);
-                    return;
-                }
+                targets = _uploadedVersions.TryGetValue(path, out UploadedRecord? uploaded) &&
+                          uploaded.Version == versionAfterWait
+                    ? binding.Servers.Where(s => !uploaded.Servers.Contains(ServerKey(s))).ToList()
+                    : binding.Servers.ToList();
             }
+
+            if (targets.Count == 0)
+            {
+                // Nothing to upload, but the deletion step below must still run (it may have failed earlier).
+                _logger.LogDebug("{Path}: this version was already uploaded to all servers", path);
+                snapshottedVersion = versionAfterWait;
+                break;
+            }
+
+            // The wait for readiness above deliberately happens without a slot.
+            await slot.AcquireAsync(stopping);
 
             try
             {
@@ -1077,6 +1180,7 @@ public sealed class HarvesterRuntime : IDisposable
             }
             catch (SnapshotVersionMismatchException ex)
             {
+                slot.Release();
                 _logger.LogWarning(ex,
                     "Snapshot attempt {Attempt}/{Max} for {Path} detected a concurrent modification; retrying",
                     attempt,
@@ -1090,7 +1194,7 @@ public sealed class HarvesterRuntime : IDisposable
             }
         }
 
-        if (snapshotPath is null)
+        if (snapshotPath is null && targets.Count > 0)
         {
             throw new InvalidOperationException(
                 $"Could not capture a consistent snapshot of {path} after {SnapshotMaxAttempts} attempts.");
@@ -1110,11 +1214,11 @@ public sealed class HarvesterRuntime : IDisposable
                     mimeType);
             }
 
-            Task<UploadAttemptResult>[] uploads = binding.Servers
+            Task<UploadAttemptResult>[] uploads = targets
                 .Select(serverConfig =>
                     UploadToServerAsync(
                         serverConfig,
-                        snapshotPath,
+                        snapshotPath!,
                         path,
                         fileName,
                         mimeType,
@@ -1144,16 +1248,25 @@ public sealed class HarvesterRuntime : IDisposable
             }
 
             bool allSucceeded = results.All(r => r.Success);
-            if (allSucceeded)
-            {
-                lock (_gate)
-                {
-                    if (_uploadedVersions.Count > 10_000)
-                    {
-                        _uploadedVersions.Clear();
-                    }
 
-                    _uploadedVersions[path] = snapshottedVersion;
+            // Remember per server what was delivered so a partial failure only retries the missing destinations.
+            lock (_gate)
+            {
+                if (_uploadedVersions.Count > 10_000)
+                {
+                    _uploadedVersions.Clear();
+                }
+
+                if (!_uploadedVersions.TryGetValue(path, out UploadedRecord? record) ||
+                    record.Version != snapshottedVersion)
+                {
+                    record = new UploadedRecord(snapshottedVersion, new HashSet<string>(StringComparer.Ordinal));
+                    _uploadedVersions[path] = record;
+                }
+
+                foreach (UploadAttemptResult result in results.Where(r => r.Success && r.ServerUrl is not null))
+                {
+                    record.Servers.Add(result.ServerUrl!);
                 }
             }
 
