@@ -39,15 +39,6 @@ public sealed class HarvesterRuntime : IDisposable
     }
 
     /// <summary>
-    ///     Thrown when every failed upload was rejected by an open circuit, so the file event is retried later
-    ///     instead of being dropped.
-    /// </summary>
-    private sealed class UploadDeferredException(TimeSpan delay) : Exception("Upload deferred while a server circuit is open")
-    {
-        public TimeSpan Delay { get; } = delay;
-    }
-
-    /// <summary>
     ///     Identifies a concrete on-disk revision of a symbol file (length + last write UTC).
     /// </summary>
     private readonly record struct SymbolFileVersion(long Length, DateTime LastWriteTimeUtc);
@@ -828,8 +819,6 @@ public sealed class HarvesterRuntime : IDisposable
             CancellationTokenSource.CreateLinkedTokenSource(stopping, pending.WatcherSetCancellationToken);
         CancellationToken cancellationToken = linkedCancellation.Token;
 
-        int deferrals = 0;
-
         try
         {
             while (true)
@@ -870,16 +859,6 @@ public sealed class HarvesterRuntime : IDisposable
                 try
                 {
                     await ProcessDetectedFileAsync(binding, pending.Path, pending.FileName, cancellationToken);
-                }
-                catch (UploadDeferredException deferred) when (++deferrals <= MaxCircuitDeferrals)
-                {
-                    _logger.LogWarning(
-                        "Server circuit is open; retrying {Path} in {Delay:F0}s (deferral {Count}/{Max})",
-                        pending.Path, deferred.Delay.TotalSeconds, deferrals, MaxCircuitDeferrals);
-
-                    // The pending event stays registered, so changes arriving meanwhile coalesce into it.
-                    await Task.Delay(deferred.Delay, cancellationToken);
-                    continue;
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
@@ -998,8 +977,15 @@ public sealed class HarvesterRuntime : IDisposable
                     mimeType);
             }
 
-            Task<UploadAttemptResult>[] uploads = binding.Servers
-                .Select(serverConfig =>
+            // Destinations rejected by an open circuit are retried here, reusing the snapshot and never resending to
+            // destinations that already succeeded or failed for another reason.
+            List<UploadAttemptResult> finalResults = [];
+            List<ServerConfig> remaining = binding.Servers.ToList();
+
+            for (int round = 1; ; round++)
+            {
+                ServerConfig[] roundServers = remaining.ToArray();
+                UploadAttemptResult[] roundResults = await Task.WhenAll(roundServers.Select(serverConfig =>
                     UploadToServerAsync(
                         serverConfig,
                         snapshotPath,
@@ -1007,30 +993,45 @@ public sealed class HarvesterRuntime : IDisposable
                         fileName,
                         mimeType,
                         snapshottedVersion,
-                        stopping))
-                .ToArray();
+                        stopping)));
 
-            UploadAttemptResult[] results = await Task.WhenAll(uploads);
-
-            foreach (UploadAttemptResult result in results)
-            {
-                if (!result.Success)
+                List<ServerConfig> deferred = [];
+                TimeSpan delay = TimeSpan.Zero;
+                for (int i = 0; i < roundResults.Length; i++)
                 {
-                    _health.RecordFileUploadFailure(
-                        path,
-                        result.ServerDisplayName,
-                        result.ServerUrl,
-                        result.ErrorDetails ?? "Upload failed");
+                    UploadAttemptResult result = roundResults[i];
+                    if (result.RetryAfter is { } retryAfter && round < MaxCircuitDeferrals)
+                    {
+                        deferred.Add(roundServers[i]);
+                        delay = retryAfter > delay ? retryAfter : delay;
+                        continue;
+                    }
+
+                    finalResults.Add(result);
+                    if (!result.Success)
+                    {
+                        _health.RecordFileUploadFailure(
+                            path,
+                            result.ServerDisplayName,
+                            result.ServerUrl,
+                            result.ErrorDetails ?? "Upload failed");
+                    }
                 }
+
+                if (deferred.Count == 0)
+                {
+                    break;
+                }
+
+                // Each file revision (one call) has its own retry allowance of MaxCircuitDeferrals rounds.
+                _logger.LogWarning(
+                    "{Count} server circuit(s) open; retrying {Path} in {Delay:F0}s (round {Round}/{Max})",
+                    deferred.Count, path, delay.TotalSeconds, round, MaxCircuitDeferrals);
+                await Task.Delay(delay, stopping);
+                remaining = deferred;
             }
 
-            // Uploads rejected only because a circuit is open are retried later rather than reported as lost.
-            if (results.Any(r => r.RetryAfter is not null) &&
-                results.All(r => r.Success || r.RetryAfter is not null))
-            {
-                throw new UploadDeferredException(results.Max(r => r.RetryAfter) ?? DefaultCircuitRetryDelay);
-            }
-
+            UploadAttemptResult[] results = finalResults.ToArray();
             bool allSucceeded = results.All(r => r.Success);
             bool shouldDelete = ShouldDeleteAfterAllSuccess(binding.WatchRules, fileName);
 
