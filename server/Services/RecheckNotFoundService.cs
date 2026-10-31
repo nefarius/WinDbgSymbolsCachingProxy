@@ -103,6 +103,8 @@ public sealed class RecheckNotFoundService(
     /// <summary>
     ///     The later of the last upstream check and the first not-found time; a missing timestamp counts as absent.
     /// </summary>
+    private static readonly TimeSpan UpstreamBodyTimeout = TimeSpan.FromMinutes(10);
+
     private static DateTime LastActivity(SymbolsEntity symbol)
     {
         DateTime last = DateTime.MinValue;
@@ -187,9 +189,25 @@ public sealed class RecheckNotFoundService(
             logger.LogInformation("Got requested symbol {Symbol} ({Filename}), caching",
                 symbol, upstreamFilename);
 
-            await using Stream upstreamContent = await response.Content.ReadAsStreamAsync(innerToken);
+            // ResponseHeadersRead leaves the body unbounded by the resilience pipeline: bound the read, then upload from
+            // the buffer so the upload does not depend on upstream read cancellation.
+            using CancellationTokenSource bodyTimeout = CancellationTokenSource.CreateLinkedTokenSource(innerToken);
+            bodyTimeout.CancelAfter(UpstreamBodyTimeout);
 
-            await symbol.Data(db).UploadAsync(upstreamContent, cancellation: innerToken);
+            using MemoryStream buffer = new();
+            try
+            {
+                await using Stream upstreamContent = await response.Content.ReadAsStreamAsync(bodyTimeout.Token);
+                await upstreamContent.CopyToAsync(buffer, bodyTimeout.Token);
+            }
+            catch (OperationCanceledException) when (!innerToken.IsCancellationRequested)
+            {
+                logger.LogWarning("Reading upstream symbol {Symbol} timed out after {Timeout}", symbol, UpstreamBodyTimeout);
+                return;
+            }
+
+            buffer.Position = 0;
+            await symbol.Data(db).UploadAsync(buffer, cancellation: innerToken);
             // Targeted update: saving the whole loaded entity could overwrite concurrent access-count/timestamp updates.
             await db.Update<SymbolsEntity>()
                 .MatchID(symbol.ID)
