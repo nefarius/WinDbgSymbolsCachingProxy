@@ -190,11 +190,13 @@ public sealed class RecheckNotFoundService(
                 symbol, upstreamFilename);
 
             // ResponseHeadersRead leaves the body unbounded by the resilience pipeline: bound the read, then upload from
-            // the buffer so the upload does not depend on upstream read cancellation.
+            // a temporary file (disk, not memory) so the upload does not depend on upstream read cancellation.
             using CancellationTokenSource bodyTimeout = CancellationTokenSource.CreateLinkedTokenSource(innerToken);
             bodyTimeout.CancelAfter(UpstreamBodyTimeout);
 
-            using MemoryStream buffer = new();
+            string tempPath = Path.Combine(Path.GetTempPath(), $"wdscp-recheck-{Guid.NewGuid():N}.tmp");
+            await using FileStream buffer = new(tempPath, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None, 81920,
+                FileOptions.Asynchronous | FileOptions.DeleteOnClose);
             try
             {
                 await using Stream upstreamContent = await response.Content.ReadAsStreamAsync(bodyTimeout.Token);
