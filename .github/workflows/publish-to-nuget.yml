@@ -26,7 +26,7 @@ jobs:
 
       - name: Require a 2.0+ library tag
         run: |
-          if [[ ! "$GITHUB_REF_NAME" =~ ^lib-v([0-9]+)\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+(\.[0-9A-Za-z]+)*)?$ ]] || (( BASH_REMATCH[1] < 2 )); then
+          if [[ ! "$GITHUB_REF_NAME" =~ ^lib-v([0-9]+)\.[0-9]+\.[0-9]+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]] || (( BASH_REMATCH[1] < 2 )); then
             echo "Tag $GITHUB_REF_NAME is not a lib-vMAJOR.MINOR.PATCH[-prerelease] tag with MAJOR >= 2"
             exit 1
           fi
