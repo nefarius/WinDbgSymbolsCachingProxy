@@ -290,7 +290,8 @@ public sealed class HarvesterRuntime : IDisposable
     /// </summary>
     private void StartWatcherRecovery()
     {
-        if (Volatile.Read(ref _unavailablePaths) == 0)
+        if (Volatile.Read(ref _unavailablePaths) == 0 || _lifetime.ApplicationStopping.IsCancellationRequested ||
+            _disposed)
         {
             return;
         }
@@ -950,6 +951,8 @@ public sealed class HarvesterRuntime : IDisposable
             InvalidatePendingFileEventsLocked();
             DisposeWatchersLocked();
             _maps = null;
+            _failedWatchers.Clear();
+            Volatile.Write(ref _unavailablePaths, 0);
         }
     }
 
