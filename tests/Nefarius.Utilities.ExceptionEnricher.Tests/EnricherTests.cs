@@ -59,10 +59,14 @@ public sealed class EnricherTests
         RecordingHandler handler = new(_ => new HttpResponseMessage(HttpStatusCode.InternalServerError));
         using HttpClient client = new(handler) { BaseAddress = new Uri("http://localhost/") };
 
-        EnrichedException enriched = Throw().ToRemotelyEnrichedException(client);
+        // A CoreLib exception: its frames live in a module without a local PDB, so the resolver has to ask the server.
+        Exception original = Assert.Throws<FormatException>(() => int.Parse("not a number"));
 
-        Assert.Equal("boom", enriched.Message);
-        Assert.Contains(nameof(Throw), enriched.StackTrace);
+        EnrichedException enriched = original.ToRemotelyEnrichedException(client);
+
+        Assert.NotEmpty(handler.Requests);
+        Assert.Equal(original.Message, enriched.Message);
+        Assert.Contains("Parse", enriched.StackTrace);
     }
 
     [Fact]

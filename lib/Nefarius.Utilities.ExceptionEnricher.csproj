@@ -14,7 +14,8 @@
     </PropertyGroup>
 
     <PropertyGroup>
-        <MinVerTagPrefix>v</MinVerTagPrefix>
+        <!-- The library has its own tag series (lib-v2.0.0, ...) so server/agent v* tags never version or publish it. -->
+        <MinVerTagPrefix>lib-v</MinVerTagPrefix>
         <!-- 2.0 removes the FastDeepCloner/ClrMD dependencies and changes the resolution behavior. -->
         <MinVerMinimumMajorMinor>2.0</MinVerMinimumMajorMinor>
     </PropertyGroup>

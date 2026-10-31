@@ -3,7 +3,8 @@ name: Publish Nuget Package
 on:
   push:
     tags:
-      - v*
+      # Library releases use their own tag series; server/agent releases (v*) must not publish the package.
+      - 'lib-v*'
 
 permissions:
   contents: read
@@ -22,6 +23,13 @@ jobs:
         uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
+
+      - name: Require a 2.0+ library tag
+        run: |
+          if [[ ! "$GITHUB_REF_NAME" =~ ^lib-v([0-9]+)\. ]] || (( BASH_REMATCH[1] < 2 )); then
+            echo "Tag $GITHUB_REF_NAME is not a lib-v2.0.0+ release tag"
+            exit 1
+          fi
 
       - name: Build
         run: dotnet build -c Release ./lib/Nefarius.Utilities.ExceptionEnricher.csproj
