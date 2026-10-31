@@ -34,10 +34,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
     set -eux; \
-    echo "deb http://deb.debian.org/debian/ trixie main contrib non-free-firmware" > /etc/apt/sources.list.d/contrib.list; \
     apt-get update; \
-    apt-get install -y --no-install-recommends software-properties-common; \
-    apt-add-repository contrib non-free -y; \
     apt-get update; \
     echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | debconf-set-selections; \
     apt-get install -y --no-install-recommends \
