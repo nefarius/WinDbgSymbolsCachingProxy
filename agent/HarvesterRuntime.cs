@@ -155,7 +155,22 @@ public sealed class HarvesterRuntime : IDisposable
     private readonly Dictionary<string, UploadedRecord> _uploadedVersions = new(PathComparer);
 
     /// <summary>File version of a path plus the servers (by URL) that already received exactly that version.</summary>
-    private sealed record UploadedRecord(SymbolFileVersion Version, HashSet<string> Servers);
+    private sealed record UploadedRecord(SymbolFileVersion Version, string? ContentHash, HashSet<string> Servers);
+
+    /// <summary>SHA-256 of the file content; null when it cannot be read (callers then treat the file as unknown).</summary>
+    private static async Task<string?> ComputeContentHashAsync(string path, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await using FileStream stream = new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete,
+                81920, FileOptions.Asynchronous | FileOptions.SequentialScan);
+            return Convert.ToHexString(await System.Security.Cryptography.SHA256.HashDataAsync(stream, cancellationToken));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
 
     private static string ServerKey(ServerConfig server) => server.ServerUrl?.ToString() ?? string.Empty;
 
@@ -270,6 +285,14 @@ public sealed class HarvesterRuntime : IDisposable
         _logger.LogError(ex, "File system watcher error (events may have been lost); re-creating only the failed watcher");
         _health.RecordError($"Watcher error: {ex.Message}");
 
+        if (ex is InternalBufferOverflowException && sender is FileSystemWatcher overflowed)
+        {
+            // The watcher itself is still valid; keep it running and re-scan its directory for files whose events
+            // were dropped instead of tearing it down (which would pause monitoring and lose more events).
+            _ = Task.Run(() => ReconcileDirectory(overflowed));
+            return;
+        }
+
         // Only the failed watcher is replaced; pending events and in-flight uploads of healthy watchers are untouched.
         lock (_gate)
         {
@@ -286,6 +309,31 @@ public sealed class HarvesterRuntime : IDisposable
         }
 
         StartWatcherRecovery();
+    }
+
+    private void ReconcileDirectory(FileSystemWatcher watcher)
+    {
+        try
+        {
+            EnumerationOptions options = new()
+            {
+                RecurseSubdirectories = watcher.IncludeSubdirectories,
+                IgnoreInaccessible = true
+            };
+
+            foreach (string filter in watcher.Filters.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                foreach (string file in Directory.EnumerateFiles(watcher.Path, filter, options))
+                {
+                    QueueDetectedFileEvent(watcher, new FileSystemEventArgs(
+                        WatcherChangeTypes.Changed, Path.GetDirectoryName(file)!, Path.GetFileName(file)));
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ObjectDisposedException)
+        {
+            _logger.LogWarning(ex, "Could not re-scan {Path} after a watcher buffer overflow", watcher.Path);
+        }
     }
 
     private void DetachAndDispose(FileSystemWatcher watcher)
@@ -1275,12 +1323,23 @@ public sealed class HarvesterRuntime : IDisposable
         {
             versionAfterWait = await WaitForFileReadyAsync(path, stopping);
 
-            // Only servers that have not yet received exactly this version need an upload.
+            // Only servers that have not yet received exactly this version need an upload. Length and timestamp
+            // alone are not proof of identical content, so the content hash must match too.
+            UploadedRecord? known;
             lock (_gate)
             {
-                targets = _uploadedVersions.TryGetValue(path, out UploadedRecord? uploaded) &&
-                          uploaded.Version == versionAfterWait
-                    ? binding.Servers.Where(s => !uploaded.Servers.Contains(ServerKey(s))).ToList()
+                _uploadedVersions.TryGetValue(path, out known);
+            }
+
+            string? currentHash = known is not null && known.Version == versionAfterWait
+                ? await ComputeContentHashAsync(path, stopping)
+                : null;
+
+            lock (_gate)
+            {
+                targets = known is not null && known.Version == versionAfterWait && currentHash is not null &&
+                          currentHash == known.ContentHash
+                    ? binding.Servers.Where(s => !known.Servers.Contains(ServerKey(s))).ToList()
                     : binding.Servers.ToList();
             }
 
@@ -1396,6 +1455,10 @@ public sealed class HarvesterRuntime : IDisposable
             bool allSucceeded = results.All(r => r.Success);
 
             // Remember per server what was delivered so a partial failure only retries the missing destinations.
+            string? uploadedHash = results.Any(r => r.Success) && snapshotPath is not null
+                ? await ComputeContentHashAsync(snapshotPath, stopping)
+                : null;
+
             lock (_gate)
             {
                 if (_uploadedVersions.Count > 10_000)
@@ -1404,9 +1467,9 @@ public sealed class HarvesterRuntime : IDisposable
                 }
 
                 if (!_uploadedVersions.TryGetValue(path, out UploadedRecord? record) ||
-                    record.Version != snapshottedVersion)
+                    record.Version != snapshottedVersion || record.ContentHash != uploadedHash)
                 {
-                    record = new UploadedRecord(snapshottedVersion, new HashSet<string>(StringComparer.Ordinal));
+                    record = new UploadedRecord(snapshottedVersion, uploadedHash, new HashSet<string>(StringComparer.Ordinal));
                     _uploadedVersions[path] = record;
                 }
 
