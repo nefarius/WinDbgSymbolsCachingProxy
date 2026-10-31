@@ -102,7 +102,7 @@ jobs:
 
       - name: Sign assemblies
         if: success() && startsWith(github.ref, 'refs/tags/v')
-        uses: nefarius/SignRelay@39ccbe0cef16a383237130380a5aef8db040d5d0
+        uses: nefarius/SignRelay@31a8d34f0d7da6e44e9c4a794b0f51e0f5f2e8fd
         with:
           server: ${{ env.SIGN_RELAY_SERVER }}
           token: ${{ secrets.SIGN_RELAY_CI_TOKEN }}
@@ -152,7 +152,7 @@ jobs:
 
       - name: Sign MSI
         if: success() && startsWith(github.ref, 'refs/tags/v')
-        uses: nefarius/SignRelay@39ccbe0cef16a383237130380a5aef8db040d5d0
+        uses: nefarius/SignRelay@31a8d34f0d7da6e44e9c4a794b0f51e0f5f2e8fd
         with:
           server: ${{ env.SIGN_RELAY_SERVER }}
           token: ${{ secrets.SIGN_RELAY_CI_TOKEN }}
