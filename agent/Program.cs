@@ -6,6 +6,8 @@ using HarvestingAgent.Logging;
 
 using WinDbgSymbolsCachingProxy.UpdateCheck;
 
+using Microsoft.Extensions.Http.Resilience;
+
 using MudBlazor.Services;
 
 using Serilog;
@@ -57,7 +59,10 @@ builder.Services.AddHttpClient("Server", client =>
         options.TotalRequestTimeout.Timeout = TimeSpan.FromMinutes(45);
         // sampling duration must be at least twice the attempt timeout
         options.CircuitBreaker.SamplingDuration = TimeSpan.FromMinutes(20);
-    });
+    })
+    // The base address is set per request, so one named client talks to several servers; give each
+    // server authority its own circuit breaker instead of letting one failing server block the others.
+    .SelectPipelineByAuthority();
 builder.Services.AddSingleton<ILocalAssemblyVersionSource, AgentAssemblyVersionSource>();
 builder.Services.AddLatestMsiVersionCheck();
 
