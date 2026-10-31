@@ -32,6 +32,11 @@ static class Program
     /// </summary>
     const string ServiceAccountProperty = "WDSCP_SERVICE_ACCOUNT";
 
+    const string SettingsRegistryKey = @"SOFTWARE\Nefarius Software Solutions\WinDbg Symbols Caching Proxy";
+    const string PersistedAccountValue = "ServiceAccount";
+    const string PreviousServerAccountProperty = "WDSCP_PREV_SERVER_ACCOUNT";
+    const string PreviousAgentAccountProperty = "WDSCP_PREV_AGENT_ACCOUNT";
+
     static readonly string[] SupportedServiceAccounts = ["LocalService", "NetworkService"];
 
     /// <summary>Grants both supported service accounts full control so the choice can be made at install time.</summary>
@@ -141,7 +146,26 @@ static class Program
                 // account needs write access to it and, through inheritance, to the existing settings file.
                 new Dir(featureAgent, @"%CommonAppDataFolder%\WinDbgSymbolsCachingProxy\HarvestingAgent",
                     ServiceAccountPermissions()),
-                new PublicProperty(ServiceAccountProperty, LowPrivilegeServiceAccount))
+                // No default here: the effective account is resolved by the SetProperty actions below.
+                new PublicProperty(ServiceAccountProperty, string.Empty),
+                // Remember the chosen account per feature so upgrades keep it.
+                new RegValue(RegistryHive.LocalMachine, SettingsRegistryKey + @"\Server", PersistedAccountValue,
+                    $"[{ServiceAccountProperty}]") { Feature = featureServer, Win64 = true },
+                new RegValue(RegistryHive.LocalMachine, SettingsRegistryKey + @"\Agent", PersistedAccountValue,
+                    $"[{ServiceAccountProperty}]") { Feature = featureAgent, Win64 = true },
+                new Property(PreviousServerAccountProperty,
+                    new RegistrySearch(RegistryHive.LocalMachine, SettingsRegistryKey + @"\Server", PersistedAccountValue,
+                        RegistrySearchType.raw) { Win64 = true }),
+                new Property(PreviousAgentAccountProperty,
+                    new RegistrySearch(RegistryHive.LocalMachine, SettingsRegistryKey + @"\Agent", PersistedAccountValue,
+                        RegistrySearchType.raw) { Win64 = true }),
+                // Precedence: explicit command-line value, then the previously installed account, then LocalService.
+                new SetPropertyAction(ServiceAccountProperty, $"[{PreviousAgentAccountProperty}]", Return.check,
+                    When.After, Step.AppSearch, $"NOT {ServiceAccountProperty} AND {PreviousAgentAccountProperty}"),
+                new SetPropertyAction(ServiceAccountProperty, $"[{PreviousServerAccountProperty}]", Return.check,
+                    When.After, Step.AppSearch, $"NOT {ServiceAccountProperty} AND {PreviousServerAccountProperty}"),
+                new SetPropertyAction(ServiceAccountProperty, LowPrivilegeServiceAccount, Return.check,
+                    When.After, Step.AppSearch, $"NOT {ServiceAccountProperty}"))
             {
                 GUID = new Guid("a4f8b2c1-3d5e-4a7b-8c9d-0e1f2a3b4c5d"),
                 UpgradeCode = new Guid("e7a3c8f2-1b4d-4c9e-9f6a-0d2e8b5c7a91"),

@@ -37,7 +37,8 @@ services:
   wdscp-db:
     # Upgrading an existing data directory: MongoDB only supports stepping one major version at a time.
     # From 5.x go 5 -> 6 -> 7 -> 8: start each intermediate image, wait until it is healthy, and set
-    # `db.adminCommand({ setFeatureCompatibilityVersion: "<version>", confirm: true })` before switching to the next.
+    # `db.adminCommand({ setFeatureCompatibilityVersion: "6.0" })` (no confirm) on 6, then the same with "7.0" and "8.0"
+    # plus `confirm: true` on 7 and 8, before switching to the next image.
     # Take a backup first. Fresh deployments can use this tag as is.
     image: mongo:8
     container_name: wdscp-db
