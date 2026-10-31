@@ -1,11 +1,11 @@
 # syntax=docker/dockerfile:1
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-bookworm-slim AS base
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-trixie-slim AS base
 WORKDIR /app
 ENV ASPNETCORE_HTTP_PORTS=8080
 EXPOSE 8080
 
-FROM mcr.microsoft.com/dotnet/sdk:10.0-bookworm-slim AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0-trixie-slim AS build
 # Optional: force version when MinVer cannot read tags (e.g. no .git or shallow clone). CI sets this; git-URL docker builds have no .git in context.
 ARG MINVERVERSIONOVERRIDE
 WORKDIR /src
@@ -34,8 +34,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
     set -eux; \
-    # The base image is pinned to bookworm-slim; ttf-mscorefonts-installer lives in "contrib".
-    echo "deb http://deb.debian.org/debian/ bookworm main contrib non-free" > /etc/apt/sources.list.d/contrib.list; \
+    # The base image is pinned to trixie-slim; ttf-mscorefonts-installer lives in "contrib".
+    echo "deb http://deb.debian.org/debian/ trixie main contrib non-free" > /etc/apt/sources.list.d/contrib.list; \
     apt-get update; \
     echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | debconf-set-selections; \
     apt-get install -y --no-install-recommends \
