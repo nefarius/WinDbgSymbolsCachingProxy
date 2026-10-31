@@ -32,6 +32,8 @@ static class Program
     /// </summary>
     const string ServiceAccountProperty = "WDSCP_SERVICE_ACCOUNT";
 
+    // Resolved in the UI and execute sequences, after AppSearch and therefore before LaunchConditions in both.
+    static readonly Sequence BothSequences = Sequence.InstallUISequence | Sequence.InstallExecuteSequence;
     const string SettingsRegistryKey = @"SOFTWARE\Nefarius Software Solutions\WinDbg Symbols Caching Proxy";
     const string PersistedAccountValue = "ServiceAccount";
     const string PreviousServerAccountProperty = "WDSCP_PREV_SERVER_ACCOUNT";
@@ -162,11 +164,11 @@ static class Program
                         RegistrySearchType.raw) { Win64 = true }),
                 // Precedence: explicit command-line value, then the previously installed account, then LocalService.
                 new SetPropertyAction(ServiceAccountProperty, $"[{PreviousAgentAccountProperty}]", Return.check,
-                    When.After, Step.AppSearch, $"NOT {ServiceAccountProperty} AND {PreviousAgentAccountProperty}"),
+                    When.After, Step.AppSearch, $"NOT {ServiceAccountProperty} AND {PreviousAgentAccountProperty}") { Sequence = BothSequences },
                 new SetPropertyAction(ServiceAccountProperty, $"[{PreviousServerAccountProperty}]", Return.check,
-                    When.After, Step.AppSearch, $"NOT {ServiceAccountProperty} AND {PreviousServerAccountProperty}"),
+                    When.After, Step.AppSearch, $"NOT {ServiceAccountProperty} AND {PreviousServerAccountProperty}") { Sequence = BothSequences },
                 new SetPropertyAction(ServiceAccountProperty, LowPrivilegeServiceAccount, Return.check,
-                    When.After, Step.AppSearch, $"NOT {ServiceAccountProperty}"))
+                    When.After, Step.AppSearch, $"NOT {ServiceAccountProperty}") { Sequence = BothSequences })
             {
                 GUID = new Guid("a4f8b2c1-3d5e-4a7b-8c9d-0e1f2a3b4c5d"),
                 UpgradeCode = new Guid("e7a3c8f2-1b4d-4c9e-9f6a-0d2e8b5c7a91"),
