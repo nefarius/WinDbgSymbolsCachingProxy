@@ -38,16 +38,50 @@ internal static class DataProtectionSetup
         bool existed = dir.Exists;
         dir.Create();
 
-        if (!existed && OperatingSystem.IsWindows())
+        if (OperatingSystem.IsWindows())
         {
-            RestrictToAdministrators(dir);
+            if (!existed)
+            {
+                RestrictToAdministrators(dir);
+            }
+            else
+            {
+                // The service account can change between installs (LocalService <-> NetworkService); keep existing
+                // rules (SYSTEM, Administrators, ...) and make sure both supported accounts can read/write the keys.
+                GrantServiceAccounts(dir);
+            }
         }
 
         return dir;
     }
 
+    [SupportedOSPlatform("windows")]
+    private static void GrantServiceAccounts(DirectoryInfo dir)
+    {
+        try
+        {
+            DirectorySecurity security = dir.GetAccessControl();
+            const InheritanceFlags inherit = InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit;
+            foreach (SecurityIdentifier sid in new[]
+                     {
+                         new SecurityIdentifier(WellKnownSidType.LocalServiceSid, null),
+                         new SecurityIdentifier(WellKnownSidType.NetworkServiceSid, null)
+                     })
+            {
+                security.AddAccessRule(new FileSystemAccessRule(
+                    sid, FileSystemRights.Modify, inherit, PropagationFlags.None, AccessControlType.Allow));
+            }
+
+            dir.SetAccessControl(security);
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or InvalidOperationException)
+        {
+            Serilog.Log.Warning(ex, "Could not grant service accounts access to {Directory}", dir.FullName);
+        }
+    }
+
     /// <summary>
-    ///     Replaces the inherited ACL with full control for SYSTEM, Administrators and the current account only.
+    ///     Replaces the inherited ACL with full control for SYSTEM, Administrators, the current account and the two supported service accounts.
     /// </summary>
     [SupportedOSPlatform("windows")]
     private static void RestrictToAdministrators(DirectoryInfo dir)
@@ -62,7 +96,9 @@ internal static class DataProtectionSetup
                      {
                          new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null),
                          new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null),
-                         WindowsIdentity.GetCurrent().User!
+                         WindowsIdentity.GetCurrent().User!,
+                         new SecurityIdentifier(WellKnownSidType.LocalServiceSid, null),
+                         new SecurityIdentifier(WellKnownSidType.NetworkServiceSid, null)
                      })
             {
                 security.AddAccessRule(new FileSystemAccessRule(
