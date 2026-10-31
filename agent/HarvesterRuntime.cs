@@ -104,9 +104,17 @@ public sealed class HarvesterRuntime : IDisposable
 
     /// <summary>
     ///     Dedicated folder for upload snapshots so leftovers from crashes can be identified and removed safely.
+    ///     Lives under the agent's protected data directory (not the shared temp folder) because snapshots are copies of
+    ///     files that may be sensitive; access is restricted before first use.
     /// </summary>
     private static readonly string SnapshotDirectory =
-        Path.Combine(Path.GetTempPath(), "WinDbgSymbolsHarvester");
+        Path.Combine(AgentSettingsPaths.SettingsDirectory, "snapshots");
+
+    private static void EnsureSnapshotDirectory()
+    {
+        Directory.CreateDirectory(SnapshotDirectory);
+        AgentSettingsPaths.RestrictSettingsDirectory(SnapshotDirectory);
+    }
 
     /// <summary>
     ///     Maximum number of files being waited on, snapshotted and uploaded at the same time.
@@ -201,6 +209,11 @@ public sealed class HarvesterRuntime : IDisposable
     {
         try
         {
+            if (Directory.Exists(SnapshotDirectory))
+            {
+                EnsureSnapshotDirectory();
+            }
+
             if (!Directory.Exists(SnapshotDirectory))
             {
                 return;
@@ -645,7 +658,7 @@ public sealed class HarvesterRuntime : IDisposable
         SymbolFileVersion versionAfterWait,
         CancellationToken cancellationToken)
     {
-        Directory.CreateDirectory(SnapshotDirectory);
+        EnsureSnapshotDirectory();
         string tempName = $"harvester-{Guid.NewGuid():N}-{Path.GetFileName(sourcePath)}";
         string tempPath = Path.Combine(SnapshotDirectory, tempName);
 
