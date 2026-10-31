@@ -117,13 +117,16 @@ public sealed class AgentSettingsStore
     public void ReplaceServers(IEnumerable<ServerConfig> servers)
     {
         AgentSettingsDocument incoming = new() { Servers = servers.ToList() };
-        AgentSettingsDocument cloned = Clone(incoming);
-        ApplyMigrations(cloned);
+        AgentSettingsDocument migrated = Clone(incoming);
+        ApplyMigrations(migrated);
 
         lock (_lock)
         {
-            _document.Servers = cloned.Servers;
-            SaveToPath(_filePath, _document);
+            // Persist a candidate first so a failed save leaves the in-memory document unchanged.
+            AgentSettingsDocument candidate = Clone(_document);
+            candidate.Servers = migrated.Servers;
+            SaveToPath(_filePath, candidate);
+            _document = candidate;
         }
     }
 
