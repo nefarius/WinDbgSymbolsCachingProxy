@@ -68,7 +68,7 @@ static class Program
     }
 
     /// <summary>
-    ///     NUKE passes these so paths are not collapsed into a single <c>dotnet run</c> application argument.
+    ///     Fallout passes these so paths are not collapsed into a single <c>dotnet run</c> application argument.
     /// </summary>
     internal const string EnvServer = "WDSCP_INSTALLER_SERVER";
     internal const string EnvAgent = "WDSCP_INSTALLER_AGENT";
@@ -321,7 +321,7 @@ static class Program
 
                 Requires Windows, WiX 5.0.2 CLI + WixToolset.UI.wixext/5.0.2 + WixToolset.Util.wixext/5.0.2, and prior dotnet publish of both apps.
 
-                Environment (optional; used by NUKE BuildInstaller):
+                Environment (optional; used by Fallout BuildInstaller):
                   WDSCP_INSTALLER_SERVER, WDSCP_INSTALLER_AGENT, WDSCP_INSTALLER_OUT
 
                 MSI property (at install time): WDSCP_SERVICE_ACCOUNT = "NT AUTHORITY\LocalService" (default) or

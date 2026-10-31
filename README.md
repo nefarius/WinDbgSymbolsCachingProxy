@@ -142,7 +142,7 @@ Symbol download is **anonymous in Basic-auth mode**. A Windows credential dialog
 
 ## How to publish
 
-Windows binaries (framework-dependent, ReadyToRun, `publish-x64\server` and `publish-x64\agent`) are produced by the Nuke target **`PublishLocal`** (same settings that previously lived in `release-win-x64.pubxml`):
+Windows binaries (framework-dependent, ReadyToRun, `publish-x64\server` and `publish-x64\agent`) are produced by the Fallout target **`PublishLocal`** (same settings that previously lived in `release-win-x64.pubxml`):
 
 ```PowerShell
 .\build.ps1 PublishLocal
@@ -172,7 +172,7 @@ dotnet tool install --global wix --version 5.0.2
 wix extension add -g WixToolset.UI.wixext/5.0.2
 ```
 
-Then the Nuke target **`BuildInstaller`** publishes both applications and produces
+Then the Fallout target **`BuildInstaller`** publishes both applications and produces
 `publish-x64\installer\WinDbgSymbolsCachingProxy.msi` (per-machine x64 install, feature tree UI, configurable install
 directory). A local build is unsigned.
 
