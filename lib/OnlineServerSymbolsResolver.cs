@@ -115,7 +115,17 @@ public sealed class OnlineServerSymbolsResolver : ISymbolReaderProvider, IDispos
             byte[]? data = GetSymbolBytes(pdbFileName, key, out HttpStatusCode? status);
             if (data is not null)
             {
-                return new PdbReaderProvider().GetSymbolReader(module, new MemoryStream(data, false));
+                try
+                {
+                    return new PdbReaderProvider().GetSymbolReader(module, new MemoryStream(data, false));
+                }
+                catch (Exception ex) when (!_throwIfNoSymbol &&
+                                           ex is not OutOfMemoryException and not OperationCanceledException)
+                {
+                    // Unusable symbol data must not stay cached; try the next candidate key.
+                    _symbolCache.TryRemove($"{pdbFileName}/{key}", out _);
+                    continue;
+                }
             }
 
             if (status is not (null or HttpStatusCode.NotFound))
@@ -176,7 +186,7 @@ public sealed class OnlineServerSymbolsResolver : ISymbolReaderProvider, IDispos
         HttpResponseMessage response;
         try
         {
-            response = client.Send(request, HttpCompletionOption.ResponseHeadersRead);
+            response = client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false).GetAwaiter().GetResult();
         }
         catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or InvalidOperationException)
         {
@@ -196,11 +206,26 @@ public sealed class OnlineServerSymbolsResolver : ISymbolReaderProvider, IDispos
                 return null;
             }
 
-            using Stream content = response.Content.ReadAsStream();
-            using MemoryStream buffer = new();
-            content.CopyTo(buffer);
+            byte[] data;
+            try
+            {
+                using Stream content = response.Content.ReadAsStream();
+                using MemoryStream buffer = new();
+                content.CopyTo(buffer);
+                data = buffer.ToArray();
+            }
+            catch (Exception ex) when (ex is HttpRequestException or IOException or OperationCanceledException
+                                           or InvalidOperationException)
+            {
+                if (_throwIfNoSymbol)
+                {
+                    throw;
+                }
 
-            byte[] data = buffer.ToArray();
+                // Treated like a transient failure: nothing cached, the caller moves on to the next candidate key.
+                return null;
+            }
+
             _symbolCache[cacheKey] = data;
             return data;
         }
