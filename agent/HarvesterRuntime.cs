@@ -5,6 +5,8 @@ using Microsoft.Extensions.FileSystemGlobbing;
 
 using MimeTypes;
 
+using Polly.CircuitBreaker;
+
 namespace HarvestingAgent;
 
 public sealed class HarvesterRuntime : IDisposable
@@ -31,6 +33,18 @@ public sealed class HarvesterRuntime : IDisposable
         public string? ServerDisplayName { get; init; }
         public string? ServerUrl { get; init; }
         public string? ErrorDetails { get; init; }
+
+        /// <summary>Set when the server's circuit breaker is open; the upload should be retried after this delay.</summary>
+        public TimeSpan? RetryAfter { get; init; }
+    }
+
+    /// <summary>
+    ///     Thrown when every failed upload was rejected by an open circuit, so the file event is retried later
+    ///     instead of being dropped.
+    /// </summary>
+    private sealed class UploadDeferredException(TimeSpan delay) : Exception("Upload deferred while a server circuit is open")
+    {
+        public TimeSpan Delay { get; } = delay;
     }
 
     /// <summary>
@@ -78,6 +92,19 @@ public sealed class HarvesterRuntime : IDisposable
     ///     Maximum number of snapshot attempts when the source file keeps changing during the copy.
     /// </summary>
     private const int SnapshotMaxAttempts = 5;
+
+    /// <summary>
+    ///     Hard deadline for one upload including response-body buffering, which the resilience pipeline's total timeout
+    ///     (45 min) does not cover.
+    /// </summary>
+    private static readonly TimeSpan UploadRequestDeadline = TimeSpan.FromMinutes(50);
+
+    /// <summary>
+    ///     How often a file event is re-queued because a server circuit was open before giving up.
+    /// </summary>
+    private const int MaxCircuitDeferrals = 10;
+
+    private static readonly TimeSpan DefaultCircuitRetryDelay = TimeSpan.FromSeconds(35);
 
     /// <summary>
     ///     Coalesces the burst of change notifications emitted while compilers and linkers are writing build outputs.
@@ -801,6 +828,8 @@ public sealed class HarvesterRuntime : IDisposable
             CancellationTokenSource.CreateLinkedTokenSource(stopping, pending.WatcherSetCancellationToken);
         CancellationToken cancellationToken = linkedCancellation.Token;
 
+        int deferrals = 0;
+
         try
         {
             while (true)
@@ -842,7 +871,17 @@ public sealed class HarvesterRuntime : IDisposable
                 {
                     await ProcessDetectedFileAsync(binding, pending.Path, pending.FileName, cancellationToken);
                 }
-                catch (OperationCanceledException)
+                catch (UploadDeferredException deferred) when (++deferrals <= MaxCircuitDeferrals)
+                {
+                    _logger.LogWarning(
+                        "Server circuit is open; retrying {Path} in {Delay:F0}s (deferral {Count}/{Max})",
+                        pending.Path, deferred.Delay.TotalSeconds, deferrals, MaxCircuitDeferrals);
+
+                    // The pending event stays registered, so changes arriving meanwhile coalesce into it.
+                    await Task.Delay(deferred.Delay, cancellationToken);
+                    continue;
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
                     throw;
                 }
@@ -983,6 +1022,13 @@ public sealed class HarvesterRuntime : IDisposable
                         result.ServerUrl,
                         result.ErrorDetails ?? "Upload failed");
                 }
+            }
+
+            // Uploads rejected only because a circuit is open are retried later rather than reported as lost.
+            if (results.Any(r => r.RetryAfter is not null) &&
+                results.All(r => r.Success || r.RetryAfter is not null))
+            {
+                throw new UploadDeferredException(results.Max(r => r.RetryAfter) ?? DefaultCircuitRetryDelay);
             }
 
             bool allSucceeded = results.All(r => r.Success);
@@ -1132,10 +1178,14 @@ public sealed class HarvesterRuntime : IDisposable
             fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse(mimeType);
             form.Add(fileContent, "symbol", fileName);
 
+            // Finite deadline for the whole exchange, including buffering of the response body.
+            using CancellationTokenSource requestCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            requestCts.CancelAfter(UploadRequestDeadline);
+
             using HttpResponseMessage response = await client.PostAsync(
                 "/api/uploads/symbol?force=true",
                 form,
-                cancellationToken);
+                requestCts.Token);
 
             if (response.IsSuccessStatusCode)
             {
@@ -1152,7 +1202,7 @@ public sealed class HarvesterRuntime : IDisposable
             }
 
             _logger.LogInformation("Symbol upload failed");
-            string body = await response.Content.ReadAsStringAsync(cancellationToken);
+            string body = await response.Content.ReadAsStringAsync(requestCts.Token);
             _health.RecordUploadFailure($"HTTP {(int)response.StatusCode}: {body}");
             await WriteUploadErrorSidecarAsync(detectedPath, body, cancellationToken);
             return new UploadAttemptResult
@@ -1163,12 +1213,26 @@ public sealed class HarvesterRuntime : IDisposable
                 ErrorDetails = $"HTTP {(int)response.StatusCode}: {body}"
             };
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             throw;
         }
+        catch (BrokenCircuitException ex)
+        {
+            _logger.LogWarning("Upload to {ServerUrl} rejected: circuit is open", serverUrl);
+            _health.RecordUploadFailure("Circuit open: " + ex.Message);
+            return new UploadAttemptResult
+            {
+                Success = false,
+                ServerDisplayName = serverDisplayName,
+                ServerUrl = serverUrl,
+                ErrorDetails = "Circuit open: " + ex.Message,
+                RetryAfter = DefaultCircuitRetryDelay
+            };
+        }
         catch (Exception ex)
         {
+            // Includes the upload deadline expiring (cancellation not requested by the caller), which counts as a failure.
             _logger.LogError(ex, "Symbol upload exception for {ServerUrl}", serverUrl);
             _health.RecordUploadFailure(ex.Message);
             return new UploadAttemptResult
