@@ -87,6 +87,9 @@ Log.Logger.Information("Initializing database connection");
 
 BsonSerializer.RegisterSerializer(new GuidSerializer(GuidRepresentation.Standard));
 
+// MongoDB.Entities v26 defaults string IDs to BSON strings; existing data uses ObjectIds.
+LegacyEntityIdMapping.Register();
+
 DB db = await DB.InitAsync(serviceConfig.DatabaseName,
     MongoClientSettings.FromConnectionString(serviceConfig.ConnectionString));
 
