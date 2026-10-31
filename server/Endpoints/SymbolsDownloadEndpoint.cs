@@ -389,10 +389,25 @@ public sealed class SymbolsDownloadEndpoint(
 
             // cache in memory because we need to return it to database AND requester
             using MemoryStream cache = new();
-            using (CancellationTokenSource bodyCts = new(UpstreamBodyTimeout))
+            try
             {
+                using CancellationTokenSource bodyCts = new(UpstreamBodyTimeout);
                 await using Stream upstreamContent = await response.Content.ReadAsStreamAsync(bodyCts.Token);
                 await upstreamContent.CopyToAsync(cache, bodyCts.Token);
+            }
+            catch (Exception ex) when (ex is BrokenCircuitException or TimeoutRejectedException or HttpRequestException
+                                           or IOException ||
+                                       (ex is OperationCanceledException &&
+                                        !HttpContext.RequestAborted.IsCancellationRequested))
+            {
+                logger.LogWarning(ex, "Reading upstream symbol body failed for {Request}", req.ToString());
+                if (!HttpContext.Response.HasStarted)
+                {
+                    HttpContext.Response.StatusCode = 502;
+                    await HttpContext.Response.WriteAsync("Upstream symbol server unavailable.", CancellationToken.None);
+                }
+
+                return;
             }
 
             cache.Position = 0;
