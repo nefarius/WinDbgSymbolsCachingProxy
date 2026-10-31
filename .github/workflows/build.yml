@@ -7,35 +7,52 @@ on:
   pull_request:
     branches: [ "master" ]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
           submodules: true
 
       - name: Setup .Net SDK
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
 
       - name: Build
         run: dotnet build -c Release
 
+      - name: Test
+        run: dotnet test --solution WinDbgSymbolsCachingProxy.sln -c Release --no-build
+
   build-installer:
+    needs: build
     runs-on: windows-latest
+    timeout-minutes: 45
+    # A job-level block replaces the workflow-level one: keep contents: read and add actions: read for the artifact download.
+    permissions:
+      contents: read
+      actions: read
     env:
       SIGN_RELAY_SERVER: ${{ vars.SIGN_RELAY_SERVER }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
           submodules: true
 
       - name: Setup .Net SDK
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
 
@@ -44,6 +61,7 @@ jobs:
         run: |
           dotnet tool install --global wix --version 5.0.2
           wix extension add -g WixToolset.UI.wixext/5.0.2
+          wix extension add -g WixToolset.Util.wixext/5.0.2
 
       - name: Require signing configuration
         if: success() && startsWith(github.ref, 'refs/tags/v')
@@ -157,7 +175,7 @@ jobs:
       - name: Upload MSI artifact
         if: success() && startsWith(github.ref, 'refs/tags/v')
         id: upload-msi
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ github.event.repository.name }}-msi
           path: publish-x64/installer/*.msi
@@ -167,6 +185,8 @@ jobs:
         shell: pwsh
         env:
           WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+        # NOTE: the Buildbot receives the workflow's GITHUB_TOKEN to download the artifact. The token expires when
+        # this workflow run finishes, so the Buildbot has to fetch the artifact promptly.
         run: |
           $artifactId = "${{ steps.upload-msi.outputs.artifact-id }}"
           $artifactUrl = "https://api.github.com/repos/${{ github.repository }}/actions/artifacts/${artifactId}/zip"

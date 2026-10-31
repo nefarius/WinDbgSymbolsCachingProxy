@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 
 using WinDbgSymbolsCachingProxy.Models;
@@ -164,6 +165,10 @@ internal static class AuthSetupExtensions
             {
                 options.LoginPath = "/account/login";
                 options.AccessDeniedPath = "/account/access-denied";
+                options.ExpireTimeSpan = TimeSpan.FromDays(7);
+
+                string cookieSubjectClaim = oidcConfig.SubjectClaimType;
+                options.Events.OnValidatePrincipal = ctx => ValidatePrincipalAsync(ctx, cookieSubjectClaim);
 
                 // API requests should receive 401, not a login redirect.
                 options.Events.OnRedirectToLogin = ctx =>
@@ -231,38 +236,136 @@ internal static class AuthSetupExtensions
                     if (subject is null)
                         return;
 
-                    UserEntity user = await userService.GetOrCreateAsync(
+                    // Never trust role/permission claims supplied by the identity provider; only the
+                    // application's own identity (built below from the database) may grant access.
+                    StripAuthorizationClaims(ctx.Principal);
+
+                    (UserEntity user, bool created) = await userService.GetOrCreateWithStatusAsync(
                         subject, email, displayName, ctx.HttpContext.RequestAborted);
 
-                    // Bootstrap: grant Admin role if the subject or email is in the seed list.
+                    // Bootstrap: grant Admin role if the subject or a verified e-mail is in the seed list,
+                    // but only for a brand-new user or while no administrator exists (so admins can demote
+                    // bootstrap users and a compromised identifier cannot silently regain access).
                     List<string> bootstrapIds = configProvider.Config?.BootstrapAdminIdentifiers ?? [];
+                    bool emailVerified = string.Equals(
+                        ctx.Principal.FindFirstValue("email_verified"), "true", StringComparison.OrdinalIgnoreCase);
                     bool shouldBootstrap = bootstrapIds.Any(id =>
                         string.Equals(id, subject, StringComparison.OrdinalIgnoreCase)
-                        || (email is not null && string.Equals(id, email, StringComparison.OrdinalIgnoreCase)));
+                        || (emailVerified && email is not null
+                            && string.Equals(id, email, StringComparison.OrdinalIgnoreCase)));
 
-                    if (shouldBootstrap && !user.RoleNames.Contains("Admin"))
+                    if (shouldBootstrap && !user.RoleNames.Contains("Admin")
+                        && (created || !await userService.AnyAdminAsync(ctx.HttpContext.RequestAborted)))
                     {
-                        user.RoleNames.Add("Admin");
-                        await userService.SaveAsync(user, ctx.HttpContext.RequestAborted);
+                        await userService.AddRoleAsync(user, "Admin", ctx.HttpContext.RequestAborted);
                     }
 
-                    List<string> permissions = await roleService.GetPermissionsForRolesAsync(
-                        user.RoleNames, ctx.HttpContext.RequestAborted);
+                    ctx.Principal.AddIdentity(await BuildAppIdentityAsync(
+                        user, roleService, ctx.HttpContext.RequestAborted));
+                };
 
-                    ClaimsIdentity appIdentity = new();
-                    appIdentity.AddClaims(user.RoleNames.Select(r => new Claim(ClaimTypes.Role, r)));
-                    appIdentity.AddClaims(permissions.Select(p =>
-                        new Claim(AuthConstants.PermissionClaimType, p)));
+                options.Events.OnRedirectToIdentityProvider = ctx =>
+                {
+                    // Non-interactive clients (WinDbg, CI, XHR) must receive 401, not a login redirect.
+                    if (IsApiRequest(ctx.Request) || !AcceptsHtml(ctx.Request))
+                    {
+                        ctx.Response.StatusCode = 401;
+                        ctx.HandleResponse();
+                    }
 
-                    ctx.Principal.AddIdentity(appIdentity);
+                    return Task.CompletedTask;
                 };
             })
             .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(
                 ApiKeyAuthenticationHandler.SchemeName, _ => { });
     }
 
+    /// <summary>Authentication type of the identity that carries database-derived roles and permissions.</summary>
+    internal const string AppIdentityAuthenticationType = "WinDbgSymbolsCachingProxy.App";
+
+    private static readonly TimeSpan PrincipalRevalidationInterval = TimeSpan.FromSeconds(30);
+
+    private sealed record CachedUser(UserEntity? User);
+
+    private static void StripAuthorizationClaims(ClaimsPrincipal principal)
+    {
+        foreach (ClaimsIdentity identity in principal.Identities)
+        {
+            foreach (Claim claim in identity.Claims
+                         .Where(c => c.Type == AuthConstants.PermissionClaimType || c.Type == ClaimTypes.Role)
+                         .ToList())
+            {
+                identity.RemoveClaim(claim);
+            }
+        }
+    }
+
+    private static async Task<ClaimsIdentity> BuildAppIdentityAsync(
+        UserEntity user, RoleService roleService, CancellationToken ct)
+    {
+        List<string> permissions = await roleService.GetPermissionsForRolesAsync(user.RoleNames, ct);
+
+        ClaimsIdentity appIdentity = new(AppIdentityAuthenticationType);
+        appIdentity.AddClaims(user.RoleNames.Select(r => new Claim(ClaimTypes.Role, r)));
+        appIdentity.AddClaims(permissions.Select(p => new Claim(AuthConstants.PermissionClaimType, p)));
+        return appIdentity;
+    }
+
+    /// <summary>
+    ///     Re-reads the user (briefly cached) on cookie validation so that removed roles or deleted users take
+    ///     effect without waiting for the cookie to expire.
+    /// </summary>
+    private static async Task ValidatePrincipalAsync(
+        CookieValidatePrincipalContext ctx, string subjectClaimType)
+    {
+        if (ctx.Principal is null)
+            return;
+
+        string? subject = ctx.Principal.FindFirstValue(subjectClaimType)
+                          ?? ctx.Principal.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (subject is null)
+            return;
+
+        IServiceProvider sp = ctx.HttpContext.RequestServices;
+        Microsoft.Extensions.Caching.Memory.IMemoryCache cache =
+            sp.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>();
+        string cacheKey = $"auth-user:{subject}";
+
+        if (!cache.TryGetValue(cacheKey, out CachedUser? cached) || cached is null)
+        {
+            UserEntity? found = await sp.GetRequiredService<UserService>()
+                .FindBySubjectAsync(subject, ctx.HttpContext.RequestAborted);
+            cached = new CachedUser(found);
+            cache.Set(cacheKey, cached, new Microsoft.Extensions.Caching.Memory.MemoryCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = PrincipalRevalidationInterval,
+                Size = 1
+            });
+        }
+
+        if (cached.User is null)
+        {
+            ctx.RejectPrincipal();
+            await ctx.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            return;
+        }
+
+        ClaimsIdentity fresh = await BuildAppIdentityAsync(
+            cached.User, sp.GetRequiredService<RoleService>(), ctx.HttpContext.RequestAborted);
+
+        ClaimsPrincipal replacement = new(ctx.Principal.Identities
+            .Where(i => i.AuthenticationType != AppIdentityAuthenticationType));
+        replacement.AddIdentity(fresh);
+        ctx.ReplacePrincipal(replacement);
+    }
+
+    private static bool AcceptsHtml(HttpRequest request)
+        => request.Headers.TryGetValue("Accept", out Microsoft.Extensions.Primitives.StringValues accept)
+           && accept.Any(a => a?.Contains("text/html", StringComparison.OrdinalIgnoreCase) == true);
+
     private static bool IsApiRequest(HttpRequest request)
         => request.Path.StartsWithSegments("/api")
+            || request.Path.StartsWithSegments("/download")
             || (request.Headers.TryGetValue("Accept", out Microsoft.Extensions.Primitives.StringValues accept)
                 && accept.Any(a => a?.Contains("application/json", StringComparison.OrdinalIgnoreCase) == true));
 }

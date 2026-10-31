@@ -70,7 +70,18 @@ public sealed class RoleService(DB db, IMemoryCache cache)
 
     /// <summary>Evicts the cached permission list for a single named role.</summary>
     public void InvalidateCacheFor(string roleName)
-        => cache.Remove(CacheKey(roleName));
+    {
+        lock (_cacheGate)
+        {
+            _invalidationGeneration++;
+            cache.Remove(CacheKey(roleName));
+        }
+    }
+
+    // Coordinates cache population with invalidation: a read that started before an update must not
+    // repopulate the cache with the stale value after the update has invalidated it.
+    private readonly object _cacheGate = new();
+    private long _invalidationGeneration;
 
     // ── private helpers ───────────────────────────────────────────────────────
 
@@ -82,9 +93,29 @@ public sealed class RoleService(DB db, IMemoryCache cache)
         if (cache.TryGetValue(key, out List<string>? cached))
             return cached!;
 
+        long generationBeforeRead;
+        lock (_cacheGate)
+        {
+            generationBeforeRead = _invalidationGeneration;
+        }
+
         RoleEntity? role = await GetByNameAsync(roleName, ct);
         List<string> perms = role?.Permissions ?? [];
-        cache.Set(key, perms, CacheDuration);
+
+        lock (_cacheGate)
+        {
+            // Skip caching when any role was invalidated while we were reading; the next call reads fresh data.
+            if (generationBeforeRead == _invalidationGeneration)
+            {
+                // The shared cache has a SizeLimit, so every entry must declare a Size.
+                cache.Set(key, perms, new MemoryCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = CacheDuration,
+                    Size = 1
+                });
+            }
+        }
+
         return perms;
     }
 }

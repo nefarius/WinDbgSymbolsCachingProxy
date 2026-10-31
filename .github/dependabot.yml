@@ -5,3 +5,24 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    groups:
+      microsoft-extensions:
+        patterns:
+          - "Microsoft.Extensions.*"
+          - "Microsoft.AspNetCore.*"
+          - "System.*"
+      testing:
+        patterns:
+          - "xunit*"
+          - "Microsoft.Testing.*"
+          - "coverlet.*"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"

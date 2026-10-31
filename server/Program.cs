@@ -8,8 +8,6 @@ using Coravel;
 using FastEndpoints;
 using FastEndpoints.Swagger;
 
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.SymbolStore;
@@ -23,9 +21,6 @@ using MongoDB.Entities;
 using MudBlazor.Services;
 
 using Nefarius.Utilities.AspNetCore;
-
-using Polly;
-using Polly.Contrib.WaitAndRetry;
 
 using Serilog;
 
@@ -99,6 +94,24 @@ builder.Services.AddSingleton(db);
 
 // Load OIDC configuration (single document) from MongoDB.
 OidcConfigEntity? oidcConfigDoc = await db.Find<OidcConfigEntity>().ExecuteFirstAsync();
+
+// An incomplete OIDC configuration would lock everyone out; fall back to Basic auth instead.
+if (oidcConfigDoc is { Enabled: true } &&
+    (!Uri.TryCreate(oidcConfigDoc.Authority, UriKind.Absolute, out _) ||
+     string.IsNullOrWhiteSpace(oidcConfigDoc.ClientId)))
+{
+    Log.Logger.Error(
+        "OIDC is enabled but Authority or ClientId is missing/invalid; falling back to Basic authentication");
+    oidcConfigDoc = null;
+}
+
+if (oidcConfigDoc is not { Enabled: true } &&
+    serviceConfig.BasicAuthCredentials?.Any(c => c is { Username: "admin", Password: "admin" }) == true)
+{
+    Log.Logger.Warning(
+        "Default Basic-auth credentials admin/admin are active; change them in appsettings before exposing this service");
+}
+
 OidcConfigProvider oidcConfigProvider = new(oidcConfigDoc);
 builder.Services.AddSingleton(oidcConfigProvider);
 
@@ -106,23 +119,7 @@ builder.Services.AddSingleton(oidcConfigProvider);
 
 #region Core Services
 
-builder.Services.AddSingleton<IBadgeFactory, BadgeFactory>();
-builder.Services.AddSingleton<IBadgeService, BadgeService>();
-builder.Services.AddSingleton<ISvgService, SvgService>();
-builder.Services.AddTransient<RecheckNotFoundJob>();
-builder.Services.AddSingleton<SymbolAliasLookupService>();
-builder.Services.AddSingleton<RecheckNotFoundService>();
-builder.Services.AddTransient<SymStoreService>();
-builder.Services.AddTransient<ITracer, Tracer>();
-builder.Services.AddSingleton<SymbolParsingService>();
-builder.Services.AddSingleton<ICachedSymbolOverviewProvider, CachedSymbolOverviewProvider>();
-builder.Services.AddSingleton<IStatusOpenGraphImageRenderer, StatusOpenGraphImageRenderer>();
-builder.Services.AddSingleton(logBuffer);
-
-// Auth-related services
-builder.Services.AddSingleton<RoleService>();
-builder.Services.AddSingleton<UserService>();
-builder.Services.AddSingleton<ApiKeyService>();
+builder.Services.AddSymbolProxyServices(logBuffer);
 
 #endregion
 
@@ -180,22 +177,41 @@ builder.Services.AddFastEndpoints().SwaggerDocument(o =>
 builder.Services.AddHttpClient("MicrosoftSymbolServer",
         client =>
         {
+            AssemblyName entryName = typeof(Program).Assembly.GetName();
             client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue(
-                Assembly.GetEntryAssembly()?.GetName().Name!,
-                Assembly.GetEntryAssembly()?.GetName().Version!.ToString()));
+                entryName.Name ?? "WinDbgSymbolsCachingProxy",
+                entryName.Version?.ToString()));
 
             client.BaseAddress = new Uri(serviceConfig.UpstreamUrl);
+            // Timeouts are enforced by the resilience pipeline below.
+            client.Timeout = Timeout.InfiniteTimeSpan;
         })
-    .AddTransientHttpErrorPolicy(pb =>
-        pb.WaitAndRetryAsync(Backoff.DecorrelatedJitterBackoffV2(TimeSpan.FromSeconds(3), 10)));
+    .AddStandardResilienceHandler(options =>
+    {
+        // Bounded retries plus a circuit breaker avoid retry storms during upstream outages.
+        options.Retry.MaxRetryAttempts = 4;
+        options.Retry.Delay = TimeSpan.FromSeconds(3);
+        options.Retry.UseJitter = true;
+        options.AttemptTimeout.Timeout = TimeSpan.FromMinutes(2);
+        options.TotalRequestTimeout.Timeout = TimeSpan.FromMinutes(8);
+        options.CircuitBreaker.SamplingDuration = TimeSpan.FromMinutes(4);
+    });
 
 #region Authentication & Authorization
 
 // Persist Data Protection keys so the cookie auth ticket survives service restarts.
 // On Windows this defaults to a per-user DPAPI key; force file-system persistence for
 // predictable behaviour across accounts (e.g. running as SYSTEM as a Windows Service).
-builder.Services.AddDataProtection()
-    .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(AppContext.BaseDirectory, "dp-keys")));
+DirectoryInfo dataProtectionKeys = DataProtectionSetup.ResolveKeysDirectory(serviceConfig.DataProtectionKeysPath);
+IDataProtectionBuilder dataProtection = builder.Services.AddDataProtection()
+    .SetApplicationName("WinDbgSymbolsCachingProxy")
+    .PersistKeysToFileSystem(dataProtectionKeys);
+
+if (OperatingSystem.IsWindows())
+{
+    // Encrypt keys at rest so reading the key directory is not enough to forge auth cookies.
+    dataProtection.ProtectKeysWithDpapi(protectToLocalMachine: true);
+}
 
 // Conditionally registers Basic auth (when OIDC is off) or Cookie+OIDC+ApiKey (when on).
 // Do not use a global fallback RequireAuthenticatedUser: it also applies to Blazor's interactive
@@ -230,35 +246,7 @@ app.UseMiddleware<BasicAuthChallengeDiagnosticsMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// OIDC login/logout minimal-API endpoints.
-// These are registered even in Basic-auth mode (they just return 404 / redirect-to-home harmlessly).
-app.MapGet("/account/login", (HttpContext ctx, string? returnUrl) =>
-{
-    if (!oidcConfigProvider.IsOidcEnabled)
-        return Results.Redirect("/");
-
-    // Reject external URLs to prevent open-redirect attacks.
-    string safeReturn = IsLocalUrl(ctx.Request, returnUrl) ? returnUrl! : "/";
-
-    if (ctx.User.Identity?.IsAuthenticated == true)
-        return Results.Redirect(safeReturn);
-
-    AuthenticationProperties props = new() { RedirectUri = safeReturn };
-    return Results.Challenge(props, [Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectDefaults.AuthenticationScheme]);
-}).AllowAnonymous();
-
-app.MapGet("/account/logout", async (HttpContext ctx) =>
-{
-    if (!oidcConfigProvider.IsOidcEnabled)
-    {
-        ctx.Response.Redirect("/");
-        return;
-    }
-
-    await ctx.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-    await ctx.SignOutAsync(Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectDefaults.AuthenticationScheme,
-        new AuthenticationProperties { RedirectUri = "/" });
-}).AllowAnonymous();
+app.MapAccountEndpoints(oidcConfigProvider);
 
 app.UseFastEndpoints(c =>
 {
@@ -284,23 +272,3 @@ app.MapRazorComponents<App>()
     .AllowAnonymous();
 
 await app.RunAsync();
-
-// Returns true only when the URL is relative or points to the same host/scheme,
-// preventing open-redirect attacks via a crafted returnUrl query parameter.
-static bool IsLocalUrl(HttpRequest request, string? url)
-{
-    if (string.IsNullOrWhiteSpace(url))
-        return false;
-
-    // Relative path (most common case: "/search", "/upload")
-    if (url.StartsWith('/') && (url.Length == 1 || (url[1] != '/' && url[1] != '\\')))
-        return true;
-
-    // Absolute URL pointing to the same origin
-    if (Uri.TryCreate(url, UriKind.Absolute, out Uri? uri))
-        return string.Equals(uri.Scheme, request.Scheme, StringComparison.OrdinalIgnoreCase) &&
-               string.Equals(uri.Host, request.Host.Host, StringComparison.OrdinalIgnoreCase) &&
-               uri.Port == (request.Host.Port ?? (string.Equals(request.Scheme, "https", StringComparison.OrdinalIgnoreCase) ? 443 : 80));
-
-    return false;
-}

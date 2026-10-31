@@ -40,6 +40,9 @@ public partial class Search
     private IJSRuntime Js { get; set; } = null!;
 
     [Inject]
+    private Microsoft.Extensions.Caching.Memory.IMemoryCache MemoryCache { get; set; } = null!;
+
+    [Inject]
     private NavigationManager Navigation { get; set; } = null!;
 
     [Inject]
@@ -74,7 +77,22 @@ public partial class Search
         if (!authResult.Succeeded)
             return;
 
-        await Db.DeleteAsync<SymbolsEntity>(_contextRow.ID);
+        try
+        {
+            await Db.DeleteAsync<SymbolsEntity>(_contextRow.ID);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Delete failed: {ex.Message}", Severity.Error);
+            return;
+        }
+
+        MemoryCache.Remove($"{_contextRow.IndexPrefix}{_contextRow.FileName}".ToLowerInvariant());
+        foreach (string alias in _contextRow.AlternateRequestSymbols)
+        {
+            MemoryCache.Remove($"{alias}/{_contextRow.SymbolKey}/{alias}".ToLowerInvariant());
+        }
+
         Snackbar.Add($"Deleted {_contextRow.IndexPrefix}", Severity.Success);
 
         if (_dataGrid.CurrentPage > 0 && _lastPageItemCount <= 1)

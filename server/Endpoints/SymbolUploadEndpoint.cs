@@ -1,6 +1,7 @@
 using FastEndpoints;
 
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.Caching.Memory;
 
 using MongoDB.Entities;
 
@@ -13,9 +14,56 @@ namespace WinDbgSymbolsCachingProxy.Endpoints;
 /// <summary>
 ///     Allows uploading custom symbol files to the database.
 /// </summary>
-internal sealed class SymbolUploadEndpoint(DB db, ILogger<SymbolUploadEndpoint> logger, SymbolParsingService parsingService)
+internal sealed class SymbolUploadEndpoint(
+    DB db,
+    ILogger<SymbolUploadEndpoint> logger,
+    SymbolParsingService parsingService,
+    IMemoryCache memoryCache)
     : EndpointWithoutRequest
 {
+    /// <summary>
+    ///     Browsers re-send cached Basic credentials automatically, so cross-site form posts must be rejected
+    ///     unless the caller authenticates with an explicit API key header.
+    /// </summary>
+    internal static bool IsCrossSiteBrowserRequest(HttpRequest request)
+    {
+        if (request.Headers.ContainsKey("X-Api-Key"))
+        {
+            return false;
+        }
+
+        if (request.Headers.TryGetValue("Sec-Fetch-Site", out Microsoft.Extensions.Primitives.StringValues site)
+            && string.Equals(site.ToString(), "cross-site", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (request.Headers.TryGetValue("Origin", out Microsoft.Extensions.Primitives.StringValues origin)
+            && !string.IsNullOrEmpty(origin.ToString()))
+        {
+            if (!Uri.TryCreate(origin.ToString(), UriKind.Absolute, out Uri? originUri))
+            {
+                return true;
+            }
+
+            return !string.Equals(originUri.Authority, request.Host.ToString(), StringComparison.OrdinalIgnoreCase)
+                   && !(originUri.IsDefaultPort &&
+                        string.Equals(originUri.Host, request.Host.Host, StringComparison.OrdinalIgnoreCase));
+        }
+
+        return false;
+    }
+
+    private void EvictFromMemoryCache(SymbolsEntity symbol)
+    {
+        memoryCache.Remove($"{symbol.IndexPrefix}{symbol.FileName}".ToLowerInvariant());
+
+        foreach (string alias in symbol.AlternateRequestSymbols)
+        {
+            memoryCache.Remove($"{alias}/{symbol.SymbolKey}/{alias}".ToLowerInvariant());
+        }
+    }
+
     /// <summary>
     /// Registers the HTTP POST endpoint at "/api/uploads/symbol", enables file uploads for the route, and applies the "Symbols" tag.
     /// </summary>
@@ -35,6 +83,13 @@ internal sealed class SymbolUploadEndpoint(DB db, ILogger<SymbolUploadEndpoint> 
     /// <param name="ct">The cancellation token that can be used to cancel request processing.</param>
     public override async Task HandleAsync(CancellationToken ct)
     {
+        if (IsCrossSiteBrowserRequest(HttpContext.Request))
+        {
+            logger.LogWarning("Rejected cross-site upload request");
+            await Send.ForbiddenAsync(ct);
+            return;
+        }
+
         bool? force = Query<bool?>("force", false);
 
         // multiple files per request are supported 
@@ -161,7 +216,13 @@ internal sealed class SymbolUploadEndpoint(DB db, ILogger<SymbolUploadEndpoint> 
                     throw;
                 }
 
+                EvictFromMemoryCache(symbol);
+
                 logger.LogInformation("Added new symbol {Symbol}", symbol);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
             }
             catch (Exception ex)
             {

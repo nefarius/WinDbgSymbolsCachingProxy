@@ -1,6 +1,6 @@
 # Symbols Harvesting Agent
 
-Windows service that watches configured folders for new symbol files and uploads them to your caching proxy. Configuration is done through a **local web UI** (MudBlazor). The project targets **net9.0** so you can **build and run on Linux** for development; publish with the **win-x64** profile for Windows deployment.
+Windows service that watches configured folders for new symbol files and uploads them to your caching proxy. Configuration is done through a **local web UI** (MudBlazor). The project targets **net10.0** so you can **build and run on Linux** for development; publish with the **win-x64** profile for Windows deployment.
 
 ## Web UI
 

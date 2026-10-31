@@ -29,7 +29,23 @@ public sealed class BasicAuthCredentials : IEquatable<BasicAuthCredentials>
             return true;
         }
 
-        return Username == other.Username && Password == other.Password;
+        // A missing username/password never matches anything (and is distinct from an explicitly empty one).
+        if (Username is null || Password is null || other.Username is null || other.Password is null)
+        {
+            return false;
+        }
+
+        // Evaluate both comparisons (no short-circuit) in constant time to avoid leaking prefix matches.
+        bool userMatches = FixedTimeEquals(Username, other.Username);
+        bool passwordMatches = FixedTimeEquals(Password, other.Password);
+        return userMatches & passwordMatches;
+    }
+
+    private static bool FixedTimeEquals(string a, string b)
+    {
+        byte[] left = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(a));
+        byte[] right = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(b));
+        return System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(left, right);
     }
 
     /// <inheritdoc />
@@ -41,7 +57,8 @@ public sealed class BasicAuthCredentials : IEquatable<BasicAuthCredentials>
     /// <inheritdoc />
     public override int GetHashCode()
     {
-        return HashCode.Combine(Username, Password);
+        // Never derive hash codes from the password.
+        return Username?.GetHashCode() ?? 0;
     }
 
     /// <summary>Equality operator.</summary>

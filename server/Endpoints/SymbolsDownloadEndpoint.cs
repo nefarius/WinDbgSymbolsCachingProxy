@@ -8,6 +8,8 @@ using Microsoft.Extensions.Options;
 
 using MongoDB.Driver;
 using MongoDB.Entities;
+using Polly.CircuitBreaker;
+using Polly.Timeout;
 
 using WinDbgSymbolsCachingProxy.Core;
 using WinDbgSymbolsCachingProxy.Mappers;
@@ -28,7 +30,50 @@ public sealed class SymbolsDownloadEndpoint(
     SymbolAliasLookupService aliasLookup)
     : Endpoint<SymbolsRequest>
 {
-    private readonly ActivitySource _activitySource = new(TracingSources.AppActivitySourceName);
+    private static readonly ActivitySource ActivitySource = new(TracingSources.AppActivitySourceName);
+
+    private static readonly SymbolsEntityMapper Mapper = new();
+
+    /// <summary>
+    ///     Blobs larger than this are not kept in the in-memory cache.
+    /// </summary>
+    private const int MaxMemoryCachedBlobBytes = 32 * 1024 * 1024;
+
+    private static readonly TimeSpan UpstreamBodyTimeout = TimeSpan.FromMinutes(10);
+
+    private static readonly TimeSpan PositiveCacheLifetime = TimeSpan.FromHours(12);
+
+    /// <summary>
+    ///     Atomically stamps access metadata without rewriting (and potentially reverting) the whole document.
+    /// </summary>
+    private async Task StampAccessAsync(string indexPrefix, string fileName)
+    {
+        try
+        {
+            string prefix = indexPrefix.ToLowerInvariant();
+            string name = fileName.ToLowerInvariant();
+
+            await db.Update<SymbolsEntity>()
+                .Match(e => e.IndexPrefix == prefix && e.FileName == name && e.AccessedCount == null)
+                .Modify(b => b.Set(e => e.AccessedCount, 0UL))
+                .ExecuteAsync(CancellationToken.None);
+
+            await db.Update<SymbolsEntity>()
+                .Match(e => e.IndexPrefix == prefix && e.FileName == name)
+                .Modify(b => b.Set(e => e.LastAccessedAt, DateTime.UtcNow))
+                .Modify(b => b.Inc(e => e.AccessedCount, 1UL))
+                .ExecuteAsync(CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to persist access metadata for {IndexPrefix}", indexPrefix);
+        }
+    }
+
+    private static bool IsDuplicateKey(MongoWriteException ex)
+    {
+        return ex.WriteError?.Category == ServerErrorCategory.DuplicateKey;
+    }
 
     /// <summary>
     ///     Configures the GET route for symbol download at "/download/symbols/{Symbol}/{SymbolKey}/{FileName}" with anonymous access and the "Symbols" tag.
@@ -59,12 +104,11 @@ public sealed class SymbolsDownloadEndpoint(
         string? userAgent = HttpContext.Request.Headers.UserAgent.ToString();
         bool hadRange = HttpContext.Request.Headers.ContainsKey("Range");
 
-        HttpContext.RequestAborted.Register(() =>
+        await using CancellationTokenRegistration abortRegistration = HttpContext.RequestAborted.Register(() =>
         {
             logger.LogDebug(
-                "Client disconnected for {RequestPath} (remote={RemoteIp}, ua={UserAgent}, range={HadRange}, responseStarted={Started}, status={Status}, elapsedMs={Elapsed})",
-                requestPath, remoteIp, userAgent, hadRange,
-                HttpContext.Response.HasStarted, HttpContext.Response.StatusCode, sw.ElapsedMilliseconds);
+                "Client disconnected for {RequestPath} (remote={RemoteIp}, ua={UserAgent}, range={HadRange}, elapsedMs={Elapsed})",
+                requestPath, remoteIp, userAgent, hadRange, sw.ElapsedMilliseconds);
         });
 
         Activity? parentActivity = Activity.Current;
@@ -75,7 +119,7 @@ public sealed class SymbolsDownloadEndpoint(
         // try to probe memory cache before querying DB
         if (mc.TryGetValue(req.ToString(), out SymbolsEntityDto? cachedEntity) && cachedEntity is not null)
         {
-            logger.LogInformation("Found cached copy in memory for {Request}", req.ToString());
+            logger.LogDebug("Found cached copy in memory for {Request}", req.ToString());
 
             if (cachedEntity.NotFoundAt.HasValue || cachedEntity.Blob is null)
             {
@@ -88,7 +132,7 @@ public sealed class SymbolsDownloadEndpoint(
                 return;
             }
 
-            logger.LogInformation("Returning memory-cached copy for {Entity}", cachedEntity.ToString());
+            logger.LogDebug("Returning memory-cached copy for {Entity}", cachedEntity.ToString());
 
             string memoryStreamName = ResolveStreamFileNameFromDto(cachedEntity, req);
             try
@@ -100,37 +144,26 @@ public sealed class SymbolsDownloadEndpoint(
                 return;
             }
 
-            SymbolsEntity? entityToUpdate = (await db.Find<SymbolsEntity>()
-                    .ManyAsync(lr =>
-                            lr.Eq(r => r.IndexPrefix, cachedEntity.IndexPrefix.ToLowerInvariant()) &
-                            lr.Eq(r => r.FileName, cachedEntity.FileName.ToLowerInvariant())
-                        , CancellationToken.None))
-                .FirstOrDefault();
-            if (entityToUpdate is not null)
-            {
-                entityToUpdate.LastAccessedAt = DateTime.UtcNow;
-                entityToUpdate.AccessedCount = (entityToUpdate.AccessedCount ?? 0) + 1;
-                await db.SaveAsync(entityToUpdate, CancellationToken.None);
-            }
+            await StampAccessAsync(cachedEntity.IndexPrefix, cachedEntity.FileName);
 
             return;
         }
 
-        Activity? querySymbolInDbActivity = _activitySource.StartActivity("Find");
-
-        SymbolsEntity? existingSymbol = (await db.Find<SymbolsEntity>()
-                .ManyAsync(lr =>
-                        lr.Eq(r => r.IndexPrefix, req.IndexPrefix.ToLowerInvariant()) &
-                        lr.Eq(r => r.FileName, req.FileName.ToLowerInvariant())
-                    , CancellationToken.None)
-            ).FirstOrDefault();
-
-        querySymbolInDbActivity?.Dispose();
+        SymbolsEntity? existingSymbol;
+        using (Activity? querySymbolInDbActivity = ActivitySource.StartActivity("Find"))
+        {
+            existingSymbol = (await db.Find<SymbolsEntity>()
+                    .ManyAsync(lr =>
+                            lr.Eq(r => r.IndexPrefix, req.IndexPrefix.ToLowerInvariant()) &
+                            lr.Eq(r => r.FileName, req.FileName.ToLowerInvariant())
+                        , CancellationToken.None)
+                ).FirstOrDefault();
+        }
 
         // cached entry found
         if (existingSymbol is not null)
         {
-            logger.LogInformation("Found cached symbol {@Symbol}", existingSymbol.ToString());
+            logger.LogDebug("Found cached symbol {Symbol}", existingSymbol.ToString());
 
             if (existingSymbol.NotFoundAt.HasValue)
             {
@@ -165,6 +198,14 @@ public sealed class SymbolsDownloadEndpoint(
                 {
                     logger.LogWarning(ex,
                         "Cached metadata found but blob missing or unreadable, re-downloading from upstream");
+                    if (existingSymbol.IsCustom)
+                    {
+                        // Never discard metadata (aliases, upload info) of manually uploaded symbols.
+                        logger.LogError(ex, "Blob of custom symbol {Symbol} is missing", existingSymbol.ToString());
+                        await Send.NotFoundAsync(ct);
+                        return;
+                    }
+
                     await db.DeleteAsync<SymbolsEntity>(existingSymbol.ID, CancellationToken.None);
                     existingSymbol = null;
                 }
@@ -177,27 +218,15 @@ public sealed class SymbolsDownloadEndpoint(
 
                 if (existingSymbol is not null)
                 {
-                    ms.Position = 0;
                     byte[] blob = ms.ToArray();
-                    existingSymbol.LastAccessedAt = DateTime.UtcNow;
-                    existingSymbol.AccessedCount = (existingSymbol.AccessedCount ?? 0) + 1;
-                    CacheSymbolInMemory(req, existingSymbol, new MemoryStream(blob));
+                    CacheSymbolInMemory(req, existingSymbol, blob);
 
-                    _ = Task.Run(async () =>
-                    {
-                        try
-                        {
-                            await db.SaveAsync(existingSymbol, CancellationToken.None);
-                        }
-                        catch (Exception ex)
-                        {
-                            logger.LogWarning(ex, "Failed to persist access metadata for {IndexPrefix}", existingSymbol.IndexPrefix);
-                        }
-                    });
+                    SymbolsEntity stampTarget = existingSymbol;
+                    _ = StampAccessAsync(stampTarget.IndexPrefix, stampTarget.FileName);
 
                     try
                     {
-                        logger.LogInformation("Returning cached copy");
+                        logger.LogDebug("Returning cached copy");
                         string streamName = ResolveStreamFileName(existingSymbol, req);
                         await Send.StreamAsync(new MemoryStream(blob), streamName, enableRangeProcessing: true, cancellation: ct);
                     }
@@ -235,13 +264,25 @@ public sealed class SymbolsDownloadEndpoint(
         try
         {
             response = await client.GetAsync(
-                $"download/symbols/{req.Symbol}/{req.SymbolKey}/{req.FileName}",
+                $"download/symbols/{Uri.EscapeDataString(req.Symbol)}/{Uri.EscapeDataString(req.SymbolKey)}/{Uri.EscapeDataString(req.FileName)}",
                 HttpCompletionOption.ResponseHeadersRead,
                 ct);
         }
         catch (OperationCanceledException) when (HttpContext.RequestAborted.IsCancellationRequested)
         {
             logger.LogDebug("Client disconnected during upstream fetch for {Request}", req.ToString());
+            return;
+        }
+        catch (Exception ex) when (ex is BrokenCircuitException or TimeoutRejectedException or HttpRequestException)
+        {
+            // Resilience pipeline gave up (open circuit, timeout) or transport failed: report an upstream failure, not a 500.
+            logger.LogWarning(ex, "Upstream symbol fetch failed for {Request}", req.ToString());
+            if (!HttpContext.Response.HasStarted)
+            {
+                HttpContext.Response.StatusCode = 502;
+                await HttpContext.Response.WriteAsync("Upstream symbol server unavailable.", CancellationToken.None);
+            }
+
             return;
         }
 
@@ -281,7 +322,15 @@ public sealed class SymbolsDownloadEndpoint(
                     if (existingSymbol is null)
                     {
                         newSymbol.NotFoundAt = DateTime.UtcNow;
-                        await db.SaveAsync(newSymbol, CancellationToken.None);
+                        try
+                        {
+                            await db.SaveAsync(newSymbol, CancellationToken.None);
+                        }
+                        catch (MongoWriteException ex) when (IsDuplicateKey(ex))
+                        {
+                            logger.LogDebug("Concurrent request already stored not-found marker for {Request}", req);
+                        }
+
                         CacheSymbolInMemory(req, newSymbol);
                     }
                     else
@@ -312,19 +361,15 @@ public sealed class SymbolsDownloadEndpoint(
                 return;
             }
 
-            if (response.RequestMessage is null)
+            if (response.RequestMessage?.RequestUri is null)
             {
-                logger.LogError("Missing request message");
-                AddError("Missing request message");
-                await Send.ErrorsAsync(cancellation: ct);
-                return;
-            }
+                logger.LogError("Upstream response is missing request message or URI");
+                if (!HttpContext.Response.HasStarted)
+                {
+                    HttpContext.Response.StatusCode = 502;
+                    await HttpContext.Response.WriteAsync("Invalid upstream response.", ct);
+                }
 
-            if (response.RequestMessage.RequestUri is null)
-            {
-                logger.LogError("Missing request URI");
-                AddError("Missing request URI");
-                await Send.ErrorsAsync(cancellation: ct);
                 return;
             }
 
@@ -339,43 +384,76 @@ public sealed class SymbolsDownloadEndpoint(
                 upstreamFilename = req.FileName.ToLowerInvariant();
             }
 
-            logger.LogInformation("Got requested symbol {@Symbol} ({Filename}), caching", req.ToString(),
+            logger.LogInformation("Got requested symbol {Symbol} ({Filename}), caching", req.ToString(),
                 upstreamFilename);
-
-            await using Stream upstreamContent =
-                await response.Content.ReadAsStreamAsync(CancellationToken.None);
 
             // cache in memory because we need to return it to database AND requester
             using MemoryStream cache = new();
-            await upstreamContent.CopyToAsync(cache, CancellationToken.None);
+            try
+            {
+                using CancellationTokenSource bodyCts = new(UpstreamBodyTimeout);
+                await using Stream upstreamContent = await response.Content.ReadAsStreamAsync(bodyCts.Token);
+                await upstreamContent.CopyToAsync(cache, bodyCts.Token);
+            }
+            catch (Exception ex) when (ex is BrokenCircuitException or TimeoutRejectedException or HttpRequestException
+                                           or IOException ||
+                                       (ex is OperationCanceledException &&
+                                        !HttpContext.RequestAborted.IsCancellationRequested))
+            {
+                logger.LogWarning(ex, "Reading upstream symbol body failed for {Request}", req.ToString());
+                if (!HttpContext.Response.HasStarted)
+                {
+                    HttpContext.Response.StatusCode = 502;
+                    await HttpContext.Response.WriteAsync("Upstream symbol server unavailable.", CancellationToken.None);
+                }
+
+                return;
+            }
+
             cache.Position = 0;
 
             newSymbol.UpstreamFileName = upstreamFilename;
             newSymbol.NotFoundAt = DateTime.MinValue;
 
-            await db.SaveAsync(newSymbol, CancellationToken.None);
-
+            bool persisted = true;
             try
             {
-                await newSymbol.Data(db).UploadAsync(cache, cancellation: CancellationToken.None);
+                await db.SaveAsync(newSymbol, CancellationToken.None);
             }
-            catch
+            catch (MongoWriteException ex) when (IsDuplicateKey(ex))
             {
-                if (existingSymbol is null)
+                // A concurrent request for the same symbol won the race; just serve our copy.
+                persisted = false;
+                logger.LogDebug("Concurrent request already stored {Request}; serving without persisting", req);
+            }
+
+            if (persisted)
+            {
+                try
                 {
-                    await db.DeleteAsync<SymbolsEntity>(newSymbol.ID, CancellationToken.None);
+                    await newSymbol.Data(db).UploadAsync(cache, cancellation: CancellationToken.None);
+                }
+                catch
+                {
+                    if (existingSymbol is null)
+                    {
+                        await db.DeleteAsync<SymbolsEntity>(newSymbol.ID, CancellationToken.None);
+                    }
+
+                    throw;
                 }
 
-                throw;
+                newSymbol.NotFoundAt = null;
+                newSymbol.LastAccessedAt = DateTime.UtcNow;
+                newSymbol.AccessedCount = 1;
+                await db.SaveAsync(newSymbol, CancellationToken.None);
+
+                // save in memory cache to take the load off of the DB
+                if (cache.Length <= MaxMemoryCachedBlobBytes)
+                {
+                    CacheSymbolInMemory(req, newSymbol, cache.ToArray());
+                }
             }
-
-            newSymbol.NotFoundAt = null;
-            newSymbol.LastAccessedAt = DateTime.UtcNow;
-            newSymbol.AccessedCount = 1;
-            await db.SaveAsync(newSymbol, CancellationToken.None);
-
-            // save in memory cache to take the load off of the DB
-            CacheSymbolInMemory(req, newSymbol, cache);
 
             cache.Position = 0;
 
@@ -438,23 +516,10 @@ public sealed class SymbolsDownloadEndpoint(
             return false;
         }
 
-        ms.Position = 0;
         byte[] blob = ms.ToArray();
-        canonical.LastAccessedAt = DateTime.UtcNow;
-        canonical.AccessedCount = (canonical.AccessedCount ?? 0) + 1;
-        CacheSymbolInMemory(req, canonical, new MemoryStream(blob));
+        CacheSymbolInMemory(req, canonical, blob);
 
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await db.SaveAsync(canonical, CancellationToken.None);
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Failed to persist access metadata for {IndexPrefix}", canonical.IndexPrefix);
-            }
-        });
+        _ = StampAccessAsync(canonical.IndexPrefix, canonical.FileName);
 
         string streamName = ResolveStreamFileName(canonical, req);
 
@@ -544,19 +609,21 @@ public sealed class SymbolsDownloadEndpoint(
     /// <param name="request">The symbol request used as the cache key.</param>
     /// <param name="entity">The symbol entity to cache.</param>
     /// <param name="data">Optional blob data; when provided, it is included in the cached DTO.</param>
-    private void CacheSymbolInMemory(SymbolsRequest request, SymbolsEntity entity, MemoryStream? data = null)
+    private void CacheSymbolInMemory(SymbolsRequest request, SymbolsEntity entity, byte[]? data = null)
     {
-        SymbolsEntityMapper mapper = new();
+        if (data is { Length: > MaxMemoryCachedBlobBytes })
+        {
+            return;
+        }
 
-        SymbolsEntityDto memCacheItem = mapper.SymbolsEntityToSymbolsEntityDto(entity);
+        SymbolsEntityDto memCacheItem = Mapper.SymbolsEntityToSymbolsEntityDto(entity);
 
         long entrySize = 1;
 
         if (data is not null)
         {
-            data.Position = 0;
-            memCacheItem.Blob = data.ToArray();
-            entrySize = memCacheItem.Blob.Length;
+            memCacheItem.Blob = data;
+            entrySize = Math.Max(1, data.Length);
         }
 
         TimeSpan absoluteExpiration;
@@ -569,7 +636,7 @@ public sealed class SymbolsDownloadEndpoint(
         }
         else
         {
-            absoluteExpiration = TimeSpan.FromHours(12);
+            absoluteExpiration = PositiveCacheLifetime;
         }
 
         if (absoluteExpiration > TimeSpan.Zero)

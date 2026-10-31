@@ -35,21 +35,20 @@ class Build : NukeBuild
 
     [Solution] readonly Solution Solution;
 
-    Target Clean => _ => _
-        .Before(Restore)
-        .Executes(() =>
-        {
-        });
-
     Target Restore => _ => _
         .Executes(() =>
         {
+            DotNetTasks.DotNetRestore(s => s.SetProjectFile(Solution));
         });
 
     Target Compile => _ => _
         .DependsOn(Restore)
         .Executes(() =>
         {
+            DotNetTasks.DotNetBuild(s => s
+                .SetProjectFile(Solution)
+                .SetConfiguration(Configuration)
+                .EnableNoRestore());
         });
 
     [UsedImplicitly]
@@ -57,6 +56,10 @@ class Build : NukeBuild
         .Description("Publish server and agent locally using the Release configuration and win-x64 runtime")
         .Executes(() =>
         {
+            // Stale files from earlier publishes would otherwise end up in the MSI.
+            PublishServerDir.CreateOrCleanDirectory();
+            PublishAgentDir.CreateOrCleanDirectory();
+
             PublishProject(
                 Solution.GetAllProjects("WinDbgSymbolsCachingProxy").Single(),
                 PublishServerDir);
@@ -69,14 +72,14 @@ class Build : NukeBuild
     [UsedImplicitly]
     public Target BuildInstaller => _ => _
         .Description(
-            "Publish server and agent (win-x64 Release), then build the x64 MSI via WixSharp. Requires Windows and WiX 4 (dotnet tool install --global wix).")
+            "Publish server and agent (win-x64 Release), then build the x64 MSI via WixSharp. Requires Windows and the WiX 5.0.2 CLI (dotnet tool install --global wix --version 5.0.2).")
         .DependsOn(PublishLocal)
         .Executes(() =>
         {
             if (!OperatingSystem.IsWindows())
             {
                 throw new InvalidOperationException(
-                    "BuildInstaller must run on Windows with the WiX 4 CLI available (for example: dotnet tool install --global wix).");
+                    "BuildInstaller must run on Windows with the WiX 5.0.2 CLI available (for example: dotnet tool install --global wix --version 5.0.2).");
             }
 
             // dotnet run forwards SetApplicationArguments as a single argv; use env vars so the installer sees three paths.
@@ -115,7 +118,7 @@ class Build : NukeBuild
         });
 
     /// <summary>
-    ///     Matches the former <c>release-win-x64.pubxml</c> settings (framework-dependent, R2R, trimmed publish output).
+    ///     Matches the former <c>release-win-x64.pubxml</c> settings (framework-dependent, ReadyToRun publish output).
     /// </summary>
     void PublishProject(Project project, AbsolutePath publishDirectory)
     {

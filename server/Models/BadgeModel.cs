@@ -8,10 +8,10 @@ namespace WinDbgSymbolsCachingProxy.Models;
 public class BadgeModel
 {
     /// <summary>Gets the left-hand label text.</summary>
-    public string Label { get; init; }
+    public string Label { get; init; } = string.Empty;
 
     /// <summary>Gets the right-hand result text.</summary>
-    public string Result { get; init; }
+    public string Result { get; init; } = string.Empty;
 
     /// <summary>Gets the badge height in pixels.</summary>
     public int Height { get; init; }

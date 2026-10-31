@@ -3,23 +3,24 @@ name: Generate API Documentation
 on:
   push:
     branches: [ "master" ]
-    paths-ignore:
-      - 'docs/**'
-      - 'server/**'
-      - 'agent/**'
-      - 'tests/**'
+    paths:
+      - 'lib/**'
+
+permissions:
+  contents: write # commits the regenerated docs back to master
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: master
           submodules: true
 
       - name: Setup .Net SDK
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
 
@@ -27,10 +28,10 @@ jobs:
         run: dotnet tool install -g Nefarius.Tools.XMLDoc2Markdown
 
       - name: Build
-        run: dotnet build -c Release
+        run: dotnet build -c Release ./lib/Nefarius.Utilities.ExceptionEnricher.csproj
 
       - name: Generate API docs
-        run: xmldoc2md ./bin/net8.0/Nefarius.Utilities.ExceptionEnricher.dll ./docs/
+        run: xmldoc2md ./lib/bin/Release/net10.0/Nefarius.Utilities.ExceptionEnricher.dll ./docs/
 
       - name: Check for changes
         id: check-for-changes

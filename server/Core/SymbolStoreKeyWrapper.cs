@@ -33,9 +33,8 @@ public sealed class SymbolStoreKeyWrapper
     ///     Only the index is compared or hashed. The FileName is already
     ///     part of the index.
     /// </summary>
-    public override bool Equals(object obj)
+    public override bool Equals(object? obj)
     {
-        SymbolStoreKeyWrapper wrapper = (SymbolStoreKeyWrapper)obj;
-        return Key.Equals(wrapper.Key);
+        return obj is SymbolStoreKeyWrapper wrapper && Key.Equals(wrapper.Key);
     }
 }

@@ -30,3 +30,12 @@ build/
 .github/
 *.sln
 00_*.cmd
+publish-x64/
+installer/
+docs/
+Bruno/
+.nuke/
+assets/
+# Machine/installer specific settings (Kestrel :5000, default credentials) must not be baked into the image.
+server/appsettings.Production.json
+server/appsettings.Development.json

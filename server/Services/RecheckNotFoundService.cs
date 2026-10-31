@@ -73,7 +73,60 @@ public sealed class RecheckNotFoundService(
             MaxDegreeOfParallelism = Convert.ToInt32(Math.Ceiling(Environment.ProcessorCount * 0.75 * 1.0))
         };
 
+        DateTime now = DateTime.UtcNow;
+        // Honor the configured recheck period instead of hitting upstream for every placeholder daily.
+        notFoundSymbols = notFoundSymbols
+            .Where(s => LastActivity(s) + options.Value.UpstreamRecheckPeriod <= now)
+            .ToList();
+
         await Parallel.ForEachAsync(notFoundSymbols, opts, async (symbol, innerToken) =>
+        {
+            try
+            {
+                await RecheckOneAsync(symbol, shadowIndex, shadowRemoved, innerToken);
+            }
+            catch (OperationCanceledException) when (innerToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "RecheckNotFound failed for {Symbol}; continuing with remaining symbols", symbol);
+            }
+        });
+
+        logger.LogInformation(
+            "RecheckNotFound finished: removed {ShadowRemoved} placeholders as alias-shadowed without upstream fetch",
+            shadowRemoved.Count);
+    }
+
+    /// <summary>
+    ///     The later of the last upstream check and the first not-found time; a missing timestamp counts as absent.
+    /// </summary>
+    private static readonly TimeSpan UpstreamBodyTimeout = TimeSpan.FromMinutes(10);
+
+    private static DateTime LastActivity(SymbolsEntity symbol)
+    {
+        DateTime last = DateTime.MinValue;
+        if (symbol.LastCheckedAt is { } checkedAt && checkedAt > last)
+        {
+            last = checkedAt;
+        }
+
+        if (symbol.NotFoundAt is { } notFoundAt && notFoundAt > last)
+        {
+            last = notFoundAt;
+        }
+
+        return last;
+    }
+
+    private async Task RecheckOneAsync(
+        SymbolsEntity symbol,
+        HashSet<(string SymbolKey, string Alias)> shadowIndex,
+        ConcurrentBag<int> shadowRemoved,
+        CancellationToken innerToken)
+    {
         {
             if (SymbolAliasLookupService.TryParseSymbolFromIndexPrefix(symbol.IndexPrefix, out string symbolSeg) &&
                 !string.IsNullOrEmpty(symbol.SymbolKey))
@@ -90,17 +143,20 @@ public sealed class RecheckNotFoundService(
                 }
             }
 
-            using HttpClient client = clientFactory.CreateClient("MicrosoftSymbolServer");
+            HttpClient client = clientFactory.CreateClient("MicrosoftSymbolServer");
 
-            using HttpResponseMessage response =
-                await client.GetAsync($"download/symbols/{symbol.RelativeUri}", innerToken);
+            using HttpResponseMessage response = await client.GetAsync(
+                $"download/symbols/{symbol.RelativeUri}", HttpCompletionOption.ResponseHeadersRead, innerToken);
 
-            if (response is { IsSuccessStatusCode: false, StatusCode: HttpStatusCode.NotFound })
+            if (response is { IsSuccessStatusCode: false, StatusCode: HttpStatusCode.NotFound or HttpStatusCode.Gone })
             {
                 logger.LogInformation("Requested symbol {Symbol} not found upstream", symbol);
 
-                symbol.NotFoundAt = DateTime.UtcNow;
-                await db.SaveAsync(symbol, cancellation: innerToken);
+                // NotFoundAt intentionally stays untouched so cleanup can measure how long the symbol has been missing.
+                await db.Update<SymbolsEntity>()
+                    .MatchID(symbol.ID)
+                    .Modify(b => b.Set(e => e.LastCheckedAt, DateTime.UtcNow))
+                    .ExecuteAsync(innerToken);
                 return;
             }
 
@@ -133,19 +189,42 @@ public sealed class RecheckNotFoundService(
             logger.LogInformation("Got requested symbol {Symbol} ({Filename}), caching",
                 symbol, upstreamFilename);
 
-            await using Stream upstreamContent = await response.Content.ReadAsStreamAsync(innerToken);
+            // ResponseHeadersRead leaves the body unbounded by the resilience pipeline: bound the read, then upload from
+            // a temporary file (disk, not memory) so the upload does not depend on upstream read cancellation.
+            using CancellationTokenSource bodyTimeout = CancellationTokenSource.CreateLinkedTokenSource(innerToken);
+            bodyTimeout.CancelAfter(UpstreamBodyTimeout);
 
-            await symbol.Data(db).UploadAsync(upstreamContent, cancellation: innerToken);
-            symbol.NotFoundAt = null;
-            await db.SaveAsync(symbol, cancellation: innerToken);
+            string tempPath = Path.Combine(Path.GetTempPath(), $"wdscp-recheck-{Guid.NewGuid():N}.tmp");
+            await using FileStream buffer = new(tempPath, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None, 81920,
+                FileOptions.Asynchronous | FileOptions.DeleteOnClose);
+            try
+            {
+                await using Stream upstreamContent = await response.Content.ReadAsStreamAsync(bodyTimeout.Token);
+                await upstreamContent.CopyToAsync(buffer, bodyTimeout.Token);
+            }
+            catch (OperationCanceledException) when (!innerToken.IsCancellationRequested)
+            {
+                logger.LogWarning("Reading upstream symbol {Symbol} timed out after {Timeout}", symbol, UpstreamBodyTimeout);
+                return;
+            }
+
+            buffer.Position = 0;
+            await symbol.Data(db).UploadAsync(buffer, cancellation: innerToken);
+            // Targeted update: saving the whole loaded entity could overwrite concurrent access-count/timestamp updates.
+            await db.Update<SymbolsEntity>()
+                .MatchID(symbol.ID)
+                .Modify(b => b
+                    .Set(e => e.NotFoundAt, (DateTime?)null)
+                    .Set(e => e.LastCheckedAt, (DateTime?)null)
+                    .Set(e => e.UpstreamFileName, upstreamFilename))
+                .ExecuteAsync(innerToken);
+
+            // drop the cached 404 so clients see the symbol right away
+            memoryCache.Remove(symbol.RelativeUri);
 
             logger.LogInformation("Symbol {Symbol} ({Filename}) cached",
                 symbol, upstreamFilename);
-        });
-
-        logger.LogInformation(
-            "RecheckNotFound finished: removed {ShadowRemoved} placeholders as alias-shadowed without upstream fetch",
-            shadowRemoved.Count);
+        }
     }
 
     /// <summary>

@@ -19,6 +19,42 @@ static class Program
 
     const string Manufacturer = "Nefarius Software Solutions";
 
+    /// <summary>
+    ///     Both services run as LocalService instead of LocalSystem. Settings, keys and logs live under
+    ///     %ProgramData%; the agent needs read (and, for delete-after-upload, modify) access to watched folders.
+    /// </summary>
+    const string LowPrivilegeServiceAccount = @"NT AUTHORITY\LocalService";
+
+    /// <summary>
+    ///     Public MSI property selecting the service account (<c>msiexec ... WDSCP_SERVICE_ACCOUNT="NT AUTHORITY\NetworkService"</c>).
+    ///     LocalService has no network credentials, so agents watching UNC/SMB shares should use NetworkService
+    ///     (the computer account). Only the two built-in, password-less accounts are supported.
+    /// </summary>
+    const string ServiceAccountProperty = "WDSCP_SERVICE_ACCOUNT";
+
+    // Resolved in the UI and execute sequences, after AppSearch and therefore before LaunchConditions in both.
+    static readonly Sequence BothSequences = Sequence.InstallUISequence | Sequence.InstallExecuteSequence;
+    const string SettingsRegistryKey = @"SOFTWARE\Nefarius Software Solutions\WinDbg Symbols Caching Proxy";
+    const string PersistedAccountValue = "ServiceAccount";
+    const string PreviousServerAccountProperty = "WDSCP_PREV_SERVER_ACCOUNT";
+    const string PreviousAgentAccountProperty = "WDSCP_PREV_AGENT_ACCOUNT";
+
+    static readonly string[] SupportedServiceAccounts = ["LocalService", "NetworkService"];
+
+    /// <summary>Grants both supported service accounts full control so the choice can be made at install time.</summary>
+    static DirPermission[] ServiceAccountPermissions() =>
+        SupportedServiceAccounts
+            .Select(account => new DirPermission
+            {
+                User = account,
+                Domain = "NT AUTHORITY",
+                GenericAll = true,
+            })
+            .ToArray();
+
+    /// <summary>Logs directory whose permission component is installed with the owning feature.</summary>
+    static Dir LogsDir(Feature feature) => new Dir(feature, "logs", ServiceAccountPermissions());
+
     static bool IncludeInPublishedFile(string path)
     {
         string leaf = Path.GetFileName(path);
@@ -72,6 +108,7 @@ static class Program
                         DisplayName = "WinDbg Symbols Caching Proxy",
                         Description =
                             "Web UI, REST API, and symbol store for the WinDbg Symbols Caching Proxy.",
+                        Account = $"[{ServiceAccountProperty}]",
                         Start = SvcStartType.auto,
                         StartOn = SvcEvent.Install,
                         StopOn = SvcEvent.InstallUninstall_Wait,
@@ -92,6 +129,7 @@ static class Program
                         DisplayName = AgentWindowsServiceName,
                         Description =
                             "Watches configured directories and uploads debug symbols to a WinDbg Symbols Caching Proxy server.",
+                        Account = $"[{ServiceAccountProperty}]",
                         Start = SvcStartType.auto,
                         StartOn = SvcEvent.Install,
                         StopOn = SvcEvent.InstallUninstall_Wait,
@@ -104,8 +142,33 @@ static class Program
                 "WinDbg Symbols Caching Proxy",
                 new Dir(
                     @"%ProgramFiles64Folder%\Nefarius Software Solutions\WinDbg Symbols Caching Proxy",
-                    new Dir("Server", serverFiles),
-                    new Dir("Agent", agentFiles)))
+                    new Dir("Server", serverFiles, LogsDir(featureServer)),
+                    new Dir("Agent", agentFiles, LogsDir(featureAgent))),
+                // Upgrades keep the settings directory created by the previous (LocalSystem) service; the new service
+                // account needs write access to it and, through inheritance, to the existing settings file.
+                new Dir(featureAgent, @"%CommonAppDataFolder%\WinDbgSymbolsCachingProxy\HarvestingAgent",
+                    ServiceAccountPermissions()),
+                // No default here: the effective account is resolved by the SetProperty actions below.
+                // Secure so the value survives elevated (managed) installs; validated by the launch condition below.
+                new PublicProperty(ServiceAccountProperty, string.Empty) { Secure = true },
+                // Remember the chosen account per feature so upgrades keep it.
+                new RegValue(RegistryHive.LocalMachine, SettingsRegistryKey + @"\Server", PersistedAccountValue,
+                    $"[{ServiceAccountProperty}]") { Feature = featureServer, Win64 = true },
+                new RegValue(RegistryHive.LocalMachine, SettingsRegistryKey + @"\Agent", PersistedAccountValue,
+                    $"[{ServiceAccountProperty}]") { Feature = featureAgent, Win64 = true },
+                new Property(PreviousServerAccountProperty,
+                    new RegistrySearch(RegistryHive.LocalMachine, SettingsRegistryKey + @"\Server", PersistedAccountValue,
+                        RegistrySearchType.raw) { Win64 = true }),
+                new Property(PreviousAgentAccountProperty,
+                    new RegistrySearch(RegistryHive.LocalMachine, SettingsRegistryKey + @"\Agent", PersistedAccountValue,
+                        RegistrySearchType.raw) { Win64 = true }),
+                // Precedence: explicit command-line value, then the previously installed account, then LocalService.
+                new SetPropertyAction(ServiceAccountProperty, $"[{PreviousAgentAccountProperty}]", Return.check,
+                    When.After, Step.AppSearch, $"NOT {ServiceAccountProperty} AND {PreviousAgentAccountProperty}") { Sequence = BothSequences },
+                new SetPropertyAction(ServiceAccountProperty, $"[{PreviousServerAccountProperty}]", Return.check,
+                    When.After, Step.AppSearch, $"NOT {ServiceAccountProperty} AND {PreviousServerAccountProperty}") { Sequence = BothSequences },
+                new SetPropertyAction(ServiceAccountProperty, LowPrivilegeServiceAccount, Return.check,
+                    When.After, Step.AppSearch, $"NOT {ServiceAccountProperty}") { Sequence = BothSequences })
             {
                 GUID = new Guid("a4f8b2c1-3d5e-4a7b-8c9d-0e1f2a3b4c5d"),
                 UpgradeCode = new Guid("e7a3c8f2-1b4d-4c9e-9f6a-0d2e8b5c7a91"),
@@ -115,13 +178,22 @@ static class Program
                 LicenceFile = licensePath,
                 Version = ReadProductVersion(options.ServerPublishDir),
                 OutDir = options.OutputDir,
-                OutFileName = "WinDbgSymbolsCachingProxy"
+                OutFileName = "WinDbgSymbolsCachingProxy",
+                // Replace older versions in place instead of installing side by side.
+                MajorUpgrade = MajorUpgrade.Default,
             };
+
+            // Only the two built-in, password-less accounts are supported (MSI string comparison is case-insensitive).
+            project.LaunchConditions.Add(new LaunchCondition(
+                $"Installed OR {ServiceAccountProperty}=\"{LowPrivilegeServiceAccount}\" OR {ServiceAccountProperty}=\"NT AUTHORITY\\NetworkService\"",
+                $"{ServiceAccountProperty} must be \"{LowPrivilegeServiceAccount}\" or \"NT AUTHORITY\\NetworkService\"."));
 
             project.ControlPanelInfo.Manufacturer = Manufacturer;
 
             // Align with WiX 5.x + WixToolset.UI.wixext/5.0.x (see GitHub workflow); avoids WiX 6 / mismatched UI extension.
             WixExtension.UI.PreferredVersion = "5.0.2";
+            // DirPermission compiles to util:PermissionEx; pin the Util extension to the same version.
+            WixExtension.Util.PreferredVersion = "5.0.2";
 
             string msiPath = project.BuildMsi();
             Console.WriteLine(msiPath);
@@ -139,11 +211,14 @@ static class Program
     {
         string exePath = Path.Combine(serverPublishDir, "WinDbgSymbolsCachingProxy.exe");
         if (!System.IO.File.Exists(exePath))
-            return new Version(1, 0, 0);
+            throw new FileNotFoundException($"Cannot determine product version, file not found: {exePath}");
 
         var info = FileVersionInfo.GetVersionInfo(exePath);
         string? raw = info.ProductVersion ?? info.FileVersion;
-        return TryParseVersion(raw, out Version? v) ? v : new Version(1, 0, 0);
+        // Fail instead of silently falling back to 1.0.0, which would break upgrades.
+        return TryParseVersion(raw, out Version? v)
+            ? v
+            : throw new InvalidOperationException($"Cannot parse product version from '{raw}' ({exePath}).");
     }
 
     static bool TryParseVersion(string? raw, [NotNullWhen(true)] out Version? version)
@@ -237,17 +312,20 @@ static class Program
         static void PrintHelp()
         {
             Console.WriteLine("""
-                WinDbg Symbols Caching Proxy — MSI builder (WixSharp / WiX 4)
+                WinDbg Symbols Caching Proxy — MSI builder (WixSharp / WiX 5)
 
                 Options:
                   --server, -s <dir>   Published server output (default: ./publish-x64/server)
                   --agent,  -a <dir>   Published agent output (default: ./publish-x64/agent)
                   --out,    -o <dir>   MSI output directory (default: ./publish-x64/installer)
 
-                Requires Windows, WiX 5.0.2 CLI + WixToolset.UI.wixext/5.0.2, and prior dotnet publish of both apps.
+                Requires Windows, WiX 5.0.2 CLI + WixToolset.UI.wixext/5.0.2 + WixToolset.Util.wixext/5.0.2, and prior dotnet publish of both apps.
 
                 Environment (optional; used by NUKE BuildInstaller):
                   WDSCP_INSTALLER_SERVER, WDSCP_INSTALLER_AGENT, WDSCP_INSTALLER_OUT
+
+                MSI property (at install time): WDSCP_SERVICE_ACCOUNT = "NT AUTHORITY\LocalService" (default) or
+                "NT AUTHORITY\NetworkService" (network credentials for UNC/SMB watcher paths).
                 """);
             Environment.Exit(0);
         }

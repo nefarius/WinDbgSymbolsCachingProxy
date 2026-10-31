@@ -3,21 +3,33 @@ name: Publish Nuget Package
 on:
   push:
     tags:
-      - v*
+      # Library releases use their own tag series; server/agent releases (v*) must not publish the package.
+      - 'lib-v*'
+
+permissions:
+  contents: read
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
           submodules: true
 
       - name: Setup .Net SDK
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
+
+      - name: Require a 2.0+ library tag
+        run: |
+          if [[ ! "$GITHUB_REF_NAME" =~ ^lib-v([0-9]+)\.[0-9]+\.[0-9]+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]] || (( BASH_REMATCH[1] < 2 )); then
+            echo "Tag $GITHUB_REF_NAME is not a lib-vMAJOR.MINOR.PATCH[-prerelease] tag with MAJOR >= 2"
+            exit 1
+          fi
 
       - name: Build
         run: dotnet build -c Release ./lib/Nefarius.Utilities.ExceptionEnricher.csproj
@@ -25,7 +37,23 @@ jobs:
       - name: Make Nuget Packages
         run: dotnet pack -c Release ./lib/Nefarius.Utilities.ExceptionEnricher.csproj
 
+      - name: Verify package version matches the tag
+        run: |
+          expected="${GITHUB_REF_NAME#lib-v}"
+          shopt -s nullglob
+          packages=(./lib/artifacts/*.nupkg)
+          if (( ${#packages[@]} != 1 )); then
+            echo "Expected exactly one package, found ${#packages[@]}"
+            exit 1
+          fi
+          actual="$(basename "${packages[0]}" .nupkg)"
+          actual="${actual#Nefarius.Utilities.ExceptionEnricher.}"
+          if [[ "$actual" != "$expected" ]]; then
+            echo "MinVer produced version $actual but the tag says $expected"
+            exit 1
+          fi
+
       - name: Publish To Nuget
-        run: dotnet nuget push ./lib/bin/*.nupkg -k $NUGET_AUTH_TOKEN -s https://api.nuget.org/v3/index.json
+        run: dotnet nuget push ./lib/artifacts/*.nupkg -k $NUGET_AUTH_TOKEN -s https://api.nuget.org/v3/index.json --skip-duplicate
         env:
           NUGET_AUTH_TOKEN: ${{ secrets.NUGET_API_KEY }}

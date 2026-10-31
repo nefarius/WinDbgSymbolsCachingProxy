@@ -6,10 +6,12 @@ using HarvestingAgent.Logging;
 
 using WinDbgSymbolsCachingProxy.UpdateCheck;
 
+using Microsoft.Extensions.Http.Resilience;
+
 using MudBlazor.Services;
 
-using Polly;
-using Polly.Contrib.WaitAndRetry;
+using Microsoft.AspNetCore.Authentication.Negotiate;
+using Microsoft.AspNetCore.Authorization;
 
 using Serilog;
 
@@ -48,11 +50,42 @@ builder.Services.AddSingleton<HarvesterRuntime>();
 builder.Services.AddSingleton(logBuffer);
 builder.Services.AddHostedService<HarvestingHostedService>();
 
-builder.Services.AddHttpClient("Server")
-    .AddTransientHttpErrorPolicy(pb =>
-        pb.WaitAndRetryAsync(Backoff.DecorrelatedJitterBackoffV2(TimeSpan.FromSeconds(1), 5)));
+builder.Services.AddHttpClient("Server", client =>
+        // Timeouts are enforced by the resilience pipeline below; the default 100 s would cut off large uploads.
+        client.Timeout = Timeout.InfiniteTimeSpan)
+    .AddStandardResilienceHandler(options =>
+    {
+        options.Retry.MaxRetryAttempts = 4;
+        options.Retry.Delay = TimeSpan.FromSeconds(1);
+        options.Retry.UseJitter = true;
+        options.AttemptTimeout.Timeout = TimeSpan.FromMinutes(10);
+        options.TotalRequestTimeout.Timeout = TimeSpan.FromMinutes(45);
+        // sampling duration must be at least twice the attempt timeout
+        options.CircuitBreaker.SamplingDuration = TimeSpan.FromMinutes(20);
+    })
+    // The base address is set per request, so one named client talks to several servers; give each
+    // server authority its own circuit breaker instead of letting one failing server block the others.
+    .SelectPipelineByAuthority();
 builder.Services.AddSingleton<ILocalAssemblyVersionSource, AgentAssemblyVersionSource>();
 builder.Services.AddLatestMsiVersionCheck();
+
+// The agent UI can edit upload credentials and delete files after upload, so it must not be reachable by every local
+// process/user (or by a hostile web page via DNS rebinding). On Windows, require an authenticated member of the local
+// Administrators group; AllowedHosts (appsettings.json) restricts the Host header to loopback names.
+bool requireWindowsAuth = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+if (requireWindowsAuth)
+{
+    builder.Services.AddAuthentication(NegotiateDefaults.AuthenticationScheme).AddNegotiate();
+    builder.Services.AddAuthorizationBuilder()
+        .SetFallbackPolicy(new AuthorizationPolicyBuilder()
+            .RequireAuthenticatedUser()
+            .RequireAssertion(context => LocalAdministratorCheck.IsLocalAdministrator(context.User))
+            .Build());
+}
+else
+{
+    builder.Services.AddAuthorization();
+}
 
 builder.Services.AddMudServices();
 builder.Services.AddRazorComponents()
@@ -65,6 +98,12 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
 }
 
+if (requireWindowsAuth)
+{
+    app.UseAuthentication();
+}
+
+app.UseAuthorization();
 app.UseAntiforgery();
 
 app.MapStaticAssets();

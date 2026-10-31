@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -27,7 +28,9 @@ public sealed class AgentSettingsStore
     /// </summary>
     public static AgentSettingsDocument LoadOrCreate(string filePath)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
+        string settingsDirectory = Path.GetDirectoryName(filePath)!;
+        Directory.CreateDirectory(settingsDirectory);
+        AgentSettingsPaths.RestrictSettingsDirectory(settingsDirectory);
 
         if (!File.Exists(filePath))
         {
@@ -53,6 +56,37 @@ public sealed class AgentSettingsStore
         {
             Console.Error.WriteLine(
                 $"[HarvestingAgent] Failed to load settings from {filePath}: {ex.GetType().Name}: {ex.Message}");
+
+            // Keep the unreadable file so the next save does not silently destroy the user's configuration.
+            try
+            {
+                string backup = $"{filePath}.corrupt-{DateTime.UtcNow:yyyyMMddHHmmss}";
+                // The file holds credentials: create the backup owner-only from the start (File.Copy would inherit the
+                // source mode, and a umask-dependent mode would briefly expose it). Never overwrites an existing backup.
+                FileStreamOptions backupOptions = new()
+                {
+                    Mode = FileMode.CreateNew,
+                    Access = FileAccess.Write,
+                    Share = FileShare.None
+                };
+                if (!OperatingSystem.IsWindows())
+                {
+                    backupOptions.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+                }
+
+                using (FileStream source = new(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                using (FileStream destination = new(backup, backupOptions))
+                {
+                    source.CopyTo(destination);
+                }
+
+                Console.Error.WriteLine($"[HarvestingAgent] Preserved the unreadable settings file as {backup}");
+            }
+            catch (Exception backupEx)
+            {
+                Console.Error.WriteLine($"[HarvestingAgent] Could not back up the unreadable settings file: {backupEx.Message}");
+            }
+
             return AgentSettingsDocument.CreateDefault();
         }
     }
@@ -76,6 +110,26 @@ public sealed class AgentSettingsStore
         }
     }
 
+    /// <summary>
+    ///     Replaces only the configured servers, leaving other settings (such as the harvesting toggle) untouched so a stale
+    ///     configuration page cannot overwrite concurrent changes.
+    /// </summary>
+    public void ReplaceServers(IEnumerable<ServerConfig> servers)
+    {
+        AgentSettingsDocument incoming = new() { Servers = servers.ToList() };
+        AgentSettingsDocument migrated = Clone(incoming);
+        ApplyMigrations(migrated);
+
+        lock (_lock)
+        {
+            // Persist a candidate first so a failed save leaves the in-memory document unchanged.
+            AgentSettingsDocument candidate = Clone(_document);
+            candidate.Servers = migrated.Servers;
+            SaveToPath(_filePath, candidate);
+            _document = candidate;
+        }
+    }
+
     public void UpdateHarvestingEnabled(bool enabled)
     {
         lock (_lock)
@@ -96,7 +150,14 @@ public sealed class AgentSettingsStore
 
         try
         {
-            File.WriteAllText(tempPath, json);
+            // Flush to disk before the rename so a power loss cannot leave a truncated settings file.
+            using (FileStream stream = new(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                byte[] bytes = new UTF8Encoding(false).GetBytes(json);
+                stream.Write(bytes, 0, bytes.Length);
+                stream.Flush(flushToDisk: true);
+            }
+
             File.Move(tempPath, filePath, overwrite: true);
         }
         finally

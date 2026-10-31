@@ -141,34 +141,49 @@ internal sealed class StartupService(
     /// <summary>
     ///     Runs optional startup tasks (parser, 404 recheck) after DB is ready.
     /// </summary>
+    /// <summary>Tolerant flag parsing: empty or invalid values count as disabled instead of throwing.</summary>
+    private bool IsEnabled(string key) => bool.TryParse(config[key], out bool enabled) && enabled;
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        // run PDBSharp parsing for all DB entries, if enabled
-        if (bool.TryParse(config.GetSection(nameof(RunParser)).Value, out bool runParser) && runParser)
+        try
         {
-            logger.LogWarning(
-                "{Setting} is enabled, this can severely impact startup performance on huge databases",
-                nameof(RunParser));
+            // run PDBSharp parsing for all DB entries, if enabled
+            if (IsEnabled(RunParser))
+            {
+                logger.LogWarning(
+                    "{Setting} is enabled, this can severely impact startup performance on huge databases",
+                    nameof(RunParser));
 
-            await ParseAllEntries(stoppingToken);
+                await ParseAllEntries(stoppingToken);
+            }
+
+            // run 404 re-check, if enabled
+            if (IsEnabled(RunRecheck))
+            {
+                logger.LogWarning(
+                    "{Setting} is enabled, this can severely impact startup performance on huge databases",
+                    nameof(RunRecheck));
+
+                Stopwatch sw = Stopwatch.StartNew();
+
+                logger.LogInformation("Running 404 re-check");
+
+                await recheckNotFoundService.Run(stoppingToken);
+
+                sw.Stop();
+
+                logger.LogInformation("Re-check finished after {Timespan}", sw.Elapsed);
+            }
         }
-
-        // run 404 re-check, if enabled
-        if (bool.TryParse(config.GetSection(nameof(RunRecheck)).Value, out bool runRecheck) && runRecheck)
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
-            logger.LogWarning(
-                "{Setting} is enabled, this can severely impact startup performance on huge databases",
-                nameof(RunRecheck));
-
-            Stopwatch sw = Stopwatch.StartNew();
-
-            logger.LogInformation("Running 404 re-check");
-
-            await recheckNotFoundService.Run(stoppingToken);
-
-            sw.Stop();
-
-            logger.LogInformation("Re-check finished after {Timespan}", sw.Elapsed);
+            // shutting down
+        }
+        catch (Exception ex)
+        {
+            // An escaping exception would stop the whole host; these tasks are optional maintenance.
+            logger.LogError(ex, "Startup maintenance task failed");
         }
     }
 
@@ -271,7 +286,7 @@ internal sealed class StartupService(
     /// <param name="stoppingToken">Cancellation token to stop the parsing operation.</param>
     private async Task ParseAllEntries(CancellationToken stoppingToken)
     {
-        logger.LogInformation("Parsing all symbols ind database");
+        logger.LogInformation("Parsing all symbols in database");
 
         List<SymbolsEntity> symbols = await db.Find<SymbolsEntity>()
             .ManyAsync(sym => sym.NotFoundAt == null && !sym.IsCustom, stoppingToken);
@@ -296,6 +311,11 @@ internal sealed class StartupService(
             catch (InvalidOperationException)
             {
                 logger.LogWarning("No data blob available for {IndexPrefix}", symbol.IndexPrefix);
+                return;
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogError(ex, "Failed to read blob for {IndexPrefix}", symbol.IndexPrefix);
                 return;
             }
 

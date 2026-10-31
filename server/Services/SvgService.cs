@@ -28,7 +28,8 @@ public class SvgService(
     public void Draw(BadgeParameters p, Stream result)
     {
         BadgeModel badge = badgeFactory.GetBadge(p);
-        SKFont font = new(SKTypeface.FromFamilyName("Verdana"), badge.Height - (badge.TopBottomMargin * 2));
+        using SKTypeface typeface = SKTypeface.FromFamilyName("Verdana");
+        using SKFont font = new(typeface, badge.Height - (badge.TopBottomMargin * 2));
         float width = badgeService.GetWidth(badge, font);
         SKRect bounds = new(0, 0, width, p.Height);
         using SKCanvas? canvas = SKSvgCanvas.Create(bounds, result);
