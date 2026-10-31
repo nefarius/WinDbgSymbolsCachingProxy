@@ -110,12 +110,25 @@ public sealed class HarvesterRuntime : IDisposable
     private static readonly string SnapshotDirectory =
         Path.Combine(AgentSettingsPaths.SettingsDirectory, "snapshots");
 
+    /// <summary>Windows and macOS volumes are case-insensitive by default; Linux ones are not.</summary>
+    private static StringComparer PathComparer =>
+        OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
+            ? StringComparer.OrdinalIgnoreCase
+            : StringComparer.Ordinal;
+
+    private static StringComparison PathComparison =>
+        OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+
     private static bool IsInSnapshotDirectory(string path)
     {
-        string root = Path.GetFullPath(SnapshotDirectory).TrimEnd(Path.DirectorySeparatorChar) +
-                      Path.DirectorySeparatorChar;
-        return Path.GetFullPath(path).StartsWith(
-            root, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+        string root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(SnapshotDirectory));
+        string full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
+
+        // The directory itself or anything beneath it (separator-aware, so "snapshots2" does not match).
+        return string.Equals(full, root, PathComparison) ||
+               full.StartsWith(root + Path.DirectorySeparatorChar, PathComparison);
     }
 
     private static void EnsureSnapshotDirectory()
@@ -139,7 +152,7 @@ public sealed class HarvesterRuntime : IDisposable
     /// <summary>
     ///     Last file version that was uploaded successfully to all servers, per path; identical re-notifications are skipped.
     /// </summary>
-    private readonly Dictionary<string, UploadedRecord> _uploadedVersions = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, UploadedRecord> _uploadedVersions = new(PathComparer);
 
     /// <summary>File version of a path plus the servers (by URL) that already received exactly that version.</summary>
     private sealed record UploadedRecord(SymbolFileVersion Version, HashSet<string> Servers);
@@ -189,7 +202,7 @@ public sealed class HarvesterRuntime : IDisposable
 
     private readonly object _gate = new();
     private Dictionary<FileSystemWatcher, WatcherBinding>? _maps;
-    private readonly Dictionary<string, PendingFileEvent> _pendingFileEvents = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, PendingFileEvent> _pendingFileEvents = new(PathComparer);
     private CancellationTokenSource _watcherSetCancellation = new();
     private long _watcherSetGeneration;
     private bool _disposed;
