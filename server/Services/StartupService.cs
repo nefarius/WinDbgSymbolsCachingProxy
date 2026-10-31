@@ -141,12 +141,15 @@ internal sealed class StartupService(
     /// <summary>
     ///     Runs optional startup tasks (parser, 404 recheck) after DB is ready.
     /// </summary>
+    /// <summary>Tolerant flag parsing: empty or invalid values count as disabled instead of throwing.</summary>
+    private bool IsEnabled(string key) => bool.TryParse(config[key], out bool enabled) && enabled;
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         try
         {
             // run PDBSharp parsing for all DB entries, if enabled
-            if (config.GetValue<bool>(RunParser))
+            if (IsEnabled(RunParser))
             {
                 logger.LogWarning(
                     "{Setting} is enabled, this can severely impact startup performance on huge databases",
@@ -156,7 +159,7 @@ internal sealed class StartupService(
             }
 
             // run 404 re-check, if enabled
-            if (config.GetValue<bool>(RunRecheck))
+            if (IsEnabled(RunRecheck))
             {
                 logger.LogWarning(
                     "{Setting} is enabled, this can severely impact startup performance on huge databases",
