@@ -21,9 +21,9 @@
         <PackageVersion Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.14" />
         <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.14" />
         <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.11.0" />
-        <PackageVersion Include="Microsoft.FileFormats" Version="1.0.747701" />
+        <PackageVersion Include="Microsoft.FileFormats" Version="1.0.753004" />
         <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
-        <PackageVersion Include="Microsoft.SymbolStore" Version="1.0.747701" />
+        <PackageVersion Include="Microsoft.SymbolStore" Version="1.0.753004" />
         <PackageVersion Include="MimeTypeMapOfficial" Version="1.0.17" />
         <PackageVersion Include="MinVer" Version="8.0.0" />
         <PackageVersion Include="MongoDB.Entities" Version="25.1.0" />
