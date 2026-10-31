@@ -61,7 +61,25 @@ public sealed class AgentSettingsStore
             try
             {
                 string backup = $"{filePath}.corrupt-{DateTime.UtcNow:yyyyMMddHHmmss}";
-                File.Copy(filePath, backup, overwrite: false);
+                // The file holds credentials: create the backup owner-only from the start (File.Copy would inherit the
+                // source mode, and a umask-dependent mode would briefly expose it). Never overwrites an existing backup.
+                FileStreamOptions backupOptions = new()
+                {
+                    Mode = FileMode.CreateNew,
+                    Access = FileAccess.Write,
+                    Share = FileShare.None
+                };
+                if (!OperatingSystem.IsWindows())
+                {
+                    backupOptions.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+                }
+
+                using (FileStream source = new(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                using (FileStream destination = new(backup, backupOptions))
+                {
+                    source.CopyTo(destination);
+                }
+
                 Console.Error.WriteLine($"[HarvestingAgent] Preserved the unreadable settings file as {backup}");
             }
             catch (Exception backupEx)
