@@ -8,6 +8,8 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <LangVersion>latest</LangVersion>
         <IsPackable>false</IsPackable>
+        <!-- Lets non-Windows machines restore/build the net10.0-windows projects (WPF demo app) with plain dotnet build. -->
+        <EnableWindowsTargeting>true</EnableWindowsTargeting>
         <MinVerTagPrefix>v</MinVerTagPrefix>
     </PropertyGroup>
 
