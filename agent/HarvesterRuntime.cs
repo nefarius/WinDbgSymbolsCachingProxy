@@ -110,6 +110,14 @@ public sealed class HarvesterRuntime : IDisposable
     private static readonly string SnapshotDirectory =
         Path.Combine(AgentSettingsPaths.SettingsDirectory, "snapshots");
 
+    private static bool IsInSnapshotDirectory(string path)
+    {
+        string root = Path.GetFullPath(SnapshotDirectory).TrimEnd(Path.DirectorySeparatorChar) +
+                      Path.DirectorySeparatorChar;
+        return Path.GetFullPath(path).StartsWith(
+            root, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+    }
+
     private static void EnsureSnapshotDirectory()
     {
         Directory.CreateDirectory(SnapshotDirectory);
@@ -1063,6 +1071,12 @@ public sealed class HarvesterRuntime : IDisposable
             }
 
             string path = e.FullPath;
+            if (IsInSnapshotDirectory(path))
+            {
+                // Our own upload snapshots must never be harvested (a watched parent folder would loop).
+                return;
+            }
+
             string fileName = Path.GetFileName(path);
             if (string.IsNullOrWhiteSpace(fileName) || IsUploadErrorSidecar(fileName))
             {
