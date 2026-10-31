@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -210,6 +210,11 @@ public static class ExceptionExtensions
             return method;
         }
 
+        // Attributes on generic methods/types reference the open generic state machine type.
+        Type stateMachineDefinition = stateMachineType.IsGenericType
+            ? stateMachineType.GetGenericTypeDefinition()
+            : stateMachineType;
+
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public |
                                    BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
 
@@ -217,8 +222,8 @@ public static class ExceptionExtensions
         {
             foreach (MethodInfo candidate in containingType.GetMethods(flags))
             {
-                if (candidate.GetCustomAttribute<AsyncStateMachineAttribute>()?.StateMachineType == stateMachineType ||
-                    candidate.GetCustomAttribute<IteratorStateMachineAttribute>()?.StateMachineType == stateMachineType)
+                if (candidate.GetCustomAttribute<AsyncStateMachineAttribute>()?.StateMachineType == stateMachineDefinition ||
+                    candidate.GetCustomAttribute<IteratorStateMachineAttribute>()?.StateMachineType == stateMachineDefinition)
                 {
                     return candidate;
                 }
