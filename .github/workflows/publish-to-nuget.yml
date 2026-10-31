@@ -26,8 +26,8 @@ jobs:
 
       - name: Require a 2.0+ library tag
         run: |
-          if [[ ! "$GITHUB_REF_NAME" =~ ^lib-v([0-9]+)\. ]] || (( BASH_REMATCH[1] < 2 )); then
-            echo "Tag $GITHUB_REF_NAME is not a lib-v2.0.0+ release tag"
+          if [[ ! "$GITHUB_REF_NAME" =~ ^lib-v([0-9]+)\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+(\.[0-9A-Za-z]+)*)?$ ]] || (( BASH_REMATCH[1] < 2 )); then
+            echo "Tag $GITHUB_REF_NAME is not a lib-vMAJOR.MINOR.PATCH[-prerelease] tag with MAJOR >= 2"
             exit 1
           fi
 
@@ -36,6 +36,22 @@ jobs:
 
       - name: Make Nuget Packages
         run: dotnet pack -c Release ./lib/Nefarius.Utilities.ExceptionEnricher.csproj
+
+      - name: Verify package version matches the tag
+        run: |
+          expected="${GITHUB_REF_NAME#lib-v}"
+          shopt -s nullglob
+          packages=(./lib/artifacts/*.nupkg)
+          if (( ${#packages[@]} != 1 )); then
+            echo "Expected exactly one package, found ${#packages[@]}"
+            exit 1
+          fi
+          actual="$(basename "${packages[0]}" .nupkg)"
+          actual="${actual#Nefarius.Utilities.ExceptionEnricher.}"
+          if [[ "$actual" != "$expected" ]]; then
+            echo "MinVer produced version $actual but the tag says $expected"
+            exit 1
+          fi
 
       - name: Publish To Nuget
         run: dotnet nuget push ./lib/artifacts/*.nupkg -k $NUGET_AUTH_TOKEN -s https://api.nuget.org/v3/index.json --skip-duplicate
