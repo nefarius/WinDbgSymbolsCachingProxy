@@ -16,6 +16,8 @@ Attributes [NullableContextAttribute](https://learn.microsoft.com/dotnet/api/sys
 ### <a id="methods-toremotelyenrichedexception"/>**ToRemotelyEnrichedException(Exception, OnlineServerSymbolsResolver)**
 
 Rebuilds the provided exception with debug information fetched from an online symbol server.
+ This method never throws because of a failed symbol lookup; frames that cannot be resolved are annotated
+ instead, so it is safe to call from exception handlers.
 
 ```csharp
 public static EnrichedException ToRemotelyEnrichedException(Exception exception, OnlineServerSymbolsResolver provider)

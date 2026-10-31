@@ -3,7 +3,7 @@
 Namespace: Nefarius.Utilities.ExceptionEnricher
 
 An implementation of ISymbolReaderProvider that contacts an online symbol server to resolve debug
- symbols.
+ symbols. Instances are safe to use from multiple threads.
 
 ```csharp
 public sealed class OnlineServerSymbolsResolver : Mono.Cecil.Cil.ISymbolReaderProvider, System.IDisposable

@@ -64,6 +64,18 @@ public string Message { get; }
 
 [String](https://learn.microsoft.com/dotnet/api/system.string)<br>
 
+### <a id="properties-originalexception"/>**OriginalException**
+
+Gets the [Exception](https://learn.microsoft.com/dotnet/api/system.exception) this [EnrichedException](./nefarius.utilities.exceptionenricher.enrichedexception.md) was created from.
+
+```csharp
+public Exception OriginalException { get; }
+```
+
+#### Property Value
+
+[Exception](https://learn.microsoft.com/dotnet/api/system.exception)<br>
+
 ### <a id="properties-originaltype"/>**OriginalType**
 
 Gets the [Type](https://learn.microsoft.com/dotnet/api/system.type) this [EnrichedException](./nefarius.utilities.exceptionenricher.enrichedexception.md) is based on.
