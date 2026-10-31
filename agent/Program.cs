@@ -98,7 +98,11 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
 }
 
-app.UseAuthentication();
+if (requireWindowsAuth)
+{
+    app.UseAuthentication();
+}
+
 app.UseAuthorization();
 app.UseAntiforgery();
 
