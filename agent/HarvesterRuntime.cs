@@ -1347,10 +1347,8 @@ public sealed class HarvesterRuntime : IDisposable
                 _logger.LogWarning(
                     "{Count} server circuit(s) open; retrying {Path} in {Delay:F0}s (round {Round}/{Max})",
                     deferred.Count, path, delay.TotalSeconds, round, MaxCircuitDeferrals);
-                // Do not occupy a processing slot while merely waiting for a circuit to close.
-                slot.Release();
+                // The slot stays held: the snapshot is kept across retries, so live snapshots remain bounded by the slot limit.
                 await Task.Delay(delay, stopping);
-                await slot.AcquireAsync(stopping);
                 remaining = deferred;
             }
 
