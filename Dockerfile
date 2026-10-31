@@ -56,5 +56,5 @@ ENV HOME=/app
 ENV ServiceConfig__DataProtectionKeysPath=/data/keys
 VOLUME ["/data/keys", "/app/logs"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
-    CMD curl -s -o /dev/null --max-time 4 http://localhost:8080/ || exit 1
+    CMD curl -fs -o /dev/null --max-time 4 http://localhost:8080/info || exit 1
 ENTRYPOINT ["dotnet", "WinDbgSymbolsCachingProxy.dll"]

@@ -39,6 +39,10 @@ jobs:
     needs: build
     runs-on: windows-latest
     timeout-minutes: 45
+    # A job-level block replaces the workflow-level one: keep contents: read and add actions: read for the artifact download.
+    permissions:
+      contents: read
+      actions: read
     env:
       SIGN_RELAY_SERVER: ${{ vars.SIGN_RELAY_SERVER }}
     steps:
@@ -57,6 +61,7 @@ jobs:
         run: |
           dotnet tool install --global wix --version 5.0.2
           wix extension add -g WixToolset.UI.wixext/5.0.2
+          wix extension add -g WixToolset.Util.wixext/5.0.2
 
       - name: Require signing configuration
         if: success() && startsWith(github.ref, 'refs/tags/v')
