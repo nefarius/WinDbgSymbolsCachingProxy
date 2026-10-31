@@ -167,6 +167,12 @@ public sealed class HarvesterRuntime : IDisposable
 
     private int _unavailablePaths;
     private int _recoveryRunning;
+    private bool _enabled;
+
+    /// <summary>Everything needed to re-create a single watcher without touching the healthy ones.</summary>
+    private sealed record WatcherSpec(string Path, bool Recursive, string[] Filters, WatcherBinding Binding);
+
+    private readonly List<WatcherSpec> _failedWatchers = [];
 
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<HarvesterRuntime> _logger;
@@ -236,20 +242,64 @@ public sealed class HarvesterRuntime : IDisposable
     private void WatcherOnError(object sender, ErrorEventArgs e)
     {
         Exception ex = e.GetException();
-        _logger.LogError(ex, "File system watcher error (events may have been lost); rebuilding watchers");
+        _logger.LogError(ex, "File system watcher error (events may have been lost); re-creating only the failed watcher");
         _health.RecordError($"Watcher error: {ex.Message}");
 
-        // Buffer overflows and vanished network shares leave the watcher unusable; recreate all watchers.
-        StartWatcherRecovery(force: true);
+        // Only the failed watcher is replaced; pending events and in-flight uploads of healthy watchers are untouched.
+        lock (_gate)
+        {
+            if (_maps is not null && sender is FileSystemWatcher failed &&
+                _maps.TryGetValue(failed, out WatcherBinding? binding))
+            {
+                _failedWatchers.Add(new WatcherSpec(
+                    failed.Path, failed.IncludeSubdirectories, failed.Filters.ToArray(), binding));
+                _maps.Remove(failed);
+                DetachAndDispose(failed);
+                PublishStatusLocked();
+                Volatile.Write(ref _unavailablePaths, _failedWatchers.Count);
+            }
+        }
+
+        StartWatcherRecovery();
+    }
+
+    private void DetachAndDispose(FileSystemWatcher watcher)
+    {
+        watcher.Created -= WatcherOnFileEvent;
+        watcher.Changed -= WatcherOnFileEvent;
+        watcher.Renamed -= WatcherOnRenamed;
+        watcher.Error -= WatcherOnError;
+        watcher.EnableRaisingEvents = false;
+        watcher.Dispose();
+    }
+
+    private void PublishStatusLocked()
+    {
+        List<WatcherStatusEntry> status = [];
+        if (_maps is not null)
+        {
+            foreach (FileSystemWatcher w in _maps.Keys)
+            {
+                status.Add(new WatcherStatusEntry
+                {
+                    Path = w.Path,
+                    Recursive = w.IncludeSubdirectories,
+                    EventsEnabled = w.EnableRaisingEvents
+                });
+            }
+        }
+
+        _health.SetRuntimeState(_enabled, status.AsReadOnly());
     }
 
     /// <summary>
-    ///     Rebuilds the watchers with growing delays until every configured path could be watched, e.g. when a
-    ///     network share that went away comes back. Only one recovery loop runs at a time.
+    ///     Re-creates failed watchers individually, with growing delays, until every one is back (e.g. a network share
+    ///     that went away returned). Only one recovery loop runs at a time. Files that appeared while a watcher was
+    ///     down are not replayed.
     /// </summary>
-    private void StartWatcherRecovery(bool force = false)
+    private void StartWatcherRecovery()
     {
-        if (!force && Volatile.Read(ref _unavailablePaths) == 0)
+        if (Volatile.Read(ref _unavailablePaths) == 0)
         {
             return;
         }
@@ -269,24 +319,7 @@ public sealed class HarvesterRuntime : IDisposable
                 {
                     await Task.Delay(delay, stopping);
 
-                    try
-                    {
-                        await RebuildWatchersAsync(stopping);
-                    }
-                    catch (OperationCanceledException) when (stopping.IsCancellationRequested)
-                    {
-                        return;
-                    }
-                    catch (ObjectDisposedException)
-                    {
-                        return;
-                    }
-                    catch (Exception rebuildEx)
-                    {
-                        _logger.LogError(rebuildEx, "Rebuilding watchers failed; will retry");
-                    }
-
-                    if (Volatile.Read(ref _unavailablePaths) == 0)
+                    if (!TryRestoreFailedWatchers())
                     {
                         return;
                     }
@@ -302,9 +335,65 @@ public sealed class HarvesterRuntime : IDisposable
             {
                 Volatile.Write(ref _recoveryRunning, 0);
             }
+
+            // A watcher may have failed between the last check and resetting the flag.
+            StartWatcherRecovery();
         });
     }
 
+    /// <returns>True while watchers are still failed and another attempt is needed.</returns>
+    private bool TryRestoreFailedWatchers()
+    {
+        lock (_gate)
+        {
+            if (_disposed || _maps is null)
+            {
+                _failedWatchers.Clear();
+                Volatile.Write(ref _unavailablePaths, 0);
+                return false;
+            }
+
+            foreach (WatcherSpec spec in _failedWatchers.ToList())
+            {
+                FileSystemWatcher? watcher = null;
+                try
+                {
+                    watcher = new FileSystemWatcher(spec.Path)
+                    {
+                        NotifyFilter = NotifyFilters.DirectoryName | NotifyFilters.FileName |
+                                       NotifyFilters.LastWrite | NotifyFilters.Size,
+                        IncludeSubdirectories = spec.Recursive,
+                        InternalBufferSize = WatcherInternalBufferSize
+                    };
+
+                    foreach (string pattern in spec.Filters)
+                    {
+                        watcher.Filters.Add(pattern);
+                    }
+
+                    watcher.Created += WatcherOnFileEvent;
+                    watcher.Changed += WatcherOnFileEvent;
+                    watcher.Renamed += WatcherOnRenamed;
+                    watcher.Error += WatcherOnError;
+                    watcher.EnableRaisingEvents = _enabled;
+
+                    _maps.Add(watcher, spec.Binding);
+                    _failedWatchers.Remove(spec);
+                    _logger.LogInformation("Watcher for {Path} restored", spec.Path);
+                    watcher = null;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Watcher for {Path} is still unavailable", spec.Path);
+                    watcher?.Dispose();
+                }
+            }
+
+            PublishStatusLocked();
+            Volatile.Write(ref _unavailablePaths, _failedWatchers.Count);
+            return _failedWatchers.Count > 0;
+        }
+    }
     private static SymbolFileVersion GetSymbolFileVersion(string fullPath)
     {
         FileInfo fi = new(fullPath);
@@ -656,6 +745,7 @@ public sealed class HarvesterRuntime : IDisposable
             InvalidatePendingFileEventsLocked();
             // Configuration may have added servers; previously uploaded files must be eligible again.
             _uploadedVersions.Clear();
+            _failedWatchers.Clear();
 
             AgentSettingsDocument doc = _store.GetSnapshot();
             ServiceConfig serviceConfig = doc.ToServiceConfig();
@@ -753,6 +843,15 @@ public sealed class HarvesterRuntime : IDisposable
                     {
                         _logger.LogWarning(ex, "Skipping invalid watcher path {Path}", item.Key.Path);
                         unavailable++;
+                        _failedWatchers.Add(new WatcherSpec(
+                            item.Key.Path,
+                            item.Key.Recursive,
+                            item.Value.Filters.ToArray(),
+                            new WatcherBinding
+                            {
+                                Servers = item.Value.Servers.Distinct().ToArray(),
+                                WatchRules = item.Value.WatchRules.ToArray()
+                            }));
                         watcher?.Dispose();
                     }
                 }
@@ -760,6 +859,7 @@ public sealed class HarvesterRuntime : IDisposable
                 cancellationToken.ThrowIfCancellationRequested();
 
                 bool enable = doc.HarvestingEnabled;
+                _enabled = enable;
                 List<WatcherStatusEntry> status = [];
 
                 foreach (KeyValuePair<FileSystemWatcher, WatcherBinding> map in newMaps)
@@ -813,6 +913,7 @@ public sealed class HarvesterRuntime : IDisposable
             ThrowIfDisposed();
             cancellationToken.ThrowIfCancellationRequested();
             _store.UpdateHarvestingEnabled(enabled);
+            _enabled = enabled;
             InvalidatePendingFileEventsLocked();
 
             if (_maps is null)
