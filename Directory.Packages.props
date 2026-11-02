@@ -41,7 +41,7 @@
         <PackageVersion Include="Serilog.Sinks.Console" Version="6.1.1" />
         <PackageVersion Include="Serilog.Sinks.File" Version="7.0.0" />
         <PackageVersion Include="SkiaSharp" Version="4.154.0" />
-        <PackageVersion Include="SkiaSharp.NativeAssets.Linux" Version="4.152.1" />
+        <PackageVersion Include="SkiaSharp.NativeAssets.Linux" Version="4.154.0" />
         <PackageVersion Include="Smx.PDBSharp" Version="1.0.0-alpha4" />
         <PackageVersion Include="Smx.SharpIO" Version="1.1.1" />
         <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.14" />
