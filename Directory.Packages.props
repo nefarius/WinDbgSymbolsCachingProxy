@@ -10,7 +10,7 @@
         <PackageVersion Include="coverlet.collector" Version="10.1.0" />
         <PackageVersion Include="FastEndpoints" Version="8.3.0" />
         <PackageVersion Include="FastEndpoints.Swagger" Version="8.3.0" />
-        <PackageVersion Include="Fallout.Common" Version="10.4.0" />
+        <PackageVersion Include="Fallout.Common" Version="10.5.0" />
         <PackageVersion Include="Fody" Version="6.9.3" />
         <PackageVersion Include="idunno.Authentication.Basic" Version="2.4.0" />
         <PackageVersion Include="JetBrains.Annotations" Version="2026.2.0" />
