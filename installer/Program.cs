@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 
 using WixSharp;
+using WixSharp.CommonTasks;
 
 namespace WinDbgSymbolsCachingProxy.Installer;
 
@@ -188,12 +189,24 @@ static class Program
                 $"Installed OR {ServiceAccountProperty}=\"{LowPrivilegeServiceAccount}\" OR {ServiceAccountProperty}=\"NT AUTHORITY\\NetworkService\"",
                 $"{ServiceAccountProperty} must be \"{LowPrivilegeServiceAccount}\" or \"NT AUTHORITY\\NetworkService\"."));
 
+            // Both published apps are framework-dependent ASP.NET Core apps. The ASP.NET Core runtime also supplies
+            // Microsoft.NETCore.App, which is the framework the apphost reports when no .NET 10 runtime is present.
+            // Minor roll-forward matches the default policy for a net10.0 app, so a later 10.x runtime is accepted.
+            project.SetNetPrerequisite(
+                "10.0.0",
+                RuntimeType.aspnet,
+                RollForward.minor,
+                Platform.x64,
+                "This application requires the x64 ASP.NET Core 10 Runtime. Download it from https://dotnet.microsoft.com/download/dotnet/10.0 and run setup again.");
+
             project.ControlPanelInfo.Manufacturer = Manufacturer;
 
             // Align with WiX 5.x + WixToolset.UI.wixext/5.0.x (see GitHub workflow); avoids WiX 6 / mismatched UI extension.
             WixExtension.UI.PreferredVersion = "5.0.2";
             // DirPermission compiles to util:PermissionEx; pin the Util extension to the same version.
             WixExtension.Util.PreferredVersion = "5.0.2";
+            // DotNetCompatibilityCheck comes from the NetFx extension; keep it on the same WiX 5.0.2 line.
+            WixExtension.NetFx.PreferredVersion = "5.0.2";
 
             string msiPath = project.BuildMsi();
             Console.WriteLine(msiPath);
@@ -319,7 +332,7 @@ static class Program
                   --agent,  -a <dir>   Published agent output (default: ./publish-x64/agent)
                   --out,    -o <dir>   MSI output directory (default: ./publish-x64/installer)
 
-                Requires Windows, WiX 5.0.2 CLI + WixToolset.UI.wixext/5.0.2 + WixToolset.Util.wixext/5.0.2, and prior dotnet publish of both apps.
+                Requires Windows, WiX 5.0.2 CLI + WixToolset.UI.wixext/5.0.2 + WixToolset.Util.wixext/5.0.2 + WixToolset.Netfx.wixext/5.0.2, and prior dotnet publish of both apps.
 
                 Environment (optional; used by Fallout BuildInstaller):
                   WDSCP_INSTALLER_SERVER, WDSCP_INSTALLER_AGENT, WDSCP_INSTALLER_OUT

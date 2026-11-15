@@ -164,17 +164,20 @@ dotnet publish -c Release -r win-x64 -o publish-x64\agent `
 
 ### Windows installer (MSI)
 
-On **Windows**, install the **WiX 5.0.2** .NET global tool and the matching UI extension (newer `wix` v6 defaults
-are not compatible with the WixSharp + `WixUI_FeatureTree` stack without version tweaks):
+On **Windows**, install the **WiX 5.0.2** .NET global tool and the matching UI, Util, and NetFx extensions (newer
+`wix` v6 defaults are not compatible with the WixSharp + `WixUI_FeatureTree` stack without version tweaks):
 
 ```PowerShell
 dotnet tool install --global wix --version 5.0.2
 wix extension add -g WixToolset.UI.wixext/5.0.2
+wix extension add -g WixToolset.Util.wixext/5.0.2
+wix extension add -g WixToolset.Netfx.wixext/5.0.2
 ```
 
 Then the Fallout target **`BuildInstaller`** publishes both applications and produces
 `publish-x64\installer\WinDbgSymbolsCachingProxy.msi` (per-machine x64 install, feature tree UI, configurable install
-directory). A local build is unsigned.
+directory). A local build is unsigned. Setup requires the x64 ASP.NET Core 10 Runtime and stops, with a link to
+https://dotnet.microsoft.com/download/dotnet/10.0, when that runtime is missing. Later 10.x releases satisfy the check.
 
 ```PowerShell
 .\build.ps1 BuildInstaller
