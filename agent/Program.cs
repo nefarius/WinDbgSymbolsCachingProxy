@@ -40,10 +40,26 @@ if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
     Log.Information("Configured as Windows Service: Debug Symbols Harvesting Agent");
 }
 
-builder.WebHost.UseUrls($"http://127.0.0.1:{initialSettings.ListenPort}");
+// Loopback only by default. Container images set ASPNETCORE_URLS so the UI is reachable through a published port;
+// UseUrls would otherwise override it.
+string? listenUrlsOverride = builder.Configuration["URLS"];
+int listenPortAtStartup = initialSettings.ListenPort;
+if (string.IsNullOrWhiteSpace(listenUrlsOverride))
+{
+    listenUrlsOverride = null;
+    builder.WebHost.UseUrls($"http://127.0.0.1:{initialSettings.ListenPort}");
+}
+else if (TryParseFirstListenPort(listenUrlsOverride) is int overriddenPort)
+{
+    listenPortAtStartup = overriddenPort;
+}
 
 builder.Services.AddSingleton(new AgentSettingsStore(settingsPath, initialSettings));
-builder.Services.AddSingleton(new AgentStartupContext { ListenPortAtStartup = initialSettings.ListenPort });
+builder.Services.AddSingleton(new AgentStartupContext
+{
+    ListenPortAtStartup = listenPortAtStartup,
+    ListenUrlsOverride = listenUrlsOverride
+});
 builder.Services.AddSingleton<DirectoryBrowserService>();
 builder.Services.AddSingleton<HarvesterHealthState>();
 builder.Services.AddSingleton<HarvesterRuntime>();
@@ -111,3 +127,19 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
 await app.RunAsync();
+
+static int? TryParseFirstListenPort(string urls)
+{
+    foreach (string binding in urls.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+    {
+        int colon = binding.LastIndexOf(':');
+        if (colon >= 0
+            && int.TryParse(binding.AsSpan(colon + 1), out int port)
+            && port is >= 1 and <= 65535)
+        {
+            return port;
+        }
+    }
+
+    return null;
+}

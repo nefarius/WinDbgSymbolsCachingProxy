@@ -12,7 +12,14 @@
     Settings file: <code>@AgentSettingsPaths.SettingsFilePath</code>
 </MudText>
 
-@if (_doc.ListenPort != Startup.ListenPortAtStartup)
+@if (Startup.ListenUrlsOverride is not null)
+{
+    <MudAlert Severity="Severity.Info" Class="mb-4" Variant="Variant.Filled">
+        This process is listening on <strong>@Startup.ListenUrlsOverride</strong> because <code>ASPNETCORE_URLS</code> is set.
+        The saved listen port is not in use. Change or remove that setting, then restart the agent, to use the port saved here.
+    </MudAlert>
+}
+else if (_doc.ListenPort != Startup.ListenPortAtStartup)
 {
     <MudAlert Severity="Severity.Warning" Class="mb-4" Variant="Variant.Filled">
         The saved listen port differs from the port this process is using (<strong>@Startup.ListenPortAtStartup</strong>).
@@ -20,20 +27,30 @@
     </MudAlert>
 }
 
-<MudNumericField @bind-Value="_doc.ListenPort" Label="Listen port (127.0.0.1)" Variant="Variant.Outlined" Min="1" Max="65535"
+<MudNumericField @bind-Value="_doc.ListenPort" Label="@(_urlsOverride ? "Saved listen port (not in use)" : "Listen port (127.0.0.1)")"
+                 Variant="Variant.Outlined" Min="1" Max="65535" Disabled="_urlsOverride"
                  Class="mb-4" Style="max-width: 16rem;" />
 
 <MudStack Row="true" Spacing="2">
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SavePort">Save</MudButton>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SavePort" Disabled="_urlsOverride">Save</MudButton>
     <MudButton Variant="Variant.Outlined" OnClick="Reload">Reload from disk</MudButton>
 </MudStack>
 
 <MudText Typo="Typo.body2" Class="mt-4">
-    UI is only bound to <strong>127.0.0.1</strong>. After changing the port, open <code>http://127.0.0.1:@_doc.ListenPort/</code> following a restart.
+    @if (_urlsOverride)
+    {
+        <span>The listen address is controlled by <code>ASPNETCORE_URLS</code>, not by the saved port.</span>
+    }
+    else
+    {
+        <span>UI is only bound to <strong>127.0.0.1</strong>. After changing the port, open <code>http://127.0.0.1:@_doc.ListenPort/</code> following a restart.</span>
+    }
 </MudText>
 
 @code {
     private AgentSettingsDocument _doc = null!;
+
+    private bool _urlsOverride => Startup.ListenUrlsOverride is not null;
 
     protected override void OnInitialized()
     {

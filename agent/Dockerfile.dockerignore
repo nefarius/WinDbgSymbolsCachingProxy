@@ -1,0 +1,22 @@
+**/bin
+**/obj
+**/logs
+**/.vs
+**/.vscode
+**/.idea
+**/*.user
+**/node_modules
+# Only the agent and its shared project are needed; .git stays for MinVer.
+tests/
+lib/
+build/
+server/
+.github/
+installer/
+publish-x64/
+docs/
+Bruno/
+assets/
+TestResults/
+*.sln
+00_*.cmd
