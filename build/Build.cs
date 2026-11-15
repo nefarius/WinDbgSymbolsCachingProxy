@@ -67,14 +67,14 @@ class Build : FalloutBuild
     [UsedImplicitly]
     public Target BuildInstaller => _ => _
         .Description(
-            "Publish server and agent (win-x64 Release), then build the x64 MSI via WixSharp. Requires Windows and the WiX 5.0.2 CLI (dotnet tool install --global wix --version 5.0.2).")
+            "Publish server and agent (win-x64 Release), then build the x64 MSI via WixSharp. Requires Windows, the WiX 5.0.2 CLI, and WixToolset.UI.wixext, WixToolset.Util.wixext, and WixToolset.Netfx.wixext 5.0.2.")
         .DependsOn(PublishLocal)
         .Executes(() =>
         {
             if (!OperatingSystem.IsWindows())
             {
                 throw new InvalidOperationException(
-                    "BuildInstaller must run on Windows with the WiX 5.0.2 CLI available (for example: dotnet tool install --global wix --version 5.0.2).");
+                    "BuildInstaller must run on Windows with the WiX 5.0.2 CLI and the UI, Util, and NetFx 5.0.2 extensions available (for example: dotnet tool install --global wix --version 5.0.2).");
             }
 
             // dotnet run forwards SetApplicationArguments as a single argv; use env vars so the installer sees three paths.
