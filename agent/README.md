@@ -29,6 +29,31 @@ When watching **live** build output (e.g. MSBuild writing to the same folder), t
 Logging is still configured via `appsettings.json` / `appsettings.Development.json` (Serilog); harvester options are **not** read from those files.
 Dashboard file activity history is in-memory only and resets when the process/service restarts.
 
+## Running in Docker on Linux
+
+Release tags publish the agent as `containinger/wdscp-harvesting-agent` on Docker Hub. The example below watches a host directory such as a build server's symbol output folder.
+
+```bash
+docker run -d --name wdscp-harvesting-agent --restart unless-stopped \
+  -p 127.0.0.1:5088:5088 \
+  -v wdscp-agent-data:/data \
+  -v /srv/build/symbols:/symbols \
+  containinger/wdscp-harvesting-agent:latest
+```
+
+1. Open `http://localhost:5088/` on the Docker host (use an SSH tunnel such as `ssh -L 5088:127.0.0.1:5088 host` for remote access; the UI has no authentication on Linux, so keep the `127.0.0.1:` prefix on the published port).
+2. Under **Configuration**, add a server (the upload URL of your caching proxy plus credentials or API key) and a watcher path of `/symbols`. Enable **Include subdirectories** for nested build output; the default filters cover `*.exe`, `*.dll`, `*.sys` and `*.pdb`.
+3. The configuration is stored in the `/data` volume and survives container upgrades. Container logs are available through `docker logs`.
+
+Notes:
+
+- `/symbols` must be readable by the container user (non-root, uid assigned by the image). Mount it read-only (`-v /srv/build/symbols:/symbols:ro`) when **Delete after upload** stays off; deleting uploaded files requires a writable mount and write permission for that user.
+- The container must be able to reach the proxy URL; use a host name or IP address reachable from inside the container (not `localhost`).
+- Watching uses inotify. Very large trees may need a higher `fs.inotify.max_user_watches` on the host, and network file systems (NFS/SMB) do not reliably deliver change events.
+- Build the image yourself from the repository root with `docker build -f agent/Dockerfile -t wdscp-harvesting-agent .`.
+
+Without Docker, run `dotnet run --project agent/HarvestingAgent.csproj` (UI on `127.0.0.1:5088`) and add the watch path in the UI, or edit `agent-settings.json` directly.
+
 ## Sources & 3rd-party credits
 
 - [MinVer](https://github.com/adamralph/minver)

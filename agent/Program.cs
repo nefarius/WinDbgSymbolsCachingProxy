@@ -40,7 +40,12 @@ if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
     Log.Information("Configured as Windows Service: Debug Symbols Harvesting Agent");
 }
 
-builder.WebHost.UseUrls($"http://127.0.0.1:{initialSettings.ListenPort}");
+// Loopback only by default. Container images set ASPNETCORE_URLS so the UI is reachable through a published port;
+// UseUrls would otherwise override it.
+if (string.IsNullOrWhiteSpace(builder.Configuration["URLS"]))
+{
+    builder.WebHost.UseUrls($"http://127.0.0.1:{initialSettings.ListenPort}");
+}
 
 builder.Services.AddSingleton(new AgentSettingsStore(settingsPath, initialSettings));
 builder.Services.AddSingleton(new AgentStartupContext { ListenPortAtStartup = initialSettings.ListenPort });
