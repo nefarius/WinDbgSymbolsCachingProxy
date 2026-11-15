@@ -34,12 +34,17 @@ Dashboard file activity history is in-memory only and resets when the process/se
 Release tags publish the agent as `containinger/wdscp-harvesting-agent` on Docker Hub. The example below watches a host directory such as a build server's symbol output folder.
 
 ```bash
+docker network create wdscp-harvesting-agent
+
 docker run -d --name wdscp-harvesting-agent --restart unless-stopped \
+  --network wdscp-harvesting-agent \
   -p 127.0.0.1:5088:5088 \
   -v wdscp-agent-data:/data \
   -v /srv/build/symbols:/symbols \
   containinger/wdscp-harvesting-agent:latest
 ```
+
+The network is a dedicated bridge. Leave other containers off it: on the default bridge they could reach the unauthenticated UI directly, past the host loopback publish. Attach the proxy container to this same network only when the agent must upload to it that way. The published port stays on `127.0.0.1`.
 
 1. Open `http://localhost:5088/` on the Docker host (use an SSH tunnel such as `ssh -L 5088:127.0.0.1:5088 host` for remote access; the UI has no authentication on Linux, so keep the `127.0.0.1:` prefix on the published port).
 2. Under **Configuration**, add a server (the upload URL of your caching proxy plus credentials or API key) and a watcher path of `/symbols`. Enable **Include subdirectories** for nested build output; the default filters cover `*.exe`, `*.dll`, `*.sys` and `*.pdb`.

@@ -46,9 +46,15 @@ jobs:
       id: minver
       run: |
         # git describe --long emits e.g. v1.14.0-pre022-387-g9d5866f, which is not valid SemVer for MinVer.
-        # Map -<commits>-g<hash> suffix to +<commits>.<hash> and strip a leading v.
+        # Map the -<commits>-g<hash> suffix to build metadata and strip a leading v.
+        # A tag that already has build metadata (v1.2.3+build-5-gabcdef) can only keep one '+', so extend it with '.' .
         if RAW=$(git describe --tags --long 2>/dev/null); then
-          VERSION=$(printf '%s\n' "$RAW" | sed -E 's/^v//; s/-([0-9]+)-g([0-9a-fA-F]+)$/+\1.\2/')
+          VERSION=$(printf '%s\n' "$RAW" | sed -E 's/^v//')
+          if printf '%s\n' "$VERSION" | grep -q '+'; then
+            VERSION=$(printf '%s\n' "$VERSION" | sed -E 's/-([0-9]+)-g([0-9a-fA-F]+)$/.\1.\2/')
+          else
+            VERSION=$(printf '%s\n' "$VERSION" | sed -E 's/-([0-9]+)-g([0-9a-fA-F]+)$/+\1.\2/')
+          fi
         else
           VERSION="0.0.0-ci+${GITHUB_SHA:0:7}"
         fi
