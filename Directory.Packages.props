@@ -21,7 +21,7 @@
         <PackageVersion Include="Microsoft.Extensions.FileSystemGlobbing" Version="10.0.12" />
         <PackageVersion Include="Microsoft.Extensions.Hosting.WindowsServices" Version="11.0.0" />
         <PackageVersion Include="Microsoft.Extensions.Http" Version="11.0.0" />
-        <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="11.0.0" />
+        <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="11.0.1" />
         <PackageVersion Include="Microsoft.FileFormats" Version="1.0.756502" />
         <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
         <PackageVersion Include="Microsoft.SymbolStore" Version="1.0.756502" />
