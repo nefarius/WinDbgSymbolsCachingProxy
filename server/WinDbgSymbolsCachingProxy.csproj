@@ -25,6 +25,7 @@
         <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" />
         <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
         <!-- Pinned directly to override a vulnerable transitive 8.0.1 reference -->
+        <PackageReference Include="Serilog.Extensions.Hosting" />
         <PackageReference Include="System.Security.Cryptography.Pkcs" />
         <PackageReference Include="Microsoft.FileFormats" />
         <PackageReference Include="Microsoft.SymbolStore" />
